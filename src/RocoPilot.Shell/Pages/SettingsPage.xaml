@@ -71,5 +71,22 @@
                       TextWrapping="Wrap"
                       MaxWidth="380" />
       </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon EyeTracking24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="调试叠层" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="在游戏画面上叠加检测框（类名 + 置信度），用于调试识别效果" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
+      </ui:CardControl>
     </StackPanel>
 </Page>

@@ -1,3 +1,5 @@
+using RocoPilot.Detection;
+
 namespace RocoPilot.Loop;
 
 public interface ICatchPipeline : IDisposable
@@ -9,6 +11,12 @@ public interface ICatchPipeline : IDisposable
     IntPtr GameWindow { get; }
 
     CatchEventBus Bus { get; }
+
+    /// <summary>当前稳定目标快照（调试叠层用）。</summary>
+    IReadOnlyList<StableTarget> ObserveDetections();
+
+    /// <summary>检测帧尺寸（坐标映射用）。</summary>
+    (int Width, int Height) SensorFrameSize { get; }
 
     void Run(CancellationToken cancellationToken);
 

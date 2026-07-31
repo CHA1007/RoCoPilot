@@ -43,6 +43,12 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         get { lock (_gate) { return _stoppedTcs?.Task ?? _idleWhenStopped.Task; } }
     }
 
+    /// <summary>调试叠层用：Arming 完成后非空，停止后置空。</summary>
+    public ICatchPipeline? Pipeline
+    {
+        get { lock (_gate) { return _pipeline; } }
+    }
+
     public event EventHandler<TaskState>? StateChanged;
 
     public event EventHandler<ToolEvent>? EventRaised;

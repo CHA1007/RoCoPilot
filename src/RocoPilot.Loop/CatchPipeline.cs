@@ -45,6 +45,12 @@ public sealed class CatchPipeline : ICatchPipeline
 
     public CatchEventBus Bus => _bus ?? throw new InvalidOperationException("事件总线在 Arming 成功前不存在");
 
+    public IReadOnlyList<StableTarget> ObserveDetections() =>
+        _sensor?.ObserveStable() ?? [];
+
+    public (int Width, int Height) SensorFrameSize =>
+        _sensor?.LatestFrameSize ?? (0, 0);
+
     public void Run(CancellationToken cancellationToken) =>
         (_engine ?? throw new InvalidOperationException("Run 须先完成 Arming")).Run(cancellationToken);
 

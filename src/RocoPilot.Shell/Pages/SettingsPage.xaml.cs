@@ -23,6 +23,15 @@ public partial class SettingsPage : Page
 
         HotkeyText.Text = shell.TakeoverHotkey;
         PathsText.Text = $"设置：{store.FilePath}\n派生缓存：{RocoPaths.CacheDirectory}";
+        DebugOverlayToggle.IsChecked = shell.DebugOverlay;
+    }
+
+    private void OnDebugOverlayChanged(object sender, RoutedEventArgs e)
+    {
+        var shell = _store.GetShellSettings();
+        shell.DebugOverlay = DebugOverlayToggle.IsChecked == true;
+        _store.SetShellSettings(shell);
+        _store.Save();
     }
 
     private void OnThemeSelectionChanged(object sender, SelectionChangedEventArgs e)
