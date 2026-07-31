@@ -88,5 +88,121 @@
         </ui:CardControl.Header>
         <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
       </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowMove24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="水平灵敏度（像素/count）" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="水平方向每 count 对应的像素数。填 0 则用回退除数。" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:NumberBox x:Name="SensitivityPpcXBox"
+                      Width="140"
+                      Minimum="0"
+                      Maximum="100"
+                      SmallChange="0.1"
+                      MaxDecimalPlaces="3"
+                      ValidationMode="InvalidInputOverwritten"
+                      ValueChanged="OnSensitivityChanged" />
+      </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowMove24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直灵敏度（像素/count）" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="垂直方向每 count 对应的像素数。填 0 则用回退除数。" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:NumberBox x:Name="SensitivityPpcYBox"
+                      Width="140"
+                      Minimum="0"
+                      Maximum="100"
+                      SmallChange="0.1"
+                      MaxDecimalPlaces="3"
+                      ValidationMode="InvalidInputOverwritten"
+                      ValueChanged="OnSensitivityChanged" />
+      </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon Calculator24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="转向回退除数" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="灵敏度为 0 时，偏移像素 ÷ 此值 = 转向 count 数。值越小转得越多。" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:NumberBox x:Name="FallbackDivisorBox"
+                      Width="140"
+                      Minimum="1"
+                      Maximum="50"
+                      SmallChange="0.5"
+                      MaxDecimalPlaces="1"
+                      ValidationMode="InvalidInputOverwritten"
+                      ValueChanged="OnSensitivityChanged" />
+      </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowUp24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直瞄准偏移" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="框高的比例，负值=往上。补偿检测框包含脚下阴影导致的偏下。" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:NumberBox x:Name="AimOffsetYBox"
+                      Width="140"
+                      Minimum="-0.5"
+                      Maximum="0.5"
+                      SmallChange="0.05"
+                      MaxDecimalPlaces="2"
+                      ValidationMode="InvalidInputOverwritten"
+                      ValueChanged="OnSensitivityChanged" />
+      </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon Settings24}">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="自动校准灵敏度" />
+            <ui:TextBlock x:Name="CalibrateHint"
+                          Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="需先开启截图且游戏窗口聚焦。校准期间会短暂转动镜头。" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ui:Button x:Name="CalibrateButton"
+                   Content="校准"
+                   Click="OnCalibrateClick" />
+      </ui:CardControl>
     </StackPanel>
 </Page>

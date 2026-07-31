@@ -28,11 +28,9 @@ public sealed class AutoThrowSettings
 
     public int CenterMaxStepCounts { get; set; } = 250;
 
-    public double CenterFallbackDivisor { get; set; } = 6;
+    public double CenterFallbackDivisor { get; set; } = 4;
 
     public double SensitivityPpc { get; set; }
-
-    public bool VerifyBeforeThrow { get; set; } = true;
 
     public int ChargeMs { get; set; } = 200;
 

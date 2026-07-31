@@ -42,7 +42,6 @@ public static class AutoThrowMappings
             PostSettleDelayMaxMs = settings.PostSettleDelayMaxMs,
             AimJitterPx = settings.AimJitterPx,
             CommandNoiseCounts = settings.CommandNoiseCounts,
-            VerifyBeforeThrow = settings.VerifyBeforeThrow,
         };
     }
 

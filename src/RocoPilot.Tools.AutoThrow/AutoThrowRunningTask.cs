@@ -162,7 +162,28 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
     {
         LogRetention.PruneSessions(RocoPaths.LogsRoot);
         var sessionDir = Path.Combine(RocoPaths.LogsRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
-        return new CatchPipeline(settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir });
+
+        // 视角灵敏度以全局设置（ShellSettings）为准
+        var shellStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
+        shellStore.Load();
+        var shell = shellStore.GetShellSettings();
+
+        var spec = settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir };
+        var centering = spec.Centering;
+
+        if (shell.TurnFallbackDivisor > 0)
+        {
+            centering = centering with { FallbackDivisor = shell.TurnFallbackDivisor };
+        }
+
+        var loop = spec.Loop with
+        {
+            AimOffsetY = shell.AimOffsetY,
+            PpcX = shell.SensitivityPpcX,
+            PpcY = shell.SensitivityPpcY,
+        };
+
+        return new CatchPipeline(spec with { Centering = centering, Loop = loop });
     }
 
     private async Task RunWorkerAsync(CancellationToken ct)

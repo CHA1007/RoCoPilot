@@ -88,7 +88,7 @@ public partial class LaunchPage : Page
         var backend = s_backends[Math.Max(0, BackendCombo.SelectedIndex)].Mode;
         if (!await _capture.StartAsync(title, backend))
         {
-            Dispatcher.InvokeAsync(() =>
+            _ = Dispatcher.InvokeAsync(() =>
             {
                 _updating = true;
                 CaptureToggle.IsChecked = false;

@@ -71,49 +71,6 @@
                     ValueChanged="OnEditCommitted" />
     </ui:CardControl>
 
-    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon ArrowMove24}">
-      <ui:CardControl.Header>
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="灵敏度（像素/count）" TextWrapping="Wrap" />
-          <ui:TextBlock Grid.Row="1"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="游戏内灵敏度对应的像素每 count。填 0 则用回退估算。"
-                        TextWrapping="Wrap" />
-        </Grid>
-      </ui:CardControl.Header>
-      <ui:NumberBox Width="140"
-                    Minimum="0"
-                    Maximum="100"
-                    SmallChange="0.1"
-                    MaxDecimalPlaces="3"
-                    ValidationMode="InvalidInputOverwritten"
-                    Value="{Binding SensitivityPpc}"
-                    ValueChanged="OnEditCommitted" />
-    </ui:CardControl>
-
-    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon CheckmarkCircle24}">
-      <ui:CardControl.Header>
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="投前验证" TextWrapping="Wrap" />
-          <ui:TextBlock Grid.Row="1"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="转向后重新检测目标是否到位，偏了则补正。关闭可提速但可能丢空。"
-                        TextWrapping="Wrap" />
-        </Grid>
-      </ui:CardControl.Header>
-      <ui:ToggleSwitch IsChecked="{Binding VerifyBeforeThrow}"
-                       Checked="OnEditCommitted"
-                       Unchecked="OnEditCommitted" />
-    </ui:CardControl>
-
     <ui:CardControl Icon="{ui:SymbolIcon Keyboard24}">
       <ui:CardControl.Header>
         <Grid>

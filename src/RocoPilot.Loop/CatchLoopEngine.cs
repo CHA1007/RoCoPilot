@@ -140,10 +140,21 @@ public sealed class CatchLoopEngine : IDisposable
             {
                 WaitAtLoopHead(cancellationToken);
 
-                // ── 扫描：选取目标 ──
+                // ── 扫描：清洗观测 → 选取目标 ──
                 SetPhase(CatchPhase.Scanning);
+
+                // 重置 StabilityGate，确保目标位置不含上一轮镜头移动的过渡帧
+                _sensor.ResetStability();
+                StableTarget? pick = null;
+                var scanWaited = 0;
                 var (centerX, centerY) = ScreenCenter();
-                var pick = TargetSelection.Pick(_sensor.ObserveStable(), lockedTrackId: null, centerX, centerY);
+                while (scanWaited < 1000)
+                {
+                    SleepInterruptible(RestabilizePollMs, cancellationToken);
+                    scanWaited += RestabilizePollMs;
+                    pick = TargetSelection.Pick(_sensor.ObserveStable(), lockedTrackId: null, centerX, centerY);
+                    if (pick is not null) break;
+                }
                 if (pick is null)
                 {
                     CheckStall();
@@ -154,9 +165,10 @@ public sealed class CatchLoopEngine : IDisposable
                 stats.Attempts++;
                 EmitTargetAcquired(stats.Attempts, pick, centerX, centerY);
 
-                // 计算偏移与转向指令
+                // 计算偏移与转向指令（票 14 后续：垂直瞄准偏移补偿框中心偏下）
+                var aimY = pick.MedianCenter.Y + pick.Latest.Height * (float)_options.AimOffsetY;
                 var offsetX = (double)pick.MedianCenter.X - centerX;
-                var offsetY = (double)pick.MedianCenter.Y - centerY;
+                var offsetY = (double)aimY - centerY;
 
                 // 已在容差内则跳过转向
                 var tolerance = _controller.AppliedOptions.TolerancePx;
@@ -168,53 +180,35 @@ public sealed class CatchLoopEngine : IDisposable
                     ppc = ResolvePpc(offsetX, offsetY);
                 }
 
+                // ── 投掷：一次转向定位 → 长按蓄力 → 松手投出 ──
+                WaitWhileGateClosed(cancellationToken);
+                SetPhase(CatchPhase.Throwing);
+
                 if (_mode == CatchLoopMode.DryRun)
                 {
                     SleepInterruptible(_controller.AppliedOptions.RecheckMs, cancellationToken);
                     continue;
                 }
 
-                // ── 投掷：长按 → 转向 → 松手 ──
-                WaitWhileGateClosed(cancellationToken);
-                SetPhase(CatchPhase.Throwing);
-
                 if (_mode == CatchLoopMode.Live)
                 {
-                    // 长按进入投掷准备态
-                    _driver.KeyDown(InputKey.LeftMouse);
-                    // 等游戏切入蓄力瞄准态（镜头灵敏度可能在此态下不同）
-                    if (_options.AimEnterMs > 0)
+                    // 一次精准转向（双轴 ppc）
+                    if (needTurn)
                     {
-                        SleepInterruptible(_options.AimEnterMs, cancellationToken);
+                        var fallback = _controller.AppliedOptions.FallbackDivisor;
+                        var ppcXVal = _options.PpcX > 0 ? _options.PpcX : fallback;
+                        var ppcYVal = _options.PpcY > 0 ? _options.PpcY : fallback;
+                        var maxCounts = _controller.AppliedOptions.MaxStepCounts;
+                        var countsX = Math.Clamp((int)Math.Round(offsetX / ppcXVal), -maxCounts, maxCounts);
+                        var countsY = Math.Clamp((int)Math.Round(offsetY / ppcYVal), -maxCounts, maxCounts);
+                        _driver.MoveRelative(countsX, countsY);
+                        SleepInterruptible(_controller.AppliedOptions.RecheckMs, cancellationToken);
                     }
+
+                    // 长按蓄力后松手投出
+                    _driver.KeyDown(InputKey.LeftMouse);
                     try
                     {
-                        if (needTurn && ppc is { } ppcVal && ppcVal > 0)
-                        {
-                            var maxCounts = _controller.AppliedOptions.MaxStepCounts;
-                            var countsX = Math.Clamp((int)Math.Round(offsetX / ppcVal), -maxCounts, maxCounts);
-                            var countsY = Math.Clamp((int)Math.Round(offsetY / ppcVal), -maxCounts, maxCounts);
-
-                            // 票 14：挂起感知 → 转向 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定
-                            var verified = MoveAndRestabilize(
-                                countsX, countsY, pick.TrackId, cancellationToken);
-
-                            // 验证残差，偏了补一刀
-                            if (_options.VerifyBeforeThrow && verified is not null)
-                            {
-                                var (vCenterX, vCenterY) = ScreenCenter();
-                                var residualX = (double)verified.MedianCenter.X - vCenterX;
-                                var residualY = (double)verified.MedianCenter.Y - vCenterY;
-                                if (Math.Abs(residualX) > tolerance || Math.Abs(residualY) > tolerance)
-                                {
-                                    var corrX = Math.Clamp((int)Math.Round(residualX / ppcVal), -maxCounts, maxCounts);
-                                    var corrY = Math.Clamp((int)Math.Round(residualY / ppcVal), -maxCounts, maxCounts);
-                                    MoveAndRestabilize(corrX, corrY, pick.TrackId, cancellationToken);
-                                }
-                            }
-                        }
-
-                        // 蓄力保持后松手＝投出
                         SleepInterruptible(_options.ChargeMs, cancellationToken);
                     }
                     finally
@@ -222,18 +216,15 @@ public sealed class CatchLoopEngine : IDisposable
                         _driver.KeyUp(InputKey.LeftMouse);
                     }
                 }
-                else
+                else if (_mode == CatchLoopMode.MoveOnly && needTurn)
                 {
-                    // MoveOnly：只转不投
-                    if (needTurn && ppc is { } ppcVal && ppcVal > 0)
-                    {
-                        var countsX = (int)Math.Round(offsetX / ppcVal);
-                        var countsY = (int)Math.Round(offsetY / ppcVal);
-                        var maxCounts = _controller.AppliedOptions.MaxStepCounts;
-                        countsX = Math.Clamp(countsX, -maxCounts, maxCounts);
-                        countsY = Math.Clamp(countsY, -maxCounts, maxCounts);
-                        MoveAndRestabilize(countsX, countsY, pick.TrackId, cancellationToken);
-                    }
+                    var fallback = _controller.AppliedOptions.FallbackDivisor;
+                    var ppcXVal = _options.PpcX > 0 ? _options.PpcX : fallback;
+                    var ppcYVal = _options.PpcY > 0 ? _options.PpcY : fallback;
+                    var maxCounts = _controller.AppliedOptions.MaxStepCounts;
+                    var countsX = Math.Clamp((int)Math.Round(offsetX / ppcXVal), -maxCounts, maxCounts);
+                    var countsY = Math.Clamp((int)Math.Round(offsetY / ppcYVal), -maxCounts, maxCounts);
+                    _driver.MoveRelative(countsX, countsY);
                 }
 
                 var seq = ++_seq;

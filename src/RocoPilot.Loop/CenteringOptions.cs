@@ -10,7 +10,7 @@ public sealed record CenteringOptions
 
     public int MaxStepCounts { get; init; } = 250;
 
-    public double FallbackDivisor { get; init; } = 6;
+    public double FallbackDivisor { get; init; } = 4;
 
     public double SensitivityPpc { get; init; }
 
