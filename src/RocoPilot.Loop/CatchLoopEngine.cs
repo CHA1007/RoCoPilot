@@ -182,6 +182,11 @@ public sealed class CatchLoopEngine : IDisposable
                 {
                     // 长按进入投掷准备态
                     _driver.KeyDown(InputKey.LeftMouse);
+                    // 等游戏切入蓄力瞄准态（镜头灵敏度可能在此态下不同）
+                    if (_options.AimEnterMs > 0)
+                    {
+                        SleepInterruptible(_options.AimEnterMs, cancellationToken);
+                    }
                     try
                     {
                         if (needTurn && ppc is { } ppcVal && ppcVal > 0)

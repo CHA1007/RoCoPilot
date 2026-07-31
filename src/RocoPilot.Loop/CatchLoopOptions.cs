@@ -14,6 +14,9 @@ public sealed record CatchLoopOptions
 
     public int ChargeMs { get; init; } = 200;
 
+    /// <summary>按下左键后等游戏进入蓄力瞄准态的毫秒数。</summary>
+    public int AimEnterMs { get; init; } = 200;
+
     public int ChargeJitterMs { get; init; }
 
     public int StallAlertMs { get; init; } = 600_000;
@@ -36,6 +39,7 @@ public sealed record CatchLoopOptions
         if (ChargeMs <= 0) throw new LoopException($"蓄力基值须为正，实得 {ChargeMs}");
         if (ChargeJitterMs < 0) throw new LoopException($"蓄力抖动幅不可为负，实得 {ChargeJitterMs}");
         if (ChargeJitterMs >= ChargeMs) throw new LoopException($"蓄力抖动幅须小于基值，实得基值 {ChargeMs} 抖 ±{ChargeJitterMs}");
+        if (AimEnterMs < 0) throw new LoopException($"蓄力进入等待不可为负，实得 {AimEnterMs}");
         if (StallAlertMs <= 0) throw new LoopException($"stall 阈须为正，实得 {StallAlertMs}");
         if (MaxAttempts <= 0) throw new LoopException($"尝试上限须为正，实得 {MaxAttempts}");
 
