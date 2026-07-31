@@ -1,9 +1,9 @@
-.claude/
+.pi/
 
 .scratch/
 
 docs/
-CLAUDE.md
+AGENTS.md
 CONTEXT.md
 
 .venv/
