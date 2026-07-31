@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <InternalsVisibleTo Include="RocoPilot.Detection.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <None Include="..\..\assets\models\yolo11n-roco.onnx" Link="assets\models\yolo11n-roco.onnx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,73 @@
+<ui:FluentWindow x:Class="RocoPilot.Shell.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
+                 Title="RocoPilot"
+                 Width="900"
+                 Height="600"
+                 MinWidth="720"
+                 MinHeight="480"
+                 WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica">
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar Grid.Row="0"
+                 Title="RocoPilot"
+                 Icon="{ui:SymbolIcon Fluent24}">
+      <ui:TitleBar.TrailingContent>
+        <StackPanel VerticalAlignment="Top" Orientation="Horizontal">
+          <ui:Button Width="40"
+                     Height="32"
+                     Background="Transparent"
+                     BorderBrush="Transparent"
+                     CornerRadius="0"
+                     Icon="{ui:SymbolIcon DarkTheme24}"
+                     ToolTip="切换主题（跟随系统 → 浅色 → 深色）"
+                     Click="OnToggleThemeClick" />
+          <ui:Button Width="40"
+                     Height="32"
+                     Background="Transparent"
+                     BorderBrush="Transparent"
+                     CornerRadius="0"
+                     Icon="{ui:SymbolIcon CaretDown24}"
+                     ToolTip="最小化到托盘"
+                     Click="OnHideToTrayClick" />
+        </StackPanel>
+      </ui:TitleBar.TrailingContent>
+    </ui:TitleBar>
+
+    <ui:NavigationView x:Name="NavigationView"
+                       Grid.Row="1"
+                       PaneDisplayMode="Left"
+                       IsBackButtonVisible="Collapsed"
+                       IsPaneToggleVisible="True"
+                       OpenPaneLength="200" />
+
+    <tray:NotifyIcon x:Name="TrayIcon"
+                     Grid.Row="0"
+                     Icon="pack://application:,,,/RocoPilot.ico"
+                     TooltipText="RocoPilot"
+                     FocusOnLeftClick="False"
+                     LeftDoubleClick="OnTrayLeftDoubleClick"
+                     MenuOnRightClick="True">
+      <tray:NotifyIcon.Menu>
+        <ContextMenu>
+          <ui:MenuItem Header="显示"
+                       Icon="{ui:SymbolIcon Window24}"
+                       Click="OnShowFromTrayClick" />
+          <Separator />
+          <ui:MenuItem Header="退出"
+                       Icon="{ui:SymbolIcon Dismiss24}"
+                       Click="OnExitClick" />
+        </ContextMenu>
+      </tray:NotifyIcon.Menu>
+    </tray:NotifyIcon>
+  </Grid>
+</ui:FluentWindow>

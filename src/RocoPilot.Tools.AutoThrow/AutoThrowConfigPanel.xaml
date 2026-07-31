@@ -1,0 +1,140 @@
+<UserControl x:Class="RocoPilot.Tools.AutoThrow.AutoThrowConfigPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+  <StackPanel>
+
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon AnimalDog24}" VerticalContentAlignment="Top" Padding="16,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="只识别这些精灵" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="填写要识别的精灵名称；留空则识别全部。换挂机点通常要换对应模型。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <StackPanel>
+        <StackPanel x:Name="WhitelistHost" Margin="0,0,0,8" />
+        <ui:Button HorizontalAlignment="Right"
+                   Content="添加类名"
+                   Icon="{ui:SymbolIcon Add24}"
+                   Click="OnAddWhitelistClick" />
+      </StackPanel>
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Window24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="游戏窗口名称关键词" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="用来锁定游戏窗口的名称关键词；留空默认用「洛克王国」。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:TextBox Width="220"
+                  Text="{Binding WindowTitleSubstring, UpdateSourceTrigger=PropertyChanged}"
+                  LostFocus="OnEditCommitted" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Timer24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="长按到松手的时长。实测极短即可，一般保持默认。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="140"
+                    Minimum="10"
+                    Maximum="3000"
+                    SmallChange="10"
+                    MaxDecimalPlaces="0"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding ChargeMs}"
+                    ValueChanged="OnEditCommitted" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon ArrowMove24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="灵敏度（像素/count）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="游戏内灵敏度对应的像素每 count。填 0 则用回退估算。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="140"
+                    Minimum="0"
+                    Maximum="100"
+                    SmallChange="0.1"
+                    MaxDecimalPlaces="3"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding SensitivityPpc}"
+                    ValueChanged="OnEditCommitted" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon CheckmarkCircle24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="投前验证" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="转向后重新检测目标是否到位，偏了则补正。关闭可提速但可能丢空。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding VerifyBeforeThrow}"
+                       Checked="OnEditCommitted"
+                       Unchecked="OnEditCommitted" />
+    </ui:CardControl>
+
+    <ui:CardControl Icon="{ui:SymbolIcon Keyboard24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="输入方式" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="正常游戏请用 Interception；SendInput 仅用于桌面调试。"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ComboBox x:Name="BackendCombo"
+                Width="220"
+                SelectionChanged="OnBackendSelectionChanged">
+        <ComboBoxItem Content="Interception（驱动设备栈，主后端）" />
+        <ComboBoxItem Content="SendInput（桌面调试回退）" />
+      </ComboBox>
+    </ui:CardControl>
+
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,335 @@
+using System.IO;
+using RocoPilot.Core;
+using RocoPilot.Loop;
+using RocoPilot.Settings;
+
+namespace RocoPilot.Tools.AutoThrow;
+
+public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
+{
+    private readonly Func<ICatchPipeline> _pipelineFactory;
+    private readonly TimeSpan _focusPollInterval;
+
+    private readonly object _gate = new();
+    private readonly TaskCompletionSource _idleWhenStopped = new();
+
+    private CancellationTokenSource? _cts;
+    private TaskCompletionSource? _stoppedTcs;
+    private TaskState _state = TaskState.Idle;
+    private ICatchPipeline? _pipeline;
+    private Thread? _focusWatcher;
+
+    public AutoThrowRunningTask(AutoThrowSettings settings)
+        : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings))))
+    {
+    }
+
+    internal AutoThrowRunningTask(Func<ICatchPipeline> pipelineFactory, TimeSpan? focusPollInterval = null)
+    {
+        _pipelineFactory = pipelineFactory ?? throw new ArgumentNullException(nameof(pipelineFactory));
+        _focusPollInterval = focusPollInterval ?? TimeSpan.FromMilliseconds(250);
+        _idleWhenStopped.SetResult();
+    }
+
+    public string ToolId => AutoThrowTool.ToolId;
+
+    public TaskState State
+    {
+        get { lock (_gate) { return _state; } }
+    }
+
+    public Task WhenStopped
+    {
+        get { lock (_gate) { return _stoppedTcs?.Task ?? _idleWhenStopped.Task; } }
+    }
+
+    public event EventHandler<TaskState>? StateChanged;
+
+    public event EventHandler<ToolEvent>? EventRaised;
+
+    public void Start()
+    {
+        CancellationToken token;
+        lock (_gate)
+        {
+            if (_state != TaskState.Idle)
+            {
+                throw new InvalidOperationException($"单活跃任务：当前态 {_state}，仅 Idle 可启动（ADR-0003）");
+            }
+
+            _cts?.Dispose();
+            _cts = new CancellationTokenSource();
+            _stoppedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            token = _cts.Token;
+            _state = TaskState.Arming;
+        }
+
+        RaiseStateChanged(TaskState.Arming);
+        _ = Task.Run(() => RunWorkerAsync(token));
+    }
+
+    public void RequestPause(string source = "manual")
+    {
+        ICatchPipeline? pipeline;
+        lock (_gate)
+        {
+            if (_state != TaskState.Running)
+            {
+                return;
+            }
+
+            _state = TaskState.Paused;
+            pipeline = _pipeline;
+        }
+
+        if (pipeline is null || !pipeline.Pause(source))
+        {
+            lock (_gate)
+            {
+                if (_state == TaskState.Paused)
+                {
+                    _state = TaskState.Running;
+                }
+            }
+
+            return;
+        }
+
+        pipeline.SetSensing(false);
+        RaiseStateChanged(TaskState.Paused);
+    }
+
+    public void RequestResume(string source = "manual")
+    {
+        ICatchPipeline? pipeline;
+        lock (_gate)
+        {
+            if (_state != TaskState.Paused)
+            {
+                return;
+            }
+
+            _state = TaskState.Running;
+            pipeline = _pipeline;
+        }
+
+        if (pipeline is null || !pipeline.Resume(source))
+        {
+            lock (_gate)
+            {
+                if (_state == TaskState.Running)
+                {
+                    _state = TaskState.Paused;
+                }
+            }
+
+            return;
+        }
+
+        if (pipeline.InputGate())
+        {
+            pipeline.SetSensing(true);
+        }
+
+        RaiseStateChanged(TaskState.Running);
+    }
+
+    public void RequestStop()
+    {
+        lock (_gate)
+        {
+            if (_state is not (TaskState.Arming or TaskState.Running or TaskState.Paused))
+            {
+                return;
+            }
+
+            _state = TaskState.Stopping;
+            _cts?.Cancel();
+        }
+
+        RaiseStateChanged(TaskState.Stopping);
+    }
+
+    public void Dispose() => _cts?.Dispose();
+
+    private static ICatchPipeline CreatePipeline(AutoThrowSettings settings)
+    {
+        LogRetention.PruneSessions(RocoPaths.LogsRoot);
+        var sessionDir = Path.Combine(RocoPaths.LogsRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        return new CatchPipeline(settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir });
+    }
+
+    private async Task RunWorkerAsync(CancellationToken ct)
+    {
+        ICatchPipeline? pipeline = null;
+        try
+        {
+            pipeline = _pipelineFactory();
+            lock (_gate)
+            {
+                _pipeline = pipeline;
+            }
+
+            foreach (var step in pipeline.ArmingSteps)
+            {
+                RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
+                {
+                    ["step"] = step.Name,
+                    ["hint"] = step.Hint,
+                }));
+                try
+                {
+                    await step.Execute(ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    var cause = ex.GetBaseException();
+                    RaiseEvent(new ToolEvent("arming_failed", new Dictionary<string, object?>
+                    {
+                        ["step"] = step.Name,
+                        ["error"] = cause.Message,
+                        ["remedy"] = step.Remedy?.Invoke(cause) ?? "查日志排障后重试",
+                    }));
+                    return;
+                }
+            }
+
+            bool entered;
+            lock (_gate)
+            {
+                entered = _state == TaskState.Arming;
+                if (entered)
+                {
+                    _state = TaskState.Running;
+                }
+            }
+
+            if (!entered)
+            {
+                return;
+            }
+
+            RaiseStateChanged(TaskState.Running);
+            StartFocusWatcher(pipeline, ct);
+
+            var bus = pipeline.Bus;
+            bus.EventRaised += OnPipelineEvent;
+            try
+            {
+                await Task.Run(() => pipeline.Run(ct));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+            }
+            finally
+            {
+                bus.EventRaised -= OnPipelineEvent;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            SafeRaiseEvent(new ToolEvent("fault", new Dictionary<string, object?>
+            {
+                ["error"] = ex.GetBaseException().Message,
+            }));
+        }
+        finally
+        {
+            StopFocusWatcher();
+            lock (_gate)
+            {
+                _pipeline = null;
+                _state = TaskState.Idle;
+            }
+
+            pipeline?.Dispose();
+            RaiseStateChanged(TaskState.Idle);
+            _stoppedTcs?.TrySetResult();
+        }
+    }
+
+    private void StartFocusWatcher(ICatchPipeline pipeline, CancellationToken ct)
+    {
+        _focusWatcher = new Thread(() => FocusWatcherLoop(pipeline, ct))
+        {
+            IsBackground = true,
+            Name = "失焦门控",
+        };
+        _focusWatcher.Start();
+    }
+
+    private void FocusWatcherLoop(ICatchPipeline pipeline, CancellationToken ct)
+    {
+        var focused = true;
+        while (!ct.IsCancellationRequested)
+        {
+            ct.WaitHandle.WaitOne(_focusPollInterval);
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
+
+            var nowFocused = pipeline.InputGate();
+            if (nowFocused == focused)
+            {
+                continue;
+            }
+
+            focused = nowFocused;
+            if (nowFocused)
+            {
+                TaskState state;
+                lock (_gate)
+                {
+                    state = _state;
+                }
+
+                if (state == TaskState.Running)
+                {
+                    pipeline.SetSensing(true);
+                }
+
+                RaiseEvent(new ToolEvent("focus_regained"));
+            }
+            else
+            {
+                pipeline.SetSensing(false);
+                RaiseEvent(new ToolEvent("focus_lost"));
+            }
+        }
+    }
+
+    private void StopFocusWatcher()
+    {
+        var watcher = _focusWatcher;
+        if (watcher is not null && watcher.IsAlive)
+        {
+            watcher.Join(TimeSpan.FromSeconds(1));
+        }
+
+        _focusWatcher = null;
+    }
+
+    private void OnPipelineEvent(object? sender, ToolEvent toolEvent) => RaiseEvent(toolEvent);
+
+    private void RaiseStateChanged(TaskState state) => StateChanged?.Invoke(this, state);
+
+    private void RaiseEvent(ToolEvent toolEvent) => EventRaised?.Invoke(this, toolEvent);
+
+    private void SafeRaiseEvent(ToolEvent toolEvent)
+    {
+        try
+        {
+            RaiseEvent(toolEvent);
+        }
+        catch
+        {
+        }
+    }
+}

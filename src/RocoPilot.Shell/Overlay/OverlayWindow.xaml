@@ -1,0 +1,87 @@
+<Window x:Class="RocoPilot.Shell.Overlay.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RocoPilot OSD"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Focusable="False"
+        IsHitTestVisible="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Width="340"
+        SizeToContent="Height">
+
+  <Border x:Name="CardBorder"
+          CornerRadius="10"
+          Padding="16,12,16,14"
+          Background="#E8334155"
+          BorderBrush="#59FFFFFF"
+          BorderThickness="1">
+    <StackPanel>
+
+      <TextBlock x:Name="StampText"
+                 Text="空闲"
+                 FontSize="32"
+                 FontWeight="ExtraBlack"
+                 Foreground="White" />
+
+      <Grid Margin="0,10,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0">
+          <TextBlock Text="状态" FontSize="11" Foreground="#99FFFFFF" />
+          <TextBlock x:Name="StateValue" Text="空闲" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+        </StackPanel>
+        <StackPanel Grid.Column="1">
+          <TextBlock Text="阶段" FontSize="11" Foreground="#99FFFFFF" />
+          <TextBlock x:Name="PhaseValue" Text="—" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+        </StackPanel>
+        <StackPanel Grid.Column="2">
+          <TextBlock Text="距上次了结" FontSize="11" Foreground="#99FFFFFF" />
+          <TextBlock x:Name="SettleValue" Text="—" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+        </StackPanel>
+        <StackPanel Grid.Column="3">
+          <TextBlock Text="投掷" FontSize="11" Foreground="#99FFFFFF" />
+          <TextBlock x:Name="ThrowValue" Text="0" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+        </StackPanel>
+      </Grid>
+
+      <TextBlock x:Name="ArmingText"
+                 Visibility="Collapsed"
+                 Margin="0,10,0,0"
+                 FontSize="13"
+                 Foreground="#FFD6E4FF"
+                 TextWrapping="Wrap" />
+
+      <TextBlock x:Name="FailureText"
+                 Visibility="Collapsed"
+                 Margin="0,10,0,0"
+                 FontSize="13"
+                 Foreground="#FFFFD7D2"
+                 TextWrapping="Wrap" />
+
+      <Border x:Name="StallBanner"
+              Visibility="Collapsed"
+              Margin="0,10,0,0"
+              CornerRadius="6"
+              Background="#F2FFD60A"
+              Padding="8,5">
+        <TextBlock x:Name="StallText"
+                   FontSize="13"
+                   FontWeight="Bold"
+                   Foreground="#FF1A1A1A"
+                   TextWrapping="Wrap" />
+      </Border>
+    </StackPanel>
+  </Border>
+</Window>

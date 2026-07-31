@@ -1,0 +1,23 @@
+.claude/
+
+.scratch/
+
+docs/
+CLAUDE.md
+CONTEXT.md
+
+.venv/
+__pycache__/
+*.py[cod]
+data/
+logs/
+runs/
+*.pt
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+*.suo
+TestResults/

@@ -1,0 +1,33 @@
+<Page x:Class="RocoPilot.Shell.Pages.RealtimePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+  <StackPanel Margin="32,24,32,40">
+
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="自动丢球" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="展开配置参数，右侧开关启停" />
+          </StackPanel>
+          <ui:ToggleSwitch x:Name="AutoThrowToggle"
+                           Grid.Column="1"
+                           Margin="0,0,16,0"
+                           Checked="OnAutoThrowToggled"
+                           Unchecked="OnAutoThrowToggled" />
+        </Grid>
+      </ui:CardExpander.Header>
+      <StackPanel>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <ContentControl x:Name="ConfigHost" Margin="16" />
+      </StackPanel>
+    </ui:CardExpander>
+  </StackPanel>
+</Page>

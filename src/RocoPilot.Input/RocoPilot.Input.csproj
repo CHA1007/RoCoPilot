@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+
+    <InternalsVisibleTo Include="RocoPilot.Input.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+
+    <None Include="native\win-x64\interception.dll" Link="interception.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
