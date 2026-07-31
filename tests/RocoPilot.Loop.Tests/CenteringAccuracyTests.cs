@@ -42,6 +42,12 @@ internal sealed class FakeSensor : ICenteringSensor
         var box = new DetectedBox(0, "test", 0.9f, x - 10, y - 10, x + 10, y + 10);
         return [new StableTarget(1, box, (x, y), 5)];
     }
+
+    public void SuspendSensing() { }
+
+    public void ResumeSensing() { }
+
+    public void ResetStability() { }
 }
 
 public class CenteringGainTests

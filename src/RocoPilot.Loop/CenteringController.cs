@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using RocoPilot.Core;
+using RocoPilot.Detection;
 using RocoPilot.Input;
 
 namespace RocoPilot.Loop;
@@ -7,6 +8,8 @@ namespace RocoPilot.Loop;
 public sealed class CenteringController
 {
     private const int GatePollChunkMs = 100;
+    private const int RestabilizeTimeoutMs = 500;
+    private const int RestabilizePollMs = 30;
 
     private readonly CenteringOptions _options;
     private readonly ICenteringSensor _sensor;
@@ -224,12 +227,21 @@ public sealed class CenteringController
                 _residualY = rawY - intY;
 
                 MoveChunked(intX, intY, cancellationToken);
+
+                // 票 14：挂起感知 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定
+                _sensor.SuspendSensing();
+                _sleep(_options.RecheckMs, cancellationToken);
+                _sensor.ResetStability();
+                _sensor.ResumeSensing();
+            }
+            else
+            {
+                _sleep(_options.RecheckMs, cancellationToken);
             }
 
-            _sleep(_options.RecheckMs, cancellationToken);
             pendingOnline = request.MovesEnabled;
 
-            var next = TargetSelection.Pick(_sensor.ObserveStable(), lockedTrack, anchor.X, anchor.Y);
+            var next = WaitForStableTarget(lockedTrack, anchor, cancellationToken);
             if (next is null)
             {
                 outcome = CenteringOutcome.Lost;
@@ -326,6 +338,27 @@ public sealed class CenteringController
     private static double Hypot(double x, double y) => Math.Sqrt(x * x + y * y);
 
     private static double? Round3(double? value) => value is { } v ? Math.Round(v, 3) : null;
+
+    /// <summary>票 14：轮询等目标重新稳定（gate 重置后需 4 帧攻攒）。</summary>
+    private StableTarget? WaitForStableTarget(
+        int? trackId, (float X, float Y) anchor, CancellationToken cancellationToken)
+    {
+        // 先试一次（可能已有稳定数据）
+        var immediate = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchor.X, anchor.Y);
+        if (immediate is not null) return immediate;
+
+        var waited = 0;
+        while (waited < RestabilizeTimeoutMs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _sleep(RestabilizePollMs, cancellationToken);
+            waited += RestabilizePollMs;
+            var stable = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchor.X, anchor.Y);
+            if (stable is not null) return stable;
+        }
+
+        return null;
+    }
 
     /// <summary>票 13-C：幅值超阈值时拆成分片发送，片间插延迟；否则退化为单次 MoveRelative。</summary>
     private void MoveChunked(int dx, int dy, CancellationToken cancellationToken)

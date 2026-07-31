@@ -13,6 +13,8 @@ public sealed class CatchLoopEngine : IDisposable
     private const int SleepChunkMs = 100;
     private const int VerifySettleMs = 80;
     private const int MaxCorrectSteps = 3;
+    private const int RestabilizeTimeoutMs = 500;
+    private const int RestabilizePollMs = 30;
 
     private readonly CatchLoopOptions _options;
     private readonly CatchLoopMode _mode;
@@ -187,25 +189,22 @@ public sealed class CatchLoopEngine : IDisposable
                             var maxCounts = _controller.AppliedOptions.MaxStepCounts;
                             var countsX = Math.Clamp((int)Math.Round(offsetX / ppcVal), -maxCounts, maxCounts);
                             var countsY = Math.Clamp((int)Math.Round(offsetY / ppcVal), -maxCounts, maxCounts);
-                            _driver.MoveRelative(countsX, countsY);
 
-                            // 等一帧刷新，验证残差，偏了补一刀
-                            if (_options.VerifyBeforeThrow)
+                            // 票 14：挂起感知 → 转向 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定
+                            var verified = MoveAndRestabilize(
+                                countsX, countsY, pick.TrackId, cancellationToken);
+
+                            // 验证残差，偏了补一刀
+                            if (_options.VerifyBeforeThrow && verified is not null)
                             {
-                                _sleep(VerifySettleMs, cancellationToken);
-                                var verify = TargetSelection.Pick(
-                                    _sensor.ObserveStable(), pick.TrackId, pick.MedianCenter.X, pick.MedianCenter.Y);
-                                if (verify is not null)
+                                var (vCenterX, vCenterY) = ScreenCenter();
+                                var residualX = (double)verified.MedianCenter.X - vCenterX;
+                                var residualY = (double)verified.MedianCenter.Y - vCenterY;
+                                if (Math.Abs(residualX) > tolerance || Math.Abs(residualY) > tolerance)
                                 {
-                                    var (vCenterX, vCenterY) = ScreenCenter();
-                                    var residualX = (double)verify.MedianCenter.X - vCenterX;
-                                    var residualY = (double)verify.MedianCenter.Y - vCenterY;
-                                    if (Math.Abs(residualX) > tolerance || Math.Abs(residualY) > tolerance)
-                                    {
-                                        var corrX = Math.Clamp((int)Math.Round(residualX / ppcVal), -maxCounts, maxCounts);
-                                        var corrY = Math.Clamp((int)Math.Round(residualY / ppcVal), -maxCounts, maxCounts);
-                                        _driver.MoveRelative(corrX, corrY);
-                                    }
+                                    var corrX = Math.Clamp((int)Math.Round(residualX / ppcVal), -maxCounts, maxCounts);
+                                    var corrY = Math.Clamp((int)Math.Round(residualY / ppcVal), -maxCounts, maxCounts);
+                                    MoveAndRestabilize(corrX, corrY, pick.TrackId, cancellationToken);
                                 }
                             }
                         }
@@ -228,7 +227,7 @@ public sealed class CatchLoopEngine : IDisposable
                         var maxCounts = _controller.AppliedOptions.MaxStepCounts;
                         countsX = Math.Clamp(countsX, -maxCounts, maxCounts);
                         countsY = Math.Clamp(countsY, -maxCounts, maxCounts);
-                        _driver.MoveRelative(countsX, countsY);
+                        MoveAndRestabilize(countsX, countsY, pick.TrackId, cancellationToken);
                     }
                 }
 
@@ -314,6 +313,32 @@ public sealed class CatchLoopEngine : IDisposable
 
         // 回退：用 FallbackDivisor 粗估（像素 / 除数 ≈ counts）
         return _controller.AppliedOptions.FallbackDivisor;
+    }
+
+    /// <summary>票 14：挂起感知 → 转向 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定。</summary>
+    private StableTarget? MoveAndRestabilize(int dx, int dy, int? trackId, CancellationToken cancellationToken)
+    {
+        _sensor.SuspendSensing();
+        _driver.MoveRelative(dx, dy);
+        _sleep(VerifySettleMs, cancellationToken);
+        _sensor.ResetStability();
+        _sensor.ResumeSensing();
+
+        // 轮询等目标重新稳定（4 帧）
+        var waited = 0;
+        var (anchorX, anchorY) = ScreenCenter();
+        while (waited < RestabilizeTimeoutMs)
+        {
+            _sleep(RestabilizePollMs, cancellationToken);
+            waited += RestabilizePollMs;
+            var stable = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchorX, anchorY);
+            if (stable is not null)
+            {
+                return stable;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>在线校正：比较指令位移与实测位移，更新 ppc 缓存。</summary>

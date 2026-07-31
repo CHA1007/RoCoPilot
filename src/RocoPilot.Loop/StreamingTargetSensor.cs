@@ -70,6 +70,19 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
 
     public void Resume() => Interlocked.Exchange(ref _suspended, 0);
 
+    public void SuspendSensing() => Suspend();
+
+    public void ResumeSensing() => Resume();
+
+    public void ResetStability()
+    {
+        _stabilityGate.Reset();
+        lock (_snapshotLock)
+        {
+            _snapshot = [];
+        }
+    }
+
     public IReadOnlyList<StableTarget> ObserveStable()
     {
         lock (_snapshotLock)
