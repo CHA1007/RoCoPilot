@@ -48,7 +48,7 @@
                        PaneDisplayMode="Left"
                        IsBackButtonVisible="Collapsed"
                        IsPaneToggleVisible="True"
-                       OpenPaneLength="200" />
+                       OpenPaneLength="160" />
 
     <tray:NotifyIcon x:Name="TrayIcon"
                      Grid.Row="0"

@@ -11,9 +11,9 @@ public partial class LaunchPage : Page
 {
     private static readonly (string Key, CaptureBackendMode Mode)[] s_backends =
     [
+        ("bitblt", CaptureBackendMode.BitBlt),
         ("wgc", CaptureBackendMode.Wgc),
         ("wgc-hdr", CaptureBackendMode.WgcHdr),
-        ("bitblt", CaptureBackendMode.BitBlt),
         ("dwm", CaptureBackendMode.DwmSharedSurface),
     ];
 

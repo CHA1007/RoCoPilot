@@ -6,7 +6,6 @@ using System.Windows.Shapes;
 using RocoPilot.Detection;
 
 namespace RocoPilot.Shell.Overlay;
-
 public partial class DebugOverlayWindow : Window
 {
     private static readonly SolidColorBrush s_boxBrush = Frozen("#CC00E5FF");
@@ -50,7 +49,7 @@ public partial class DebugOverlayWindow : Window
             Canvas.SetTop(rect, y1);
             DebugCanvas.Children.Add(rect);
 
-            var label = $"{box.ClassName} {box.Confidence:F2}";
+            var label = $"{PetNames.ToDisplay(box.ClassName)} {box.Confidence:F2}";
             var text = new TextBlock
             {
                 Text = label,

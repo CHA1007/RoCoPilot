@@ -10,7 +10,7 @@
                     Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                     Text="外壳设置（settings.json 的 shell 节）" />
 
-      <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon DarkTheme24}">
+      <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -31,7 +31,7 @@
         </ComboBox>
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Keyboard24}">
+      <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -51,7 +51,7 @@
                       Text="F12" />
       </ui:CardControl>
 
-      <ui:CardControl Icon="{ui:SymbolIcon Folder24}">
+      <ui:CardControl>
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -72,7 +72,7 @@
                       MaxWidth="380" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon EyeTracking24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -89,7 +89,7 @@
         <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowMove24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -113,7 +113,7 @@
                       ValueChanged="OnSensitivityChanged" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowMove24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -137,7 +137,7 @@
                       ValueChanged="OnSensitivityChanged" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon Calculator24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -161,7 +161,7 @@
                       ValueChanged="OnSensitivityChanged" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon ArrowUp24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -185,7 +185,7 @@
                       ValueChanged="OnSensitivityChanged" />
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0" Icon="{ui:SymbolIcon Settings24}">
+      <ui:CardControl Margin="0,12,0,0">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>

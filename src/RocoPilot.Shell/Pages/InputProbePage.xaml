@@ -12,7 +12,7 @@
                     TextWrapping="Wrap"
                     Text="合成输入真机验证（人执行）。① 选后端 → ② 设备发现（Interception 收得到事件才算驱动真在设备栈）→ ③ 发探针。游戏聚焦下 interception 应转镜头（光标与镜头同动）；sendinput 仅供桌面动光标调试，对 Roco 镜头无效是已知结论。" />
 
-      <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Keyboard24}">
+      <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -32,7 +32,7 @@
         </ComboBox>
       </ui:CardControl>
 
-      <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon TargetArrow24}">
+      <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>

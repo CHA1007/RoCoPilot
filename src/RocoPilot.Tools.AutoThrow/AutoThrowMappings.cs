@@ -13,7 +13,7 @@ public static class AutoThrowMappings
             ConfidenceThreshold = settings.DetectionConfidence,
             IouThreshold = settings.DetectionIou,
             StableFrames = settings.DetectionStableFrames,
-            Whitelist = settings.DetectionWhitelist ?? [],
+            Whitelist = (settings.DetectionWhitelist ?? []).Select(PetNames.ToKey).ToArray(),
         };
     }
 

@@ -19,7 +19,6 @@ public partial class AutoThrowConfigPanel : UserControl
 
         _settings.SanitizeInPlace();
         DataContext = _settings;
-        BackendCombo.SelectedIndex = _settings.InputBackend == InputDriverFactory.SendInput ? 1 : 0;
         RebuildWhitelistRows();
         Loaded += (_, _) => _ready = true;
     }
@@ -31,20 +30,6 @@ public partial class AutoThrowConfigPanel : UserControl
             Commit();
         }
     }
-
-    private void OnBackendSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_ready)
-        {
-            return;
-        }
-
-        _settings.InputBackend = BackendCombo.SelectedIndex == 1
-            ? InputDriverFactory.SendInput
-            : InputDriverFactory.Interception;
-        Commit();
-    }
-
 
     private void OnAddWhitelistClick(object sender, RoutedEventArgs e) =>
         WhitelistHost.Children.Add(CreateWhitelistRow(string.Empty));
@@ -79,7 +64,7 @@ public partial class AutoThrowConfigPanel : UserControl
     private Grid CreateWhitelistRow(string name)
     {
         var row = new Grid { Margin = new Thickness(0, 0, 0, 8) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var box = new Wpf.Ui.Controls.TextBox { Text = name };

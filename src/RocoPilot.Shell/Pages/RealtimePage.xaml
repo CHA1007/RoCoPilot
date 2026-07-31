@@ -15,7 +15,7 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="自动丢球" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="展开配置参数，右侧开关启停" />
+                          Text="自动识别精灵并进行捕捉操作" />
           </StackPanel>
           <ui:ToggleSwitch x:Name="AutoThrowToggle"
                            Grid.Column="1"

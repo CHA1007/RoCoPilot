@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace RocoPilot.Capture;
 
 public sealed record CaptureWindow(IntPtr Handle, string Title);
@@ -60,4 +62,21 @@ public static class WindowFinder
     }
 
     public static IntPtr GetForegroundWindow() => NativeMethods.GetForegroundWindow();
+
+    /// <summary>按进程名查找主窗口（比窗口标题更稳定）。</summary>
+    public static IntPtr FindByProcessName(string processName)
+    {
+        foreach (var proc in Process.GetProcessesByName(processName))
+        {
+            if (proc.MainWindowHandle != IntPtr.Zero)
+            {
+                return proc.MainWindowHandle;
+            }
+        }
+
+        return IntPtr.Zero;
+    }
+
+    /// <summary>游戏进程名（固定值，不可配置）。</summary>
+    public const string GameProcessName = "NRC-Win64-Shipping";
 }

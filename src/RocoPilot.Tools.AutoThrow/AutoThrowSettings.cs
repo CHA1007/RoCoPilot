@@ -1,3 +1,4 @@
+using RocoPilot.Detection;
 using RocoPilot.Input;
 
 namespace RocoPilot.Tools.AutoThrow;

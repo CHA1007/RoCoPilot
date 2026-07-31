@@ -136,21 +136,19 @@ public sealed class CatchPipeline : ICatchPipeline
 
     private ArmingStep CaptureStep() => new(
         "capture",
-        "正在启动截图与识别，等待画面中出现稳定精灵…",
+        "正在启动截图与识别…",
         async cancellationToken =>
         {
-            _gameWindow = _factories.WindowFinder(_spec.WindowTitleSubstring);
-            if (!string.IsNullOrWhiteSpace(_spec.WindowTitleSubstring) && _gameWindow == IntPtr.Zero)
+            _gameWindow = WindowFinder.FindByProcessName(WindowFinder.GameProcessName);
+            if (_gameWindow == IntPtr.Zero)
             {
-                throw new CaptureException($"没有标题含「{_spec.WindowTitleSubstring}」的可见窗口");
+                throw new CaptureException($"未找到游戏进程 {WindowFinder.GameProcessName}，请先启动《洛克王国：世界》客户端");
             }
 
             _source = await _factories.Capture(new CaptureOptions
             {
-                WindowTitleSubstring = _spec.WindowTitleSubstring,
-                Backend = string.IsNullOrWhiteSpace(_spec.WindowTitleSubstring)
-                    ? CaptureBackendMode.Auto
-                    : CaptureBackendMode.ForceWgcWindow,
+                WindowTitleSubstring = "洛克王国",
+                Backend = CaptureBackendMode.ForceWgcWindow,
             }, cancellationToken);
 
             var retainFrames = _spec.SessionLogDirectory is not null;
