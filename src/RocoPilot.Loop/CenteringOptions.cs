@@ -38,6 +38,15 @@ public sealed record CenteringOptions
 
     public double OnlineRelativeChangeThreshold { get; init; } = 0.05;
 
+    /// <summary>欠驱动系数：每步只修正 offset/ppc 的 Gain 倍，防过冲。</summary>
+    public double Gain { get; init; } = 0.6;
+
+    /// <summary>单步幅值超过此阈值（counts）时拆成分片发送。</summary>
+    public int ChunkThreshold { get; init; } = 80;
+
+    /// <summary>分片间的等待毫秒数。</summary>
+    public int ChunkDelayMs { get; init; } = 10;
+
     internal CenteringOptions Normalized()
     {
         RejectNonFinite(TolerancePx, "居中容差");
@@ -77,6 +86,9 @@ public sealed record CenteringOptions
         if (OnlineMinCommandCounts <= 0) throw new LoopException($"在线校正指令门槛须为正，实得 {OnlineMinCommandCounts}");
         if (OnlineMinMovedPx <= 0) throw new LoopException($"在线校正位移门槛须为正，实得 {OnlineMinMovedPx}");
         if (OnlineRelativeChangeThreshold < 0) throw new LoopException($"在线校正变化门槛不可为负，实得 {OnlineRelativeChangeThreshold}");
+        if (Gain is <= 0 or > 1) throw new LoopException($"欠驱动增益须在 (0,1]，实得 {Gain}");
+        if (ChunkThreshold <= 0) throw new LoopException($"分片阈值须为正，实得 {ChunkThreshold}");
+        if (ChunkDelayMs < 0) throw new LoopException($"分片延迟不可为负，实得 {ChunkDelayMs}");
 
         return this;
     }

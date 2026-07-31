@@ -16,6 +16,10 @@ public sealed class CenteringController
     private readonly Action<int, CancellationToken> _sleep;
     private readonly Func<bool>? _inputGate;
 
+    // 亚像素残差累积（票 13-B）：每步舍入余量带到下一步，RunOnce 入口清零
+    private double _residualX;
+    private double _residualY;
+
     public CenteringController(
         CenteringOptions options,
         ICenteringSensor sensor,
@@ -49,6 +53,8 @@ public sealed class CenteringController
     {
         request ??= new CenteringRequest();
         WaitWhileGateClosed(cancellationToken);
+        _residualX = 0;
+        _residualY = 0;
         var stopwatch = Stopwatch.StartNew();
         var (screenCenterX, screenCenterY) = ScreenCenter();
         var stepOffsets = new List<(double X, double Y)>();
@@ -183,8 +189,9 @@ public sealed class CenteringController
             var countsPerPx = bucketPpc is { } ppc
                 ? 1.0 / ppc
                 : 1.0 / _options.FallbackDivisor;
-            var commandX = offset.X * countsPerPx;
-            var commandY = offset.Y * countsPerPx;
+            // 票 13-A：欠驱动增益，每步只修正一部分，防 ppc 偏差导致过冲
+            var commandX = offset.X * countsPerPx * _options.Gain;
+            var commandY = offset.Y * countsPerPx * _options.Gain;
             var commandMagnitude = Hypot(commandX, commandY);
             if (commandMagnitude > _options.MaxStepCounts)
             {
@@ -208,7 +215,15 @@ public sealed class CenteringController
                     moveY += noise();
                 }
 
-                _driver.MoveRelative((int)Math.Round(moveX), (int)Math.Round(moveY));
+                // 票 13-B：亚像素残差累积
+                var rawX = moveX + _residualX;
+                var rawY = moveY + _residualY;
+                var intX = (int)Math.Round(rawX);
+                var intY = (int)Math.Round(rawY);
+                _residualX = rawX - intX;
+                _residualY = rawY - intY;
+
+                MoveChunked(intX, intY, cancellationToken);
             }
 
             _sleep(_options.RecheckMs, cancellationToken);
@@ -311,4 +326,27 @@ public sealed class CenteringController
     private static double Hypot(double x, double y) => Math.Sqrt(x * x + y * y);
 
     private static double? Round3(double? value) => value is { } v ? Math.Round(v, 3) : null;
+
+    /// <summary>票 13-C：幅值超阈值时拆成分片发送，片间插延迟；否则退化为单次 MoveRelative。</summary>
+    private void MoveChunked(int dx, int dy, CancellationToken cancellationToken)
+    {
+        var magnitude = Hypot(dx, dy);
+        if (magnitude <= _options.ChunkThreshold)
+        {
+            _driver.MoveRelative(dx, dy);
+            return;
+        }
+
+        var chunks = (int)Math.Ceiling(magnitude / _options.ChunkThreshold);
+        for (var i = 0; i < chunks; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var frac = 1.0 / chunks;
+            _driver.MoveRelative((int)Math.Round(dx * frac), (int)Math.Round(dy * frac));
+            if (i < chunks - 1 && _options.ChunkDelayMs > 0)
+            {
+                _sleep(_options.ChunkDelayMs, cancellationToken);
+            }
+        }
+    }
 }

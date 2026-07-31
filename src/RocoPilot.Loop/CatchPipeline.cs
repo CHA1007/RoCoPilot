@@ -175,6 +175,15 @@ public sealed class CatchPipeline : ICatchPipeline
             _controller = new CenteringController(
                 _spec.Centering, _sensor, _driver!, _cache, inputGate: InputGate);
             _bus = new CatchEventBus(new CatchCounters(), _sink);
+            // 票 13-D：鼠标加速开启时 ppc 标定追的是非线性靶，告警但不阻塞
+            if (MouseAccelerationProbe.IsEnabled())
+            {
+                _bus.Emit("warning", new Dictionary<string, object?>
+                {
+                    ["reason"] = "mouse_acceleration_on",
+                });
+            }
+
             _recorder?.AttachBus(_bus);
             _engine = new CatchLoopEngine(
                 _spec.Loop, _spec.Mode, _sensor, _driver!, _controller, _bus, inputGate: InputGate);
