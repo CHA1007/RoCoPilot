@@ -13,9 +13,9 @@ public sealed class AutoThrowSettings
 
     public string FarmingSpotName { get; set; } = "眠枭庇护所";
 
-    public double DetectionConfidence { get; set; } = 0.35;
+    public double DetectionConfidence { get; set; } = 0.25;
 
-    public double DetectionIou { get; set; } = 0.45;
+    public double DetectionIou { get; set; } = 0.75;
 
     public int DetectionStableFrames { get; set; } = 4;
 
@@ -52,6 +52,8 @@ public sealed class AutoThrowSettings
     public int DetectionIntervalMs { get; set; }
 
     public string WindowTitleSubstring { get; set; } = DefaultWindowTitle;
+
+    public bool CalibrateBeforeThrow { get; set; } = true;
 
     public void SanitizeInPlace()
     {

@@ -140,11 +140,9 @@ public sealed class CatchLoopEngine : IDisposable
             {
                 WaitAtLoopHead(cancellationToken);
 
-                // ── 扫描：清洗观测 → 选取目标 ──
+                // ── 扫描：选取目标 ──
                 SetPhase(CatchPhase.Scanning);
 
-                // 重置 StabilityGate，确保目标位置不含上一轮镜头移动的过渡帧
-                _sensor.ResetStability();
                 StableTarget? pick = null;
                 var scanWaited = 0;
                 var (centerX, centerY) = ScreenCenter();

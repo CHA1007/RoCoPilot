@@ -36,13 +36,8 @@ public partial class OverlayWindow : Window
         CardBorder.Background = BrushFor(snapshot.State, snapshot.CaptureRunning);
 
         PhaseValue.Text = snapshot.Phase ?? "—";
-        SettleValue.Text = FormatSinceSettle(snapshot.SinceLastSettle);
         ThrowValue.Text = snapshot.Throws.ToString(CultureInfo.InvariantCulture);
 
-        ArmingText.Text = snapshot.ArmingLine;
-        ArmingText.Visibility = snapshot.ArmingLine is null ? Visibility.Collapsed : Visibility.Visible;
-        FailureText.Text = snapshot.FailureLine;
-        FailureText.Visibility = snapshot.FailureLine is null ? Visibility.Collapsed : Visibility.Visible;
         StallText.Text = snapshot.StallBanner;
         StallBanner.Visibility = snapshot.StallBanner is null ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -51,7 +46,7 @@ public partial class OverlayWindow : Window
     {
         TaskState.Idle when captureRunning => "截图中",
         TaskState.Idle => "空闲",
-        TaskState.Arming => "自检中",
+        TaskState.Arming => "启动中",
         TaskState.Running => "运行中",
         TaskState.Paused => "已暂停",
         TaskState.Stopping => "收尾中",
@@ -67,18 +62,6 @@ public partial class OverlayWindow : Window
         TaskState.Stopping => s_brushStopping,
         _ => s_brushIdle,
     };
-
-    private static string FormatSinceSettle(TimeSpan? sinceSettle)
-    {
-        if (sinceSettle is not { } t)
-        {
-            return "—";
-        }
-
-        return t.TotalHours >= 1
-            ? ((int)t.TotalHours).ToString(CultureInfo.InvariantCulture) + t.ToString(@"\:mm\:ss")
-            : t.ToString(@"mm\:ss");
-    }
 
     private static SolidColorBrush Frozen(string color)
     {

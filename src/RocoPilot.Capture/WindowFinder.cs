@@ -77,6 +77,24 @@ public static class WindowFinder
         return IntPtr.Zero;
     }
 
+    /// <summary>判断指定进程的窗口是否为前台窗口（按进程 ID 比较，兼容全屏/子窗口模式）。</summary>
+    public static bool IsForegroundProcess(string processName)
+    {
+        var fg = NativeMethods.GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+        NativeMethods.GetWindowThreadProcessId(fg, out var fgPid);
+        foreach (var proc in Process.GetProcessesByName(processName))
+        {
+            if (proc.Id == fgPid) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>将指定窗口激活为前台窗口（用于 Arming 时免去手动右键聚焦）。</summary>
+    public static bool ActivateWindow(IntPtr hwnd) =>
+        hwnd != IntPtr.Zero && NativeMethods.SetForegroundWindow(hwnd);
+
     /// <summary>游戏进程名（固定值，不可配置）。</summary>
     public const string GameProcessName = "NRC-Win64-Shipping";
 }

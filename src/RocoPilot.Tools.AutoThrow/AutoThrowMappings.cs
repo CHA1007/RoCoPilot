@@ -59,6 +59,7 @@ public static class AutoThrowMappings
             InputBackend = settings.InputBackend,
             UseGpu = string.Equals(settings.InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase),
             DetectionIntervalMs = settings.DetectionIntervalMs,
+            CalibrateBeforeThrow = settings.CalibrateBeforeThrow,
         };
     }
 }

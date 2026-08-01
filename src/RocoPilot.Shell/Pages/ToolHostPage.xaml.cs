@@ -26,7 +26,7 @@ public partial class ToolHostPage : Page
         _settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
 
         TitleText.Text = tool.DisplayName;
-        SubtitleText.Text = "一键开始和停止；按 F12 随时接管鼠标；切出游戏自动暂停，切回自动继续。";
+        SubtitleText.Text = "切出游戏自动暂停，切回自动继续；F12 随时接管鼠标。";
         ConfigPanelHost.Content = tool.CreateConfigPanel(_settings, Persist);
 
         Loaded += (_, _) =>
@@ -53,9 +53,16 @@ public partial class ToolHostPage : Page
     {
         _armingHint = null;
         _armingFailure = null;
-        if (_taskHost.TryStart(_tool, _settings))
+        try
         {
-            Observe(_taskHost.Current);
+            if (_taskHost.TryStart(_tool, _settings))
+            {
+                Observe(_taskHost.Current);
+            }
+        }
+        catch (Exception)
+        {
+            // 截图器未启动等前置条件不满足时静默忽略，覆盖层不显示即无提示
         }
 
         RefreshStatus();

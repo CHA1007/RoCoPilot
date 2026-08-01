@@ -1,4 +1,5 @@
 using System.Windows;
+using RocoPilot.Capture;
 using RocoPilot.Core;
 using Wpf.Ui.Controls;
 
@@ -7,6 +8,13 @@ namespace RocoPilot.Tools.AutoThrow;
 public sealed class AutoThrowTool : ITool
 {
     public const string ToolId = "auto-throw";
+
+    private readonly Func<ICaptureSource?> _captureSourceProvider;
+
+    public AutoThrowTool(Func<ICaptureSource?> captureSourceProvider)
+    {
+        _captureSourceProvider = captureSourceProvider ?? throw new ArgumentNullException(nameof(captureSourceProvider));
+    }
 
     public string Id => ToolId;
 
@@ -20,7 +28,9 @@ public sealed class AutoThrowTool : ITool
 
     public IRunningTask Run(object settings)
     {
-        return new AutoThrowRunningTask(CastSettings(settings));
+        var source = _captureSourceProvider()
+            ?? throw new InvalidOperationException("请先启动截图器（实时识别页 → 开始截图），再启动自动丢球");
+        return new AutoThrowRunningTask(CastSettings(settings), source);
     }
 
     public FrameworkElement CreateConfigPanel(object settings, Action persist)

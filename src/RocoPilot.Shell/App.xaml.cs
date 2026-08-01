@@ -43,10 +43,11 @@ public partial class App : Application
 
         services.AddSingleton<ISettingsStore>(new JsonSettingsStore(RocoPaths.SettingsFilePath));
         services.AddSingleton<RunningTaskHost>();
-        services.AddSingleton<CaptureHost>();
+        var captureHost = new CaptureHost();
+        services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
 
-        foreach (var tool in ToolRegistry.Tools)
+        foreach (var tool in ToolRegistry.CreateTools(captureHost))
         {
             services.AddSingleton(tool.GetType(), tool);
             services.AddTransient(ToolRegistry.PageTypeOf(tool));
@@ -76,7 +77,8 @@ public partial class App : Application
     private static void SeedDefaults(ISettingsStore store)
     {
         store.SetShellSettings(store.GetShellSettings());
-        foreach (var tool in ToolRegistry.Tools)
+        var captureHost = _services!.GetRequiredService<CaptureHost>();
+        foreach (var tool in ToolRegistry.CreateTools(captureHost))
         {
             var settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
             store.SetToolSettings(tool.Id, settings);

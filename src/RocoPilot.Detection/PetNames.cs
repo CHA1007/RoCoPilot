@@ -7,6 +7,7 @@ public static class PetNames
     {
         ["yaxiaxuexiong"] = "月牙雪熊",
         ["emolang"] = "恶魔狼",
+        ["xingyunlvzhe"] = "星云旅者",
     };
 
     private static readonly Dictionary<string, string> s_toKey;

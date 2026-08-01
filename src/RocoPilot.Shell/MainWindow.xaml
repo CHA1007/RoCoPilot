@@ -20,7 +20,7 @@
 
     <ui:TitleBar Grid.Row="0"
                  Title="RocoPilot"
-                 Icon="{ui:SymbolIcon Fluent24}">
+                 Icon="{ui:SymbolIcon Games24, FontSize=24}">
       <ui:TitleBar.TrailingContent>
         <StackPanel VerticalAlignment="Top" Orientation="Horizontal">
           <ui:Button Width="40"

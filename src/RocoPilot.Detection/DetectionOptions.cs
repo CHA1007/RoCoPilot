@@ -2,9 +2,9 @@ namespace RocoPilot.Detection;
 
 public sealed record DetectionOptions
 {
-    public double ConfidenceThreshold { get; init; } = 0.35;
+    public double ConfidenceThreshold { get; init; } = 0.25;
 
-    public double IouThreshold { get; init; } = 0.45;
+    public double IouThreshold { get; init; } =0.7;
 
     public int MaxBoxes { get; init; } = 300;
 

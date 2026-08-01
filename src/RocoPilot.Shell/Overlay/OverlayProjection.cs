@@ -12,11 +12,7 @@ public sealed class OverlayProjection
 
     private TaskState _state = TaskState.Idle;
     private bool _captureRunning;
-    private bool _hasSession;
     private int _throws;
-    private long _lastSettleMs;
-    private string? _armingLine;
-    private string? _failureLine;
     private string? _phase;
     private bool _stallAlerted;
     private long _stallRaisedMs;
@@ -58,9 +54,7 @@ public sealed class OverlayProjection
             switch (toolEvent.Name)
             {
                 case "session_start":
-                    _hasSession = true;
                     _throws = 0;
-                    _lastSettleMs = now;
                     _stallAlerted = false;
                     _phase = "扫描";
                     break;
@@ -78,7 +72,6 @@ public sealed class OverlayProjection
                 case "settled":
                     if (IsGone(toolEvent))
                     {
-                        _lastSettleMs = now;
                         _stallAlerted = false;
                     }
 
@@ -95,16 +88,6 @@ public sealed class OverlayProjection
                     _phase = null;
                     break;
 
-                case "arming_step":
-                    _armingLine = "自检 [" + Get(toolEvent, "step") + "]：" + Get(toolEvent, "hint");
-                    _failureLine = null;
-                    break;
-
-                case "arming_failed":
-                    _armingLine = null;
-                    _failureLine = "自检失败 [" + Get(toolEvent, "step") + "]：" + Get(toolEvent, "error")
-                        + "——" + Get(toolEvent, "remedy");
-                    break;
             }
         }
     }
@@ -114,19 +97,15 @@ public sealed class OverlayProjection
         lock (_gate)
         {
             var now = _nowMs();
-            TimeSpan? sinceSettle = _hasSession ? TimeSpan.FromMilliseconds(Math.Max(0, now - _lastSettleMs)) : null;
             string? banner = _stallAlerted && now - _stallRaisedMs <= _stallBannerMs
                 ? StallBannerText(_stallSinceSeconds)
                 : null;
-            return new OverlaySnapshot(_state, _throws, sinceSettle, _armingLine, _failureLine, banner, _captureRunning, _phase);
+            return new OverlaySnapshot(_state, _throws, banner, _captureRunning, _phase);
         }
     }
 
     private static bool IsGone(ToolEvent toolEvent) =>
         string.Equals(toolEvent.Data?.GetValueOrDefault("result") as string, "gone", StringComparison.Ordinal);
-
-    private static string Get(ToolEvent toolEvent, string key) =>
-        toolEvent.Data?.GetValueOrDefault(key)?.ToString() ?? "—";
 
     private static string StallBannerText(int sinceSeconds)
     {

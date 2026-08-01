@@ -32,7 +32,12 @@ public sealed class InterceptionDriver : IInputDriver
 
     public string BackendName => "interception";
 
-    public void Arm(TimeSpan timeout) => DiscoverMouse(timeout);
+    public void Arm(TimeSpan timeout)
+    {
+        // 创建上下文即验证驱动服务在运行；直接用首个鼠标设备发笔画，无需等待用户输入
+        _ = Context;
+        _mouseDevice ??= InterceptionConstants.MouseDeviceMin;
+    }
 
     public int DiscoverMouse(TimeSpan timeout) => _mouseDevice ??= Discover(DeviceClass.Mouse, timeout);
 

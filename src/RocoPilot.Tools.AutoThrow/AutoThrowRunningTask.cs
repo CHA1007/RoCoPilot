@@ -1,4 +1,5 @@
 using System.IO;
+using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Loop;
 using RocoPilot.Settings;
@@ -19,8 +20,8 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
     private ICatchPipeline? _pipeline;
     private Thread? _focusWatcher;
 
-    public AutoThrowRunningTask(AutoThrowSettings settings)
-        : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings))))
+    public AutoThrowRunningTask(AutoThrowSettings settings, ICaptureSource captureSource)
+        : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings)), captureSource))
     {
     }
 
@@ -158,7 +159,7 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
 
     public void Dispose() => _cts?.Dispose();
 
-    private static ICatchPipeline CreatePipeline(AutoThrowSettings settings)
+    private static ICatchPipeline CreatePipeline(AutoThrowSettings settings, ICaptureSource captureSource)
     {
         LogRetention.PruneSessions(RocoPaths.LogsRoot);
         var sessionDir = Path.Combine(RocoPaths.LogsRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
@@ -168,7 +169,7 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         shellStore.Load();
         var shell = shellStore.GetShellSettings();
 
-        var spec = settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir };
+        var spec = settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir, ExistingSource = captureSource };
         var centering = spec.Centering;
 
         if (shell.TurnFallbackDivisor > 0)
@@ -311,22 +312,12 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
             focused = nowFocused;
             if (nowFocused)
             {
-                TaskState state;
-                lock (_gate)
-                {
-                    state = _state;
-                }
-
-                if (state == TaskState.Running)
-                {
-                    pipeline.SetSensing(true);
-                }
-
                 RaiseEvent(new ToolEvent("focus_regained"));
             }
             else
             {
-                pipeline.SetSensing(false);
+                // 失焦只门控输入（CatchLoopEngine / CenteringController 各自持有 inputGate），
+                // 识别持续运行，重新聚焦后无需等待稳定门控重新积累。
                 RaiseEvent(new ToolEvent("focus_lost"));
             }
         }

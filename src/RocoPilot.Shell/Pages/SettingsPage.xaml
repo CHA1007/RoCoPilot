@@ -4,11 +4,6 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
   <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="720" HorizontalAlignment="Left">
-      <ui:TextBlock FontTypography="TitleLarge" Text="设置" />
-      <ui:TextBlock Margin="0,6,0,20"
-                    FontTypography="Body"
-                    Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                    Text="外壳设置（settings.json 的 shell 节）" />
 
       <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
@@ -21,7 +16,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="可选浅色、深色或跟随系统，立即生效并自动保存" />
+                          Text="切换后立即生效" />
           </Grid>
         </ui:CardControl.Header>
         <ComboBox x:Name="ThemeCombo" Width="160" SelectionChanged="OnThemeSelectionChanged">
@@ -42,7 +37,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="暂停 / 继续的快捷键，固定为 F12、不可更改" />
+                          Text="随时暂停 / 恢复自动丢球，固定 F12" />
           </Grid>
         </ui:CardControl.Header>
         <ui:TextBlock x:Name="HotkeyText"
@@ -62,7 +57,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="你的设置与运行缓存分别存放在以下位置" />
+                          Text="设置与运行日志的存放位置" />
           </Grid>
         </ui:CardControl.Header>
         <ui:TextBlock x:Name="PathsText"
@@ -83,7 +78,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="在游戏画面上叠加检测框（类名 + 置信度），用于调试识别效果" />
+                          Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
           </Grid>
         </ui:CardControl.Header>
         <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
@@ -96,11 +91,11 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="水平灵敏度（像素/count）" />
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="水平灵敏度" />
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="水平方向每 count 对应的像素数。填 0 则用回退除数。" />
+                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="SensitivityPpcXBox"
@@ -120,11 +115,11 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直灵敏度（像素/count）" />
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直灵敏度" />
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="垂直方向每 count 对应的像素数。填 0 则用回退除数。" />
+                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="SensitivityPpcYBox"
@@ -148,7 +143,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="灵敏度为 0 时，偏移像素 ÷ 此值 = 转向 count 数。值越小转得越多。" />
+                          Text="灵敏度为 0 时按此值估算转向，值越小转向越多" />
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="FallbackDivisorBox"
@@ -172,7 +167,7 @@
             <ui:TextBlock Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="框高的比例，负值=往上。补偿检测框包含脚下阴影导致的偏下。" />
+                          Text="瞄准点相对精灵框的上下偏移，负值朝上" />
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="AimOffsetYBox"
@@ -197,7 +192,7 @@
                           Grid.Row="1"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="需先开启截图且游戏窗口聚焦。校准期间会短暂转动镜头。" />
+                          Text="校准会短暂转动镜头，请先开启截图并保持游戏窗口聚焦" />
           </Grid>
         </ui:CardControl.Header>
         <ui:Button x:Name="CalibrateButton"

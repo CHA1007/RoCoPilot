@@ -66,6 +66,13 @@ internal static partial class NativeMethods
     public static partial IntPtr GetForegroundWindow();
 
     [LibraryImport("user32.dll")]
+    public static partial uint GetWindowThreadProcessId(IntPtr hWnd, out int lpdwProcessId);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetForegroundWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
     public static partial IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 
     [LibraryImport("user32.dll")]

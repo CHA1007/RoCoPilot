@@ -27,6 +27,12 @@ public sealed record CatchPipelineSpec
     public TimeSpan FirstStableTargetTimeout { get; init; } = TimeSpan.FromSeconds(8);
 
     public string? SessionLogDirectory { get; init; }
+
+    /// <summary>外部提供的截图源（如 CaptureHost）。非空时 CaptureStep 直接复用，不另建；Dispose 不释放。</summary>
+    public ICaptureSource? ExistingSource { get; init; }
+
+    /// <summary>投掷前是否执行场景位移法灵敏度校准。</summary>
+    public bool CalibrateBeforeThrow { get; init; } = true;
 }
 
 public sealed record CatchPipelineFactories
@@ -41,7 +47,7 @@ public sealed record CatchPipelineFactories
 
     public Func<string?, IntPtr> WindowFinder { get; init; } = global::RocoPilot.Capture.WindowFinder.FindFirstByTitleSubstring;
 
-    public Func<IntPtr> ForegroundWindow { get; init; } = global::RocoPilot.Capture.WindowFinder.GetForegroundWindow;
+    public Func<bool> IsGameForeground { get; init; } = () => global::RocoPilot.Capture.WindowFinder.IsForegroundProcess(global::RocoPilot.Capture.WindowFinder.GameProcessName);
 
     public Func<ISceneImageEncoder> SceneImageEncoder { get; init; } = () => new WpfSceneImageEncoder();
 }

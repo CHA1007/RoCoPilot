@@ -23,7 +23,7 @@ public partial class AutoThrowConfigPanel : UserControl
         Loaded += (_, _) => _ready = true;
     }
 
-    private void OnEditCommitted(object sender, RoutedEventArgs e)
+    private void OnSourceUpdated(object? sender, System.Windows.Data.DataTransferEventArgs e)
     {
         if (_ready)
         {

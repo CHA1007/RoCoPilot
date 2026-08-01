@@ -1,5 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Overlay;
@@ -18,19 +21,22 @@ public partial class MainWindow : FluentWindow
     private readonly ISettingsStore _store;
     private readonly RunningTaskHost _taskHost;
     private readonly OverlayController _overlay;
+    private readonly CaptureHost _capture;
     private HwndSource? _hwndSource;
 
     public MainWindow(
         INavigationViewPageProvider pageProvider,
         ISettingsStore store,
         RunningTaskHost taskHost,
-        OverlayController overlay)
+        OverlayController overlay,
+        CaptureHost capture)
     {
         InitializeComponent();
 
         _store = store;
         _taskHost = taskHost;
         _overlay = overlay;
+        _capture = capture;
         NavigationView.SetPageProviderService(pageProvider);
 
         BuildNavigation();

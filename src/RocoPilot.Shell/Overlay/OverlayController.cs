@@ -28,7 +28,6 @@ public sealed class OverlayController
     private DispatcherTimer? _debugTimer;
     private OverlayProjection _projection = new();
     private IRunningTask? _observed;
-    private string _windowTitle = WindowFinder.GameProcessName;
 
     public OverlayController(RunningTaskHost host, CaptureHost capture, ISettingsStore store)
     {
@@ -162,9 +161,9 @@ public sealed class OverlayController
     {
         var snapshot = TakeSnapshot();
 
-        var hasBusiness = _observed is not null || snapshot.FailureLine is not null || snapshot.CaptureRunning;
+        var hasBusiness = snapshot.CaptureRunning;
         var game = hasBusiness ? WindowFinder.FindByProcessName(WindowFinder.GameProcessName) : IntPtr.Zero;
-        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || WindowFinder.GetForegroundWindow() != game)
+        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName))
         {
             if (_window?.IsVisible == true)
             {
@@ -257,7 +256,7 @@ public sealed class OverlayController
         }
 
         var game = pipeline.GameWindow;
-        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || WindowFinder.GetForegroundWindow() != game)
+        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName))
         {
             if (_debugWindow?.IsVisible == true) _debugWindow.Hide();
             return;

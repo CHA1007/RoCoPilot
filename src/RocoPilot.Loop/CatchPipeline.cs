@@ -16,6 +16,7 @@ public sealed class CatchPipeline : ICatchPipeline
     private IDetector? _detector;
     private IInputDriver? _driver;
     private ICaptureSource? _source;
+    private bool _ownsSource;
     private StreamingTargetSensor? _sensor;
     private CenteringController? _controller;
     private CatchLoopEngine? _engine;
@@ -24,6 +25,7 @@ public sealed class CatchPipeline : ICatchPipeline
     private FailureSceneRecorder? _recorder;
     private IntPtr _gameWindow;
     private Task? _armTask;
+    private AutoCalibrator.CalibrationResult? _calibratedPpc;
 
     public CatchPipeline(CatchPipelineSpec? spec = null, CatchPipelineFactories? factories = null)
     {
@@ -34,12 +36,15 @@ public sealed class CatchPipeline : ICatchPipeline
             _cache.Store(1, _spec.Centering.SensitivityPpc);
         }
 
-        ArmingSteps = [DetectorStep(), InputStep(), CaptureStep()];
+        var steps = new List<ArmingStep> { DetectorStep(), InputStep(), CaptureStep() };
+        if (_spec.CalibrateBeforeThrow) steps.Add(CalibrationStep());
+        steps.Add(EngineStep());
+        ArmingSteps = steps;
     }
 
     public IReadOnlyList<ArmingStep> ArmingSteps { get; }
 
-    public Func<bool> InputGate => () => _gameWindow != IntPtr.Zero && _factories.ForegroundWindow() == _gameWindow;
+    public Func<bool> InputGate => () => _gameWindow != IntPtr.Zero && _factories.IsGameForeground();
 
     public IntPtr GameWindow => _gameWindow;
 
@@ -80,8 +85,11 @@ public sealed class CatchPipeline : ICatchPipeline
 
         _recorder?.Dispose();
         _sensor?.Dispose();
-        _source?.Stop();
-        _source?.Dispose();
+        if (_ownsSource)
+        {
+            _source?.Stop();
+            _source?.Dispose();
+        }
         (_detector as IDisposable)?.Dispose();
         if (_armTask is not null)
         {
@@ -113,7 +121,7 @@ public sealed class CatchPipeline : ICatchPipeline
 
     private ArmingStep InputStep() => new(
         "input",
-        "设备发现：10 秒内动一下鼠标（收得到事件＝驱动真在设备栈）…",
+        "设备初始化：验证 Interception 驱动可用…",
         async cancellationToken =>
         {
             var driver = _factories.Driver(_spec.InputBackend);
@@ -145,11 +153,23 @@ public sealed class CatchPipeline : ICatchPipeline
                 throw new CaptureException($"未找到游戏进程 {WindowFinder.GameProcessName}，请先启动《洛克王国：世界》客户端");
             }
 
-            _source = await _factories.Capture(new CaptureOptions
+            // 主动激活游戏窗口，免去手动右键聚焦（Unreal 引擎左键被游戏输入层截获，不触发 OS 窗口激活）
+            WindowFinder.ActivateWindow(_gameWindow);
+
+            if (_spec.ExistingSource is not null)
             {
-                WindowTitleSubstring = "洛克王国",
-                Backend = CaptureBackendMode.ForceWgcWindow,
-            }, cancellationToken);
+                _source = _spec.ExistingSource;
+                _ownsSource = false;
+            }
+            else
+            {
+                _source = await _factories.Capture(new CaptureOptions
+                {
+                    WindowTitleSubstring = "洛克王国",
+                    Backend = CaptureBackendMode.ForceWgcWindow,
+                }, cancellationToken);
+                _ownsSource = true;
+            }
 
             var retainFrames = _spec.SessionLogDirectory is not null;
             _sensor = new StreamingTargetSensor(_source, _detector!, new StabilityGate(
@@ -189,14 +209,43 @@ public sealed class CatchPipeline : ICatchPipeline
             }
 
             _recorder?.AttachBus(_bus);
-            _engine = new CatchLoopEngine(
-                _spec.Loop, _spec.Mode, _sensor, _driver!, _controller, _bus, inputGate: InputGate);
         })
     {
         Remedy = ex => ex is CaptureException
             ? "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试"
             : "把镜头转向一只野外精灵再重试",
     };
+
+    private ArmingStep CalibrationStep() => new(
+        "calibration",
+        "灵敏度校准：向各轴发探针并量画面位移…",
+        async cancellationToken =>
+        {
+            // 校准失败（null）不阻断启动，回退到手动灵敏度设置
+            var result = await Task.Run(
+                () => AutoCalibrator.Calibrate(_source!, _driver!), cancellationToken);
+            _calibratedPpc = result;
+        })
+    {
+        Remedy = _ => "校准失败不影响运行，可在配置中关闭「投掷前灵敏度校准」跳过此步",
+    };
+
+    private ArmingStep EngineStep() => new(
+        "engine",
+        "正在初始化投掷循环…",
+        cancellationToken =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var loopOptions = _spec.Loop;
+            if (_calibratedPpc is { } cal)
+            {
+                loopOptions = loopOptions with { PpcX = cal.PpcX, PpcY = cal.PpcY };
+            }
+
+            _engine = new CatchLoopEngine(
+                loopOptions, _spec.Mode, _sensor!, _driver!, _controller!, _bus!, inputGate: InputGate);
+            return Task.CompletedTask;
+        });
 
     private void CaptureCalibrationScene(Exception cause)
     {

@@ -13,6 +13,9 @@ data/
 logs/
 runs/
 *.pt
+raw/
+frames/
+retrain/
 
 # .NET
 bin/
@@ -20,4 +23,5 @@ obj/
 *.user
 .vs/
 *.suo
-TestResults/
+prototypes/
+tests/

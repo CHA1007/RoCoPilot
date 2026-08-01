@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel>
+  <StackPanel Binding.SourceUpdated="OnSourceUpdated">
 
     <ui:CardControl Margin="0,0,0,12" VerticalContentAlignment="Top" Padding="16,12">
       <ui:CardControl.Header>
@@ -15,7 +15,7 @@
           <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕捉的精灵对象" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="填写需要捕捉的精灵，为空捕捉所有识别到的精灵"
+                        Text="留空则捕捉所有识别到的精灵"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -35,10 +35,33 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="识别置信度阈值" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="数值越低识别越宽松，也越容易误判"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="140"
+                    Minimum="0"
+                    Maximum="1"
+                    SmallChange="0.05"
+                    MaxDecimalPlaces="2"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding DetectionConfidence, NotifyOnSourceUpdated=True}" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
           <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="长按到松手的时长。实测极短即可，一般保持默认。"
+                        Text="长按蓄力投出咕噜球的时间，一般保持默认即可"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -48,8 +71,24 @@
                     SmallChange="10"
                     MaxDecimalPlaces="0"
                     ValidationMode="InvalidInputOverwritten"
-                    Value="{Binding ChargeMs}"
-                    ValueChanged="OnEditCommitted" />
+                    Value="{Binding ChargeMs, NotifyOnSourceUpdated=True}" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="启动时自动测量转向灵敏度，关闭则使用手动值"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding CalibrateBeforeThrow, NotifyOnSourceUpdated=True}" />
     </ui:CardControl>
 
   </StackPanel>
