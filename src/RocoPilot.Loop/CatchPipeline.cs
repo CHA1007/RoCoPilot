@@ -223,10 +223,16 @@ public sealed class CatchPipeline : ICatchPipeline
         "灵敏度校准：向各轴发探针并量画面位移…",
         async cancellationToken =>
         {
+            // 校准前重新聚焦游戏窗口（用户可能在 CaptureStep 后切走）
+            WindowFinder.ActivateGameWindow();
             // 校准失败（null）不阻断启动，回退到手动灵敏度设置
             var result = await Task.Run(
                 () => AutoCalibrator.Calibrate(_source!, _driver!), cancellationToken);
             _calibratedPpc = result;
+            if (result is not null)
+            {
+                _spec.OnCalibrated?.Invoke(result.PpcX, result.PpcY);
+            }
         })
     {
         Remedy = _ => "校准失败不影响运行，可在配置中关闭「投掷前灵敏度校准」跳过此步",

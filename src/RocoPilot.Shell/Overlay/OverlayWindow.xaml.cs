@@ -30,10 +30,10 @@ public partial class OverlayWindow : Window
 
     internal void Apply(OverlaySnapshot snapshot)
     {
-        var stamp = Describe(snapshot.State, snapshot.CaptureRunning);
+        var stamp = Describe(snapshot.State);
         StampText.Text = stamp;
         StateValue.Text = stamp;
-        CardBorder.Background = BrushFor(snapshot.State, snapshot.CaptureRunning);
+        CardBorder.Background = BrushFor(snapshot.State);
 
         PhaseValue.Text = snapshot.Phase ?? "—";
         ThrowValue.Text = snapshot.Throws.ToString(CultureInfo.InvariantCulture);
@@ -42,9 +42,8 @@ public partial class OverlayWindow : Window
         StallBanner.Visibility = snapshot.StallBanner is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private static string Describe(TaskState state, bool captureRunning) => state switch
+    private static string Describe(TaskState state) => state switch
     {
-        TaskState.Idle when captureRunning => "截图中",
         TaskState.Idle => "空闲",
         TaskState.Arming => "启动中",
         TaskState.Running => "运行中",
@@ -53,9 +52,8 @@ public partial class OverlayWindow : Window
         _ => state.ToString(),
     };
 
-    private static SolidColorBrush BrushFor(TaskState state, bool captureRunning) => state switch
+    private static SolidColorBrush BrushFor(TaskState state) => state switch
     {
-        TaskState.Idle when captureRunning => s_brushArming,
         TaskState.Running => s_brushRunning,
         TaskState.Paused => s_brushPaused,
         TaskState.Arming => s_brushArming,

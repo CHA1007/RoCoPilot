@@ -1,10 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
+using RocoPilot.Core;
 using RocoPilot.Input.Interception;
 using RocoPilot.Loop;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
+using Wpf.Ui.Controls;
 
 namespace RocoPilot.Shell.Pages;
 
@@ -15,7 +17,7 @@ public partial class RealtimePage : Page
     private readonly RunningTaskHost _taskHost;
     private readonly CaptureHost _capture;
     private readonly object _settings;
-    private bool _updating;
+    private IRunningTask? _observed;
 
     public RealtimePage(AutoThrowTool tool, ISettingsStore store, RunningTaskHost taskHost, CaptureHost capture)
     {
@@ -37,41 +39,78 @@ public partial class RealtimePage : Page
         Unloaded += (_, _) => _taskHost.Changed -= OnStateChanged;
     }
 
-    private void OnAutoThrowToggled(object sender, RoutedEventArgs e)
+    private void OnAutoThrowClick(object sender, RoutedEventArgs e)
     {
-        if (_updating) return;
-        if (AutoThrowToggle.IsChecked == true)
-        {
-            ((AutoThrowSettings)_settings).InferenceDevice = _store.GetShellSettings().InferenceDevice;
-            ((AutoThrowSettings)_settings).DetectionIntervalMs = _store.GetShellSettings().DetectionIntervalMs;
-            if (_taskHost.TryStart(_tool, _settings))
-            {
-                if (!_capture.IsRunning)
-                {
-                    var title = ((AutoThrowSettings)_settings).WindowTitleSubstring;
-                    _ = _capture.StartAsync(title);
-                }
-            }
-            else
-            {
-                _updating = true;
-                AutoThrowToggle.IsChecked = false;
-                _updating = false;
-            }
-        }
-        else
+        if (_taskHost.Current is not null)
         {
             _taskHost.RequestStop();
+            return;
+        }
+
+        ((AutoThrowSettings)_settings).InferenceDevice = _store.GetShellSettings().InferenceDevice;
+        ((AutoThrowSettings)_settings).DetectionIntervalMs = _store.GetShellSettings().DetectionIntervalMs;
+        if (_taskHost.TryStart(_tool, _settings))
+        {
+            if (!_capture.IsRunning)
+            {
+                var title = ((AutoThrowSettings)_settings).WindowTitleSubstring;
+                _ = _capture.StartAsync(title);
+            }
         }
     }
 
-    private void OnStateChanged() => Dispatcher.InvokeAsync(RefreshToggle);
+    private void OnStateChanged() => Dispatcher.InvokeAsync(() =>
+    {
+        Observe(_taskHost.Current);
+        RefreshToggle();
+    });
+
+    private void Observe(IRunningTask? task)
+    {
+        if (ReferenceEquals(_observed, task)) return;
+        if (_observed is not null)
+        {
+            _observed.EventRaised -= OnToolEvent;
+        }
+
+        _observed = task;
+        if (task is not null)
+        {
+            task.EventRaised += OnToolEvent;
+        }
+        else
+        {
+            StatusText.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void OnToolEvent(object? sender, ToolEvent toolEvent) => Dispatcher.InvokeAsync(() =>
+    {
+        switch (toolEvent.Name)
+        {
+            case "arming_step":
+                StatusText.Text = "自检中（" + toolEvent.Data?["step"] + "）：" + toolEvent.Data?["hint"];
+                StatusText.Visibility = Visibility.Visible;
+                break;
+            case "arming_failed":
+                StatusText.Text = "启动失败（" + toolEvent.Data?["step"] + "）：" + toolEvent.Data?["error"] + "。" + toolEvent.Data?["remedy"];
+                StatusText.Visibility = Visibility.Visible;
+                break;
+        }
+    });
 
     private void RefreshToggle()
     {
-        _updating = true;
-        AutoThrowToggle.IsChecked = _taskHost.Current is not null;
-        _updating = false;
+        if (_taskHost.Current is not null)
+        {
+            AutoThrowButton.Content = "停止";
+            AutoThrowButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Dismiss24 };
+        }
+        else
+        {
+            AutoThrowButton.Content = "启动";
+            AutoThrowButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Play24 };
+        }
     }
 
     private void Persist()
@@ -102,6 +141,9 @@ public partial class RealtimePage : Page
 
         CalibrateButton.IsEnabled = false;
         CalibrationHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
+
+        // 校准前自动聚焦游戏窗口
+        RocoPilot.Capture.WindowFinder.ActivateGameWindow();
 
         try
         {

@@ -61,6 +61,9 @@ public partial class SettingsPage : Page
         CalibrateButton.IsEnabled = false;
         CalibrateHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
 
+        // 校准前自动聚焦游戏窗口
+        RocoPilot.Capture.WindowFinder.ActivateGameWindow();
+
         try
         {
             var ppc = await Task.Run(() =>

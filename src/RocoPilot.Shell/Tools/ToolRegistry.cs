@@ -1,4 +1,5 @@
 using RocoPilot.Core;
+using RocoPilot.Settings;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
@@ -7,9 +8,9 @@ namespace RocoPilot.Shell.Tools;
 
 internal static class ToolRegistry
 {
-    public static IReadOnlyList<ITool> CreateTools(CaptureHost captureHost) =>
+    public static IReadOnlyList<ITool> CreateTools(CaptureHost captureHost, ISettingsStore store) =>
     [
-        new AutoThrowTool(() => captureHost.CurrentSource),
+        new AutoThrowTool(() => captureHost.CurrentSource, store),
     ];
 
     public static Type PageTypeOf(ITool tool) => tool switch

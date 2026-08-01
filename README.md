@@ -25,7 +25,7 @@ RocoPilot 是一个 Windows 工具箱，外壳托管多个可插拔工具。当�
   sc query interception
   ```
   
-## 致谢
+## 感谢
 
 - [BetterGI](https://github.com/babalae/better-genshin-impact)：界面布局与交互范式的参考来源。
 - [Interception](https://github.com/oblitum/Interception)：设备栈级输入模拟驱动。

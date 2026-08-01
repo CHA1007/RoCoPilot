@@ -17,11 +17,12 @@
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                           Text="自动识别精灵并进行捕捉操作" />
           </StackPanel>
-          <ui:ToggleSwitch x:Name="AutoThrowToggle"
-                           Grid.Column="1"
-                           Margin="0,0,16,0"
-                           Checked="OnAutoThrowToggled"
-                           Unchecked="OnAutoThrowToggled" />
+          <ui:Button x:Name="AutoThrowButton"
+                     Grid.Column="1"
+                     Margin="0,0,16,0"
+                     Content="启动"
+                     Icon="{ui:SymbolIcon Play24}"
+                     Click="OnAutoThrowClick" />
         </Grid>
       </ui:CardExpander.Header>
       <StackPanel>
@@ -45,6 +46,11 @@
         </Border>
 
         <ContentControl x:Name="ConfigHost" Margin="16" />
+
+        <!-- Arming 进度 / 失败提示 -->
+        <ui:TextBlock x:Name="StatusText" Margin="16,0,16,16" FontTypography="Caption"
+                      Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                      TextWrapping="Wrap" Visibility="Collapsed" />
       </StackPanel>
     </ui:CardExpander>
   </StackPanel>

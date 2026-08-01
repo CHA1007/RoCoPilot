@@ -20,8 +20,8 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
     private ICatchPipeline? _pipeline;
     private Thread? _focusWatcher;
 
-    public AutoThrowRunningTask(AutoThrowSettings settings, ICaptureSource captureSource)
-        : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings)), captureSource))
+    public AutoThrowRunningTask(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
+        : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings)), captureSource, store))
     {
     }
 
@@ -159,15 +159,13 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
 
     public void Dispose() => _cts?.Dispose();
 
-    private static ICatchPipeline CreatePipeline(AutoThrowSettings settings, ICaptureSource captureSource)
+    private static ICatchPipeline CreatePipeline(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
     {
         LogRetention.PruneSessions(RocoPaths.LogsRoot);
         var sessionDir = Path.Combine(RocoPaths.LogsRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 
         // 视角灵敏度以全局设置（ShellSettings）为准
-        var shellStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
-        shellStore.Load();
-        var shell = shellStore.GetShellSettings();
+        var shell = store.GetShellSettings();
 
         var spec = settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir, ExistingSource = captureSource };
         var centering = spec.Centering;
@@ -184,7 +182,19 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
             PpcY = shell.SensitivityPpcY,
         };
 
-        return new CatchPipeline(spec with { Centering = centering, Loop = loop });
+        return new CatchPipeline(spec with
+        {
+            Centering = centering,
+            Loop = loop,
+            OnCalibrated = (ppcX, ppcY) =>
+            {
+                var current = store.GetShellSettings();
+                current.SensitivityPpcX = Math.Round(ppcX, 3);
+                current.SensitivityPpcY = Math.Round(ppcY, 3);
+                store.SetShellSettings(current);
+                store.Save();
+            },
+        });
     }
 
     private async Task RunWorkerAsync(CancellationToken ct)

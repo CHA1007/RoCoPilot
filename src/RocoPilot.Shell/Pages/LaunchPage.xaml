@@ -15,13 +15,14 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="截图器" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="开启后在游戏窗口上显示覆盖层并实时截图" />
+                          Text="截图器启动后才能使用自动丢球等功能，点击展开启动相关配置" />
           </StackPanel>
-          <ui:ToggleSwitch x:Name="CaptureToggle"
-                           Grid.Column="1"
-                           Margin="0,0,16,0"
-                           Checked="OnCaptureToggled"
-                           Unchecked="OnCaptureToggled" />
+          <ui:Button x:Name="CaptureButton"
+                     Grid.Column="1"
+                     Margin="0,0,16,0"
+                     Content="启动"
+                     Icon="{ui:SymbolIcon Play24}"
+                     Click="OnCaptureClick" />
         </Grid>
       </ui:CardExpander.Header>
       <StackPanel>
@@ -46,9 +47,9 @@
                     Grid.Column="1"
                     Width="260"
                     SelectionChanged="OnBackendChanged">
+            <ComboBoxItem Content="BitBlt" />
             <ComboBoxItem Content="WindowsGraphicsCapture" />
             <ComboBoxItem Content="WindowsGraphicsCapture (HDR)" />
-            <ComboBoxItem Content="BitBlt (默认)" />
             <ComboBoxItem Content="DwmGetDxSharedSurface" />
           </ComboBox>
         </Grid>
@@ -78,7 +79,7 @@
           </ComboBox>
         </Grid>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
+        <Grid Margin="16,16,16,16">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

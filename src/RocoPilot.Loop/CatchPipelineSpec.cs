@@ -33,6 +33,9 @@ public sealed record CatchPipelineSpec
 
     /// <summary>投掷前是否执行场景位移法灵敏度校准。</summary>
     public bool CalibrateBeforeThrow { get; init; } = true;
+
+    /// <summary>校准成功后的回调（ppcX, ppcY），用于持久化。</summary>
+    public Action<double, double>? OnCalibrated { get; init; }
 }
 
 public sealed record CatchPipelineFactories

@@ -4,6 +4,7 @@ using RocoPilot.Capture;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
+using Wpf.Ui.Controls;
 
 namespace RocoPilot.Shell.Pages;
 
@@ -19,7 +20,6 @@ public partial class LaunchPage : Page
 
     private readonly ISettingsStore _store;
     private readonly CaptureHost _capture;
-    private bool _updating;
 
     public LaunchPage(ISettingsStore store, CaptureHost capture)
     {
@@ -35,27 +35,26 @@ public partial class LaunchPage : Page
         Loaded += (_, _) =>
         {
             _capture.Changed += OnStateChanged;
-            RefreshToggle();
+            RefreshButton();
         };
         Unloaded += (_, _) => _capture.Changed -= OnStateChanged;
     }
 
-    private void OnCaptureToggled(object sender, RoutedEventArgs e)
+    private void OnCaptureClick(object sender, RoutedEventArgs e)
     {
-        if (_updating) return;
-        if (CaptureToggle.IsChecked == true)
+        if (_capture.IsRunning)
         {
-            _ = StartCaptureAsync();
+            _capture.Stop();
         }
         else
         {
-            _capture.Stop();
+            _ = StartCaptureAsync();
         }
     }
 
     private void OnBackendChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_updating || BackendCombo.SelectedIndex < 0) return;
+        if (BackendCombo.SelectedIndex < 0) return;
         var shell = _store.GetShellSettings();
         shell.CaptureBackend = s_backends[BackendCombo.SelectedIndex].Key;
         _store.SetShellSettings(shell);
@@ -64,7 +63,7 @@ public partial class LaunchPage : Page
 
     private void OnDeviceChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_updating || DeviceCombo.SelectedIndex < 0) return;
+        if (DeviceCombo.SelectedIndex < 0) return;
         var shell = _store.GetShellSettings();
         shell.InferenceDevice = DeviceCombo.SelectedIndex == 1 ? "gpu" : "cpu";
         _store.SetShellSettings(shell);
@@ -73,7 +72,6 @@ public partial class LaunchPage : Page
 
     private void OnIntervalChanged(object sender, RoutedEventArgs e)
     {
-        if (_updating) return;
         var shell = _store.GetShellSettings();
         shell.DetectionIntervalMs = (int)Math.Clamp(IntervalBox.Value ?? 0, 0, 5000);
         _store.SetShellSettings(shell);
@@ -88,21 +86,23 @@ public partial class LaunchPage : Page
         var backend = s_backends[Math.Max(0, BackendCombo.SelectedIndex)].Mode;
         if (!await _capture.StartAsync(title, backend))
         {
-            _ = Dispatcher.InvokeAsync(() =>
-            {
-                _updating = true;
-                CaptureToggle.IsChecked = false;
-                _updating = false;
-            });
+            _ = Dispatcher.InvokeAsync(RefreshButton);
         }
     }
 
-    private void OnStateChanged() => Dispatcher.InvokeAsync(RefreshToggle);
+    private void OnStateChanged() => Dispatcher.InvokeAsync(RefreshButton);
 
-    private void RefreshToggle()
+    private void RefreshButton()
     {
-        _updating = true;
-        CaptureToggle.IsChecked = _capture.IsRunning;
-        _updating = false;
+        if (_capture.IsRunning)
+        {
+            CaptureButton.Content = "停止";
+            CaptureButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Dismiss24 };
+        }
+        else
+        {
+            CaptureButton.Content = "启动";
+            CaptureButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Play24 };
+        }
     }
 }

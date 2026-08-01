@@ -19,7 +19,7 @@ public sealed class AutoThrowSettings
 
     public int DetectionStableFrames { get; set; } = 4;
 
-    public string[] DetectionWhitelist { get; set; } = ["yaxiaxuexiong", "emolang"];
+    public string[] DetectionWhitelist { get; set; } = [];
 
     public double CenterTolerancePx { get; set; } = 20;
 

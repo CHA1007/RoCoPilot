@@ -41,13 +41,14 @@ public partial class App : Application
     {
         services.AddNavigationViewPageProvider();
 
-        services.AddSingleton<ISettingsStore>(new JsonSettingsStore(RocoPaths.SettingsFilePath));
+        var settingsStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
+        services.AddSingleton<ISettingsStore>(settingsStore);
         services.AddSingleton<RunningTaskHost>();
         var captureHost = new CaptureHost();
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
 
-        foreach (var tool in ToolRegistry.CreateTools(captureHost))
+        foreach (var tool in ToolRegistry.CreateTools(captureHost, settingsStore))
         {
             services.AddSingleton(tool.GetType(), tool);
             services.AddTransient(ToolRegistry.PageTypeOf(tool));
@@ -78,7 +79,7 @@ public partial class App : Application
     {
         store.SetShellSettings(store.GetShellSettings());
         var captureHost = _services!.GetRequiredService<CaptureHost>();
-        foreach (var tool in ToolRegistry.CreateTools(captureHost))
+        foreach (var tool in ToolRegistry.CreateTools(captureHost, store))
         {
             var settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
             store.SetToolSettings(tool.Id, settings);

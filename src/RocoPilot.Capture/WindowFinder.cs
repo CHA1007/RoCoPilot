@@ -97,4 +97,14 @@ public static class WindowFinder
 
     /// <summary>游戏进程名（固定值，不可配置）。</summary>
     public const string GameProcessName = "NRC-Win64-Shipping";
+
+    /// <summary>查找并激活游戏窗口，找不到则静默跳过。</summary>
+    public static void ActivateGameWindow()
+    {
+        var hwnd = FindByProcessName(GameProcessName);
+        if (hwnd != IntPtr.Zero)
+        {
+            ActivateWindow(hwnd);
+        }
+    }
 }

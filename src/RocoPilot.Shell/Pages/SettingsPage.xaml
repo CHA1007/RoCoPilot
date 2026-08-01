@@ -3,7 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="720" HorizontalAlignment="Left">
+  <StackPanel Margin="{StaticResource PagePadding}">
 
       <ui:CardControl>
         <ui:CardControl.Header>
