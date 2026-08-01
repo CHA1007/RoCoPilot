@@ -51,20 +51,6 @@ public sealed class RunningTaskHost
 
     public void RequestStop() => Current?.RequestStop();
 
-    public void TogglePauseResume(string source = "f12")
-    {
-        var current = Current;
-        switch (current?.State)
-        {
-            case TaskState.Running:
-                current.RequestPause(source);
-                break;
-            case TaskState.Paused:
-                current.RequestResume(source);
-                break;
-        }
-    }
-
     private void OnTaskStopped(IRunningTask task)
     {
         lock (_gate)

@@ -27,13 +27,9 @@ public partial class SettingsPage : Page
         ThemeCombo.SelectedIndex = (int)shell.Theme;
         _suppressThemeEvent = false;
 
-        HotkeyText.Text = shell.TakeoverHotkey;
-        PathsText.Text = $"设置：{store.FilePath}\n派生缓存：{RocoPaths.CacheDirectory}";
         DebugOverlayToggle.IsChecked = shell.DebugOverlay;
         SensitivityPpcXBox.Value = shell.SensitivityPpcX;
         SensitivityPpcYBox.Value = shell.SensitivityPpcY;
-        FallbackDivisorBox.Value = shell.TurnFallbackDivisor;
-        AimOffsetYBox.Value = shell.AimOffsetY;
     }
 
     private void OnDebugOverlayChanged(object sender, RoutedEventArgs e)
@@ -49,8 +45,6 @@ public partial class SettingsPage : Page
         var shell = _store.GetShellSettings();
         shell.SensitivityPpcX = SensitivityPpcXBox.Value ?? 0;
         shell.SensitivityPpcY = SensitivityPpcYBox.Value ?? 0;
-        shell.TurnFallbackDivisor = FallbackDivisorBox.Value ?? 4;
-        shell.AimOffsetY = AimOffsetYBox.Value ?? -0.15;
         _store.SetShellSettings(shell);
         _store.Save();
     }

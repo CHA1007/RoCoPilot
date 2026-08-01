@@ -18,6 +18,9 @@ public interface ICatchPipeline : IDisposable
     /// <summary>检测帧尺寸（坐标映射用）。</summary>
     (int Width, int Height) SensorFrameSize { get; }
 
+    /// <summary>当前投掷目标 TrackId（-1＝无），调试叠层换色用。</summary>
+    int ActiveTrackId { get; }
+
     void Run(CancellationToken cancellationToken);
 
     bool Pause(string source = "manual");

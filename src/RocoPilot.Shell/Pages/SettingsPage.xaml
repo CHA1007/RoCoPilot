@@ -5,7 +5,7 @@
 
   <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="720" HorizontalAlignment="Left">
 
-      <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl>
         <ui:CardControl.Header>
           <Grid>
             <Grid.RowDefinitions>
@@ -24,47 +24,6 @@
           <ComboBoxItem Content="浅色" />
           <ComboBoxItem Content="深色" />
         </ComboBox>
-      </ui:CardControl>
-
-      <ui:CardControl Margin="0,0,0,12">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="接管热键" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="随时暂停 / 恢复自动丢球，固定 F12" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:TextBlock x:Name="HotkeyText"
-                      FontTypography="BodyStrong"
-                      VerticalAlignment="Center"
-                      Text="F12" />
-      </ui:CardControl>
-
-      <ui:CardControl>
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="存储位置" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="设置与运行日志的存放位置" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:TextBlock x:Name="PathsText"
-                      FontTypography="Caption"
-                      VerticalAlignment="Center"
-                      TextWrapping="Wrap"
-                      MaxWidth="380" />
       </ui:CardControl>
 
       <ui:CardControl Margin="0,12,0,0">
@@ -128,54 +87,6 @@
                       Maximum="100"
                       SmallChange="0.1"
                       MaxDecimalPlaces="3"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
-
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="转向回退除数" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="灵敏度为 0 时按此值估算转向，值越小转向越多" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="FallbackDivisorBox"
-                      Width="140"
-                      Minimum="1"
-                      Maximum="50"
-                      SmallChange="0.5"
-                      MaxDecimalPlaces="1"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
-
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直瞄准偏移" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="瞄准点相对精灵框的上下偏移，负值朝上" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="AimOffsetYBox"
-                      Width="140"
-                      Minimum="-0.5"
-                      Maximum="0.5"
-                      SmallChange="0.05"
-                      MaxDecimalPlaces="2"
                       ValidationMode="InvalidInputOverwritten"
                       ValueChanged="OnSensitivityChanged" />
       </ui:CardControl>

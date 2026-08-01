@@ -56,6 +56,8 @@ public sealed class CatchPipeline : ICatchPipeline
     public (int Width, int Height) SensorFrameSize =>
         _sensor?.LatestFrameSize ?? (0, 0);
 
+    public int ActiveTrackId => _engine?.ActiveTrackId ?? -1;
+
     public void Run(CancellationToken cancellationToken) =>
         (_engine ?? throw new InvalidOperationException("Run 须先完成 Arming")).Run(cancellationToken);
 

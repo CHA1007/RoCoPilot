@@ -20,14 +20,62 @@ public partial class AutoThrowConfigPanel : UserControl
         _settings.SanitizeInPlace();
         DataContext = _settings;
         RebuildWhitelistRows();
-        Loaded += (_, _) => _ready = true;
+        Loaded += OnLoaded;
     }
 
-    private void OnSourceUpdated(object? sender, System.Windows.Data.DataTransferEventArgs e)
+    // NumberBox 内部用 SetCurrentValue 更新 DP，不触发绑定 UpdateSource，
+    // 导致 Binding.SourceUpdated 永远不冒泡（WPF-UI 4.3.0 已知行为）。
+    // 改为订阅 ValueChanged 路由事件，手动 UpdateSource 后提交持久化。
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _ready = true;
+        foreach (var box in FindAllChildren<Wpf.Ui.Controls.NumberBox>(this))
+        {
+            box.ValueChanged += OnNumberBoxValueChanged;
+        }
+
+        foreach (var toggle in FindAllChildren<Wpf.Ui.Controls.ToggleSwitch>(this))
+        {
+            toggle.Checked += OnToggleChanged;
+            toggle.Unchecked += OnToggleChanged;
+        }
+    }
+
+    private void OnNumberBoxValueChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || sender is not Wpf.Ui.Controls.NumberBox box)
+        {
+            return;
+        }
+
+        // SetCurrentValue 只改 DP 不推源，手动刷绑定
+        box.GetBindingExpression(Wpf.Ui.Controls.NumberBox.ValueProperty)?.UpdateSource();
+        Commit();
+    }
+
+    private void OnToggleChanged(object sender, RoutedEventArgs e)
     {
         if (_ready)
         {
             Commit();
+        }
+    }
+
+    private static IEnumerable<T> FindAllChildren<T>(DependencyObject parent) where T : DependencyObject
+    {
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in FindAllChildren<T>(child))
+            {
+                yield return descendant;
+            }
         }
     }
 

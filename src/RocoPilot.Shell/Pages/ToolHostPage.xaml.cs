@@ -26,7 +26,7 @@ public partial class ToolHostPage : Page
         _settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
 
         TitleText.Text = tool.DisplayName;
-        SubtitleText.Text = "切出游戏自动暂停，切回自动继续；F12 随时接管鼠标。";
+        SubtitleText.Text = "切出游戏自动暂停，切回自动继续。";
         ConfigPanelHost.Content = tool.CreateConfigPanel(_settings, Persist);
 
         Loaded += (_, _) =>

@@ -22,7 +22,6 @@ public partial class MainWindow : FluentWindow
     private readonly RunningTaskHost _taskHost;
     private readonly OverlayController _overlay;
     private readonly CaptureHost _capture;
-    private HwndSource? _hwndSource;
 
     public MainWindow(
         INavigationViewPageProvider pageProvider,
@@ -64,25 +63,7 @@ public partial class MainWindow : FluentWindow
 
 
 
-        SourceInitialized += (_, _) =>
-        {
-            _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
-            _hwndSource?.AddHook(WndProc);
-            if (_hwndSource is null ||
-                !GlobalHotkey.RegisterHotKey(_hwndSource.Handle, GlobalHotkey.IdPauseToggle, fsModifiers: 0, GlobalHotkey.VkF12))
-            {
-                System.Diagnostics.Trace.TraceWarning("F12 全局热键注册失败（被其他程序占用？暂停 / 恢复将只有外壳按钮可用）");
-            }
-        };
-        Closed += (_, _) =>
-        {
-            _overlay.Shutdown();
-            if (_hwndSource is not null)
-            {
-                GlobalHotkey.UnregisterHotKey(_hwndSource.Handle, GlobalHotkey.IdPauseToggle);
-                _hwndSource.RemoveHook(WndProc);
-            }
-        };
+        Closed += (_, _) => _overlay.Shutdown();
 
         _overlay.Start();
     }
@@ -137,14 +118,4 @@ public partial class MainWindow : FluentWindow
         Activate();
     }
 
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == GlobalHotkey.WmHotKey && wParam.ToInt32() == GlobalHotkey.IdPauseToggle)
-        {
-            _taskHost.TogglePauseResume();
-            handled = true;
-        }
-
-        return IntPtr.Zero;
-    }
 }

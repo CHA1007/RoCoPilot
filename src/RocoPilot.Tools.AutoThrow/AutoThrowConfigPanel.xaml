@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Binding.SourceUpdated="OnSourceUpdated">
+  <StackPanel>
 
     <ui:CardControl Margin="0,0,0,12" VerticalContentAlignment="Top" Padding="16,12">
       <ui:CardControl.Header>
@@ -48,7 +48,7 @@
                     SmallChange="0.05"
                     MaxDecimalPlaces="2"
                     ValidationMode="InvalidInputOverwritten"
-                    Value="{Binding DetectionConfidence, NotifyOnSourceUpdated=True}" />
+                    Value="{Binding DetectionConfidence}" />
     </ui:CardControl>
 
     <ui:CardControl Margin="0,0,0,12">
@@ -71,7 +71,7 @@
                     SmallChange="10"
                     MaxDecimalPlaces="0"
                     ValidationMode="InvalidInputOverwritten"
-                    Value="{Binding ChargeMs, NotifyOnSourceUpdated=True}" />
+                    Value="{Binding ChargeMs}" />
     </ui:CardControl>
 
     <ui:CardControl Margin="0,0,0,12">
@@ -88,7 +88,7 @@
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
-      <ui:ToggleSwitch IsChecked="{Binding CalibrateBeforeThrow, NotifyOnSourceUpdated=True}" />
+      <ui:ToggleSwitch IsChecked="{Binding CalibrateBeforeThrow}" />
     </ui:CardControl>
 
   </StackPanel>

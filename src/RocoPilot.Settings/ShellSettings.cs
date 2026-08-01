@@ -15,8 +15,6 @@ public sealed class ShellSettings
 
     public string AccentColor { get; set; } = "#0078D4";
 
-    public string TakeoverHotkey { get; set; } = "F12";
-
     public bool DeveloperMode { get; set; } = false;
 
     public string CaptureBackend { get; set; } = "bitblt";

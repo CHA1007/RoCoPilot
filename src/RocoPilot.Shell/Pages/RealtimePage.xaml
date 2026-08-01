@@ -26,6 +26,24 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+
+        <!-- 灵敏度未校准提醒 -->
+        <Border x:Name="CalibrationBanner" Margin="16,12,16,0" Padding="12,8" CornerRadius="4"
+                Visibility="Collapsed"
+                Background="{ui:ThemeResource SystemFillColorCautionBackgroundBrush}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ui:TextBlock x:Name="CalibrationHint" Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
+                          Foreground="{ui:ThemeResource SystemFillColorCautionBrush}"
+                          Text="尚未校准转向灵敏度，投掷方向可能偏移。请先开启截图，再点击右侧校准。" />
+            <ui:Button x:Name="CalibrateButton" Grid.Column="1" Margin="12,0,0,0"
+                       Content="校准" VerticalAlignment="Center" Click="OnCalibrateClick" />
+          </Grid>
+        </Border>
+
         <ContentControl x:Name="ConfigHost" Margin="16" />
       </StackPanel>
     </ui:CardExpander>

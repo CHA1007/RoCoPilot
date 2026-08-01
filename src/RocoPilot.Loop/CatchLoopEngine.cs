@@ -36,6 +36,7 @@ public sealed class CatchLoopEngine : IDisposable
     private long _lastSettleMs;
     private bool _stallAlerted;
     private int _seq;
+    private int _activeTrackId = -1;
 
     public CatchLoopEngine(
         CatchLoopOptions options,
@@ -75,6 +76,9 @@ public sealed class CatchLoopEngine : IDisposable
     public CatchLoopMode Mode => _mode;
 
     public CatchEventBus Bus => _bus;
+
+    /// <summary>当前投掷目标的 TrackId（-1＝无），调试叠层换色用。</summary>
+    public int ActiveTrackId => Volatile.Read(ref _activeTrackId);
 
     public bool Pause(string source = "manual")
     {
@@ -161,6 +165,7 @@ public sealed class CatchLoopEngine : IDisposable
                 }
 
                 stats.Attempts++;
+                Volatile.Write(ref _activeTrackId, pick.TrackId);
                 EmitTargetAcquired(stats.Attempts, pick, centerX, centerY);
 
                 // 计算偏移与转向指令（票 14 后续：垂直瞄准偏移补偿框中心偏下）
@@ -263,6 +268,7 @@ public sealed class CatchLoopEngine : IDisposable
                     TryOnlineCalibration(offsetX, offsetY, pick, recheck, usedPpc);
                 }
 
+                Volatile.Write(ref _activeTrackId, -1);
                 SleepInterruptible(NextPostSettleDelayMs(), cancellationToken);
             }
 

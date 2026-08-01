@@ -12,7 +12,7 @@ public sealed class StabilityGate
 
     public StabilityGate(int stableFrames = 4, double spreadTolerancePx = 300, double associationRadiusPx = 300)
     {
-        _stableFrames = Math.Max(2, stableFrames);
+        _stableFrames = Math.Max(1, stableFrames);
         if (spreadTolerancePx <= 0 || double.IsNaN(spreadTolerancePx) || double.IsInfinity(spreadTolerancePx))
             throw new ArgumentException($"展幅容差须为正有限数，实得 {spreadTolerancePx}", nameof(spreadTolerancePx));
         if (associationRadiusPx <= 0 || double.IsNaN(associationRadiusPx) || double.IsInfinity(associationRadiusPx))

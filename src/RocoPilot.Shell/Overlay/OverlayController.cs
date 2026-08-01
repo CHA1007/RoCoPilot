@@ -272,7 +272,8 @@ public sealed class OverlayController
 
         var targets = pipeline.ObserveDetections();
         var frameSize = pipeline.SensorFrameSize;
-        _debugWindow!.Render(targets, frameSize.Width, frameSize.Height);
+        var activeTrack = pipeline.ActiveTrackId;
+        _debugWindow!.Render(targets, frameSize.Width, frameSize.Height, activeTrack);
 
         if (!_debugWindow.IsVisible)
         {

@@ -2,7 +2,7 @@ namespace RocoPilot.Detection;
 
 public sealed record DetectionOptions
 {
-    public double ConfidenceThreshold { get; init; } = 0.25;
+    public double ConfidenceThreshold { get; init; } = 0.10;
 
     public double IouThreshold { get; init; } =0.7;
 
@@ -30,7 +30,7 @@ public sealed record DetectionOptions
             MaxBoxes = MaxBoxes > 0
                 ? MaxBoxes
                 : throw new DetectionException($"截顶框数须为正，实得 {MaxBoxes}"),
-            StableFrames = Math.Max(2, StableFrames),
+            StableFrames = Math.Max(1, StableFrames),
             StabilitySpreadPx = StabilitySpreadPx > 0
                 ? StabilitySpreadPx
                 : throw new DetectionException($"稳定散布容差须为正，实得 {StabilitySpreadPx}"),
