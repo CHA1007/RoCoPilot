@@ -17,6 +17,7 @@ public sealed class OverlayProjection
     private bool _stallAlerted;
     private long _stallRaisedMs;
     private int _stallSinceSeconds;
+    private string? _scene;
 
     public OverlayProjection(Func<long>? nowMs = null, long stallBannerMs = DefaultStallBannerMs)
     {
@@ -84,6 +85,10 @@ public sealed class OverlayProjection
                     _stallSinceSeconds = toolEvent.Data?.GetValueOrDefault("since_settle_s") is int s ? s : 0;
                     break;
 
+                case "scene_changed":
+                    _scene = toolEvent.Data?.GetValueOrDefault("to") as string;
+                    break;
+
                 case "session_stop":
                     _phase = null;
                     break;
@@ -100,7 +105,7 @@ public sealed class OverlayProjection
             string? banner = _stallAlerted && now - _stallRaisedMs <= _stallBannerMs
                 ? StallBannerText(_stallSinceSeconds)
                 : null;
-            return new OverlaySnapshot(_state, _throws, banner, _captureRunning, _phase);
+            return new OverlaySnapshot(_state, _throws, banner, _captureRunning, _phase, _scene);
         }
     }
 

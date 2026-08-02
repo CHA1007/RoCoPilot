@@ -1,12 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
+using RocoPilot.Capture;
 using RocoPilot.Core;
-using RocoPilot.Input.Interception;
-using RocoPilot.Loop;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
-using Wpf.Ui.Controls;
 
 namespace RocoPilot.Shell.Pages;
 
@@ -14,113 +12,83 @@ public partial class RealtimePage : Page
 {
     private readonly AutoThrowTool _tool;
     private readonly ISettingsStore _store;
-    private readonly RunningTaskHost _taskHost;
     private readonly CaptureHost _capture;
-    private readonly object _settings;
-    private IRunningTask? _observed;
+    private readonly DispatcherHost _dispatcher;
+    private readonly object _throwSettings;
+    private bool _ready;
 
-    public RealtimePage(AutoThrowTool tool, ISettingsStore store, RunningTaskHost taskHost, CaptureHost capture)
+    public RealtimePage(AutoThrowTool tool, ISettingsStore store, CaptureHost capture, DispatcherHost dispatcher)
     {
         InitializeComponent();
 
         _tool = tool;
         _store = store;
-        _taskHost = taskHost;
         _capture = capture;
-        _settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
-        ConfigHost.Content = tool.CreateConfigPanel(_settings, Persist);
+        _dispatcher = dispatcher;
+        _throwSettings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
+
+        ConfigHost.Content = tool.CreateConfigPanel(_throwSettings, PersistThrow);
+
+        var battleSettings = store.GetToolSettings(
+            "auto-battle", typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
+            () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings;
+        SkillSlotCombo.SelectedIndex = Math.Clamp((battleSettings?.SkillSlot ?? 1) - 1, 0, 3);
+
+        AutoThrowToggle.IsChecked = _dispatcher.AutoThrowEnabled;
+        AutoBattleToggle.IsChecked = _dispatcher.AutoBattleEnabled;
 
         Loaded += (_, _) =>
         {
-            _taskHost.Changed += OnStateChanged;
-            RefreshToggle();
+            _ready = true;
+            _dispatcher.EventRaised += OnDispatcherEvent;
             RefreshCalibrationBanner();
         };
-        Unloaded += (_, _) => _taskHost.Changed -= OnStateChanged;
+        Unloaded += (_, _) => _dispatcher.EventRaised -= OnDispatcherEvent;
     }
 
-    private void OnAutoThrowClick(object sender, RoutedEventArgs e)
+    private void OnToggleChanged(object sender, RoutedEventArgs e)
     {
-        if (_taskHost.Current is not null)
-        {
-            _taskHost.RequestStop();
-            return;
-        }
-
-        // 总开关未开启时拦住子开关
-        if (!_capture.IsRunning)
-        {
-            StatusText.Text = "请先在「启动」页开启截图器，再启动自动丢球。";
-            StatusText.Visibility = Visibility.Visible;
-            return;
-        }
-
-        ((AutoThrowSettings)_settings).InferenceDevice = _store.GetShellSettings().InferenceDevice;
-        ((AutoThrowSettings)_settings).DetectionIntervalMs = _store.GetShellSettings().DetectionIntervalMs;
-        _taskHost.TryStart(_tool, _settings);
+        if (!_ready) return;
+        _dispatcher.AutoThrowEnabled = AutoThrowToggle.IsChecked == true;
+        _dispatcher.AutoBattleEnabled = AutoBattleToggle.IsChecked == true;
+        _dispatcher.SyncEnables();
     }
 
-    private void OnStateChanged() => Dispatcher.InvokeAsync(() =>
+    private void OnSkillSlotChanged(object sender, SelectionChangedEventArgs e)
     {
-        Observe(_taskHost.Current);
-        RefreshToggle();
-    });
-
-    private void Observe(IRunningTask? task)
-    {
-        if (ReferenceEquals(_observed, task)) return;
-        if (_observed is not null)
-        {
-            _observed.EventRaised -= OnToolEvent;
-        }
-
-        _observed = task;
-        if (task is not null)
-        {
-            task.EventRaised += OnToolEvent;
-        }
-        else
-        {
-            StatusText.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void OnToolEvent(object? sender, ToolEvent toolEvent) => Dispatcher.InvokeAsync(() =>
-    {
-        switch (toolEvent.Name)
-        {
-            case "arming_step":
-                StatusText.Text = "自检中（" + toolEvent.Data?["step"] + "）：" + toolEvent.Data?["hint"];
-                StatusText.Visibility = Visibility.Visible;
-                break;
-            case "arming_failed":
-                StatusText.Text = "启动失败（" + toolEvent.Data?["step"] + "）：" + toolEvent.Data?["error"] + "。" + toolEvent.Data?["remedy"];
-                StatusText.Visibility = Visibility.Visible;
-                break;
-        }
-    });
-
-    private void RefreshToggle()
-    {
-        if (_taskHost.Current is not null)
-        {
-            AutoThrowButton.Content = "停止";
-            AutoThrowButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Dismiss24 };
-        }
-        else
-        {
-            AutoThrowButton.Content = "启动";
-            AutoThrowButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Play24 };
-        }
-    }
-
-    private void Persist()
-    {
-        _store.SetToolSettings(_tool.Id, _settings);
+        if (SkillSlotCombo.SelectedIndex < 0) return;
+        var settings = _store.GetToolSettings(
+            "auto-battle", typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
+            () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings
+                       ?? new RocoPilot.Tools.AutoBattle.AutoBattleSettings();
+        settings.SkillSlot = SkillSlotCombo.SelectedIndex + 1;
+        _store.SetToolSettings("auto-battle", settings);
         _store.Save();
     }
 
-    // ── 灵敏度校准提醒 ──
+    private void OnDispatcherEvent(object? sender, ToolEvent toolEvent) => Dispatcher.InvokeAsync(() =>
+    {
+        switch (toolEvent.Name)
+        {
+            case "arming_failed":
+                StatusText.Text = "启动失败：" + toolEvent.Data?["error"] + "。" + toolEvent.Data?["remedy"];
+                StatusText.Visibility = Visibility.Visible;
+                break;
+
+            case "fault":
+                StatusText.Text = "异常：" + toolEvent.Data?["error"];
+                StatusText.Visibility = Visibility.Visible;
+                break;
+        }
+    });
+
+    private void PersistThrow()
+    {
+        _store.SetToolSettings(_tool.Id, _throwSettings);
+        _store.Save();
+    }
+
+    // ── 灵敏度校准 ──
 
     private void RefreshCalibrationBanner()
     {
@@ -143,16 +111,15 @@ public partial class RealtimePage : Page
         CalibrateButton.IsEnabled = false;
         CalibrationHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
 
-        // 校准前自动聚焦游戏窗口
-        RocoPilot.Capture.WindowFinder.ActivateGameWindow();
+        WindowFinder.ActivateGameWindow();
 
         try
         {
             var ppc = await Task.Run(() =>
             {
-                using var driver = new InterceptionDriver();
+                using var driver = new RocoPilot.Input.Interception.InterceptionDriver();
                 driver.Arm(TimeSpan.FromSeconds(5));
-                return AutoCalibrator.Calibrate(source, driver);
+                return RocoPilot.Loop.AutoCalibrator.Calibrate(source, driver);
             });
 
             if (ppc is { } result)
@@ -167,7 +134,7 @@ public partial class RealtimePage : Page
             }
             else
             {
-                CalibrationHint.Text = "校准失败：未检测到足够的场景位移（场景纹理不足或镜头未转）";
+                CalibrationHint.Text = "校准失败：未检测到足够的场景位移";
             }
         }
         catch (Exception ex)

@@ -25,8 +25,13 @@ public sealed class RunningTaskHost
     public bool TryStart(ITool tool, object settings)
     {
         ArgumentNullException.ThrowIfNull(tool);
+        return TryStart(tool.Run(settings));
+    }
 
-        var task = tool.Run(settings);
+    public bool TryStart(IRunningTask task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
         lock (_gate)
         {
             if (_current is not null)
@@ -36,7 +41,6 @@ public sealed class RunningTaskHost
             }
 
             _current = task;
-            _active = new ActiveLaunch(tool, settings);
         }
 
         task.Start();

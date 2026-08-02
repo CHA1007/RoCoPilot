@@ -5,6 +5,7 @@
 
   <StackPanel Margin="32,24,32,40">
 
+    <!-- 自动丢球 -->
     <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
@@ -15,14 +16,10 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="自动丢球" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="自动识别精灵并进行捕捉操作" />
+                          Text="大世界场景下自动识别精灵并投球" />
           </StackPanel>
-          <ui:Button x:Name="AutoThrowButton"
-                     Grid.Column="1"
-                     Margin="0,0,16,0"
-                     Content="启动"
-                     Icon="{ui:SymbolIcon Play24}"
-                     Click="OnAutoThrowClick" />
+          <ui:ToggleSwitch x:Name="AutoThrowToggle" Grid.Column="1"
+                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
         </Grid>
       </ui:CardExpander.Header>
       <StackPanel>
@@ -46,12 +43,52 @@
         </Border>
 
         <ContentControl x:Name="ConfigHost" Margin="16" />
-
-        <!-- Arming 进度 / 失败提示 -->
-        <ui:TextBlock x:Name="StatusText" Margin="16,0,16,16" FontTypography="Caption"
-                      Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                      TextWrapping="Wrap" Visibility="Collapsed" />
       </StackPanel>
     </ui:CardExpander>
+
+    <!-- 自动战斗 -->
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Shield24}" Margin="0,12,0,0">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="自动战斗" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="战斗场景下自动释放技能" />
+          </StackPanel>
+          <ui:ToggleSwitch x:Name="AutoBattleToggle" Grid.Column="1"
+                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+        </Grid>
+      </ui:CardExpander.Header>
+      <StackPanel>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid Margin="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="技能槽位" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="战斗中按 R 打开技能面板后按对应数字键" />
+          </StackPanel>
+          <ComboBox x:Name="SkillSlotCombo" Grid.Column="1" Width="100"
+                    SelectionChanged="OnSkillSlotChanged">
+            <ComboBoxItem Content="1" />
+            <ComboBoxItem Content="2" />
+            <ComboBoxItem Content="3" />
+            <ComboBoxItem Content="4" />
+          </ComboBox>
+        </Grid>
+      </StackPanel>
+    </ui:CardExpander>
+
+    <!-- 状态提示 -->
+    <ui:TextBlock x:Name="StatusText" Margin="0,12,0,0" FontTypography="Caption"
+                  Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                  TextWrapping="Wrap" Visibility="Collapsed" />
   </StackPanel>
 </Page>

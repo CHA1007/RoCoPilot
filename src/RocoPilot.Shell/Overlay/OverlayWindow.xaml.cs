@@ -37,6 +37,12 @@ public partial class OverlayWindow : Window
 
         PhaseValue.Text = snapshot.Phase ?? "—";
         ThrowValue.Text = snapshot.Throws.ToString(CultureInfo.InvariantCulture);
+        SceneValue.Text = snapshot.Scene switch
+        {
+            "OpenWorld" => "大世界",
+            "Battle" => "战斗",
+            _ => "—",
+        };
 
         StallText.Text = snapshot.StallBanner;
         StallBanner.Visibility = snapshot.StallBanner is null ? Visibility.Collapsed : Visibility.Visible;

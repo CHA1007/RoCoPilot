@@ -11,4 +11,14 @@ internal static class User32
 
     public static ushort MapVirtualKeyToScan(ushort virtualKey) =>
         (ushort)MapVirtualKeyW(virtualKey, MapvkVkToVsc);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = false)]
+    public static extern bool GetCursorPos(out POINT lpPoint);
 }

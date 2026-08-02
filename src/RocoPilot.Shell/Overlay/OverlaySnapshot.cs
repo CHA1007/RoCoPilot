@@ -7,4 +7,5 @@ public sealed record OverlaySnapshot(
     int Throws,
     string? StallBanner,
     bool CaptureRunning = false,
-    string? Phase = null);
+    string? Phase = null,
+    string? Scene = null);

@@ -19,6 +19,7 @@ public sealed class OverlayController
     private readonly RunningTaskHost _host;
     private readonly CaptureHost _capture;
     private readonly ISettingsStore _store;
+    private readonly DispatcherHost _dispatcherHost;
     private readonly object _gate = new();
 
     private Dispatcher? _dispatcher;
@@ -29,11 +30,12 @@ public sealed class OverlayController
     private OverlayProjection _projection = new();
     private IRunningTask? _observed;
 
-    public OverlayController(RunningTaskHost host, CaptureHost capture, ISettingsStore store)
+    public OverlayController(RunningTaskHost host, CaptureHost capture, ISettingsStore store, DispatcherHost dispatcherHost)
     {
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _capture = capture ?? throw new ArgumentNullException(nameof(capture));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _dispatcherHost = dispatcherHost ?? throw new ArgumentNullException(nameof(dispatcherHost));
     }
 
     public void Start()
@@ -41,6 +43,7 @@ public sealed class OverlayController
         _dispatcher = Dispatcher.CurrentDispatcher;
         _host.Changed += OnHostChanged;
         _capture.Changed += OnCaptureChanged;
+        _dispatcherHost.EventRaised += OnDispatcherEvent;
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TickInterval };
         _timer.Tick += (_, _) => TrackAndRender();
         _timer.Start();
@@ -54,6 +57,7 @@ public sealed class OverlayController
     {
         _host.Changed -= OnHostChanged;
         _capture.Changed -= OnCaptureChanged;
+        _dispatcherHost.EventRaised -= OnDispatcherEvent;
         _timer?.Stop();
         _timer = null;
         _debugTimer?.Stop();
@@ -83,6 +87,18 @@ public sealed class OverlayController
 
             TrackAndRender();
         });
+    }
+
+    private void OnDispatcherEvent(object? sender, ToolEvent toolEvent)
+    {
+        OverlayProjection projection;
+        lock (_gate)
+        {
+            projection = _projection;
+        }
+
+        projection.ApplyEvent(toolEvent);
+        RenderNow();
     }
 
     private void SyncTask()
@@ -246,7 +262,7 @@ public sealed class OverlayController
             return;
         }
 
-        var pipeline = _host.Current?.DiagnosticsContext as ICatchPipeline;
+        var pipeline = _dispatcherHost.DiagnosticsContext as ICatchPipeline;
         if (pipeline is null)
         {
             if (_debugWindow?.IsVisible == true) _debugWindow.Hide();

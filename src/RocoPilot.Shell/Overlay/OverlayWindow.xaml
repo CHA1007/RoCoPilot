@@ -36,16 +36,21 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0">
+          <TextBlock Text="场景" FontSize="11" Foreground="#99FFFFFF" />
+          <TextBlock x:Name="SceneValue" Text="—" FontSize="15" FontWeight="SemiBold" Foreground="White" />
+        </StackPanel>
+        <StackPanel Grid.Column="1">
           <TextBlock Text="状态" FontSize="11" Foreground="#99FFFFFF" />
           <TextBlock x:Name="StateValue" Text="空闲" FontSize="15" FontWeight="SemiBold" Foreground="White" />
         </StackPanel>
-        <StackPanel Grid.Column="1">
+        <StackPanel Grid.Column="2">
           <TextBlock Text="阶段" FontSize="11" Foreground="#99FFFFFF" />
           <TextBlock x:Name="PhaseValue" Text="—" FontSize="15" FontWeight="SemiBold" Foreground="White" />
         </StackPanel>
-        <StackPanel Grid.Column="2">
+        <StackPanel Grid.Column="3">
           <TextBlock Text="投掷" FontSize="11" Foreground="#99FFFFFF" />
           <TextBlock x:Name="ThrowValue" Text="0" FontSize="15" FontWeight="SemiBold" Foreground="White" />
         </StackPanel>

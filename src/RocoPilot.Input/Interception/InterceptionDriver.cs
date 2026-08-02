@@ -34,9 +34,10 @@ public sealed class InterceptionDriver : IInputDriver
 
     public void Arm(TimeSpan timeout)
     {
-        // 创建上下文即验证驱动服务在运行；直接用首个鼠标设备发笔画，无需等待用户输入
+        // 创建上下文即验证驱动服务在运行；直接用首个设备，无需等待用户输入
         _ = Context;
         _mouseDevice ??= InterceptionConstants.MouseDeviceMin;
+        _keyDevice ??= InterceptionConstants.KeyboardDeviceMin;
     }
 
     public int DiscoverMouse(TimeSpan timeout) => _mouseDevice ??= Discover(DeviceClass.Mouse, timeout);
