@@ -21,7 +21,7 @@ public sealed class ShellSettings
 
     public string InferenceDevice { get; set; } = "cpu";
 
-    public int DetectionIntervalMs { get; set; }
+    public int DetectionIntervalMs { get; set; } = 200;
 
     public bool DebugOverlay { get; set; }
 

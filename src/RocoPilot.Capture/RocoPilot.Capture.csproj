@@ -11,8 +11,6 @@
 
   <ItemGroup>
 
-    <InternalsVisibleTo Include="RocoPilot.Capture.Tests" />
-
     <InternalsVisibleTo Include="RocoPilot.Loop.Tests" />
   </ItemGroup>
 

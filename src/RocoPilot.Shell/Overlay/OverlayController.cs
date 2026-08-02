@@ -5,7 +5,7 @@ using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
-using RocoPilot.Tools.AutoThrow;
+using RocoPilot.Loop;
 
 namespace RocoPilot.Shell.Overlay;
 
@@ -246,9 +246,7 @@ public sealed class OverlayController
             return;
         }
 
-        // 取当前任务的 pipeline
-        var task = _host.Current as AutoThrowRunningTask;
-        var pipeline = task?.Pipeline;
+        var pipeline = _host.Current?.DiagnosticsContext as ICatchPipeline;
         if (pipeline is null)
         {
             if (_debugWindow?.IsVisible == true) _debugWindow.Hide();

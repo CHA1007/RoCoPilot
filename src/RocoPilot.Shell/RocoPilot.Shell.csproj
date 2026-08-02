@@ -35,9 +35,4 @@
     <ProjectReference Include="..\RocoPilot.Tools.AutoThrow\RocoPilot.Tools.AutoThrow.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-
-    <InternalsVisibleTo Include="RocoPilot.Shell.Tests" />
-  </ItemGroup>
-
 </Project>

@@ -44,9 +44,9 @@ public static class SceneShiftEstimator
     {
         var bestShift = 0;
         long bestSad = long.MaxValue;
+        long zeroSad = 0;
         var m = Margin;
 
-        // 有效区域（裁掉边缘和搜索范围）
         int x0, x1, y0, y1;
         if (horizontal)
         {
@@ -64,17 +64,18 @@ public static class SceneShiftEstimator
         for (var shift = -maxShift; shift <= maxShift; shift++)
         {
             long sad = 0;
-            for (var y = y0; y < y1; y += 2) // 隔行采样加速
+            for (var y = y0; y < y1; y += 2)
             {
                 var rowA = y * w;
                 var rowB = horizontal ? y * w : (y + shift) * w;
-                for (var x = x0; x < x1; x += 2) // 隔列采样加速
+                for (var x = x0; x < x1; x += 2)
                 {
                     var bx = horizontal ? x + shift : x;
                     sad += Math.Abs(a[rowA + x] - b[rowB + bx]);
                 }
             }
 
+            if (shift == 0) zeroSad = sad;
             if (sad < bestSad)
             {
                 bestSad = sad;
@@ -82,8 +83,10 @@ public static class SceneShiftEstimator
             }
         }
 
-        // 置信检查：最佳 SAD 应显著低于零位移 SAD
         if (bestShift == 0) return 0;
+
+        // 置信检查：最佳 SAD 须显著低于零位移 SAD，否则视为噪声
+        if (zeroSad == 0 || bestSad > zeroSad * 0.85) return null;
         return bestShift;
     }
 

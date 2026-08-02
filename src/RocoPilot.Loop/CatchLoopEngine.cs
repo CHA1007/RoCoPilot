@@ -12,9 +12,6 @@ public sealed class CatchLoopEngine : IDisposable
 {
     private const int SleepChunkMs = 100;
     private const int VerifySettleMs = 80;
-    private const int MaxCorrectSteps = 3;
-    private const int RestabilizeTimeoutMs = 500;
-    private const int RestabilizePollMs = 30;
 
     private readonly CatchLoopOptions _options;
     private readonly CatchLoopMode _mode;
@@ -149,11 +146,13 @@ public sealed class CatchLoopEngine : IDisposable
 
                 StableTarget? pick = null;
                 var scanWaited = 0;
-                var (centerX, centerY) = ScreenCenter();
+                var (cx, cy) = LoopGuards.ScreenCenter(_sensor);
+                var centerX = (float)cx;
+                var centerY = (float)cy;
                 while (scanWaited < 1000)
                 {
-                    SleepInterruptible(RestabilizePollMs, cancellationToken);
-                    scanWaited += RestabilizePollMs;
+                    SleepInterruptible(LoopTiming.RestabilizePollMs, cancellationToken);
+                    scanWaited += LoopTiming.RestabilizePollMs;
                     pick = TargetSelection.Pick(_sensor.ObserveStable(), lockedTrackId: null, centerX, centerY);
                     if (pick is not null) break;
                 }
@@ -195,24 +194,28 @@ public sealed class CatchLoopEngine : IDisposable
 
                 if (_mode == CatchLoopMode.Live)
                 {
-                    // 一次精准转向（双轴 ppc）
                     if (needTurn)
                     {
-                        var fallback = _controller.AppliedOptions.FallbackDivisor;
-                        var ppcXVal = _options.PpcX > 0 ? _options.PpcX : fallback;
-                        var ppcYVal = _options.PpcY > 0 ? _options.PpcY : fallback;
-                        var maxCounts = _controller.AppliedOptions.MaxStepCounts;
-                        var countsX = Math.Clamp((int)Math.Round(offsetX / ppcXVal), -maxCounts, maxCounts);
-                        var countsY = Math.Clamp((int)Math.Round(offsetY / ppcYVal), -maxCounts, maxCounts);
-                        _driver.MoveRelative(countsX, countsY);
+                        if (_options.AimJitterPx > 0)
+                        {
+                            offsetX += (_random.NextDouble() * 2 - 1) * _options.AimJitterPx;
+                            offsetY += (_random.NextDouble() * 2 - 1) * _options.AimJitterPx;
+                        }
+
+                        TurnToward(offsetX, offsetY);
                         SleepInterruptible(_controller.AppliedOptions.RecheckMs, cancellationToken);
                     }
 
-                    // 长按蓄力后松手投出
+                    var chargeMs = _options.ChargeMs;
+                    if (_options.ChargeJitterMs > 0)
+                    {
+                        chargeMs += _random.Next(-_options.ChargeJitterMs, _options.ChargeJitterMs + 1);
+                    }
+
                     _driver.KeyDown(InputKey.LeftMouse);
                     try
                     {
-                        SleepInterruptible(_options.ChargeMs, cancellationToken);
+                        SleepInterruptible(chargeMs, cancellationToken);
                     }
                     finally
                     {
@@ -221,13 +224,7 @@ public sealed class CatchLoopEngine : IDisposable
                 }
                 else if (_mode == CatchLoopMode.MoveOnly && needTurn)
                 {
-                    var fallback = _controller.AppliedOptions.FallbackDivisor;
-                    var ppcXVal = _options.PpcX > 0 ? _options.PpcX : fallback;
-                    var ppcYVal = _options.PpcY > 0 ? _options.PpcY : fallback;
-                    var maxCounts = _controller.AppliedOptions.MaxStepCounts;
-                    var countsX = Math.Clamp((int)Math.Round(offsetX / ppcXVal), -maxCounts, maxCounts);
-                    var countsY = Math.Clamp((int)Math.Round(offsetY / ppcYVal), -maxCounts, maxCounts);
-                    _driver.MoveRelative(countsX, countsY);
+                    TurnToward(offsetX, offsetY);
                 }
 
                 var seq = ++_seq;
@@ -269,7 +266,9 @@ public sealed class CatchLoopEngine : IDisposable
                 }
 
                 Volatile.Write(ref _activeTrackId, -1);
-                SleepInterruptible(NextPostSettleDelayMs(), cancellationToken);
+                var postSettleDelay = NextPostSettleDelayMs();
+                SleepInterruptible(postSettleDelay, cancellationToken);
+                _bus.Counters.AddRest(postSettleDelay);
             }
 
             reason = stats.Attempts >= _options.MaxAttempts ? "max_attempts" : "stop";
@@ -315,30 +314,21 @@ public sealed class CatchLoopEngine : IDisposable
         return _controller.AppliedOptions.FallbackDivisor;
     }
 
-    /// <summary>票 14：挂起感知 → 转向 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定。</summary>
-    private StableTarget? MoveAndRestabilize(int dx, int dy, int? trackId, CancellationToken cancellationToken)
+    private void TurnToward(double offsetX, double offsetY)
     {
-        _sensor.SuspendSensing();
-        _driver.MoveRelative(dx, dy);
-        _sleep(VerifySettleMs, cancellationToken);
-        _sensor.ResetStability();
-        _sensor.ResumeSensing();
-
-        // 轮询等目标重新稳定（4 帧）
-        var waited = 0;
-        var (anchorX, anchorY) = ScreenCenter();
-        while (waited < RestabilizeTimeoutMs)
+        var fallback = _controller.AppliedOptions.FallbackDivisor;
+        var ppcXVal = _options.PpcX > 0 ? _options.PpcX : fallback;
+        var ppcYVal = _options.PpcY > 0 ? _options.PpcY : fallback;
+        var maxCounts = _controller.AppliedOptions.MaxStepCounts;
+        var countsX = Math.Clamp((int)Math.Round(offsetX / ppcXVal), -maxCounts, maxCounts);
+        var countsY = Math.Clamp((int)Math.Round(offsetY / ppcYVal), -maxCounts, maxCounts);
+        if (_options.CommandNoiseCounts > 0)
         {
-            _sleep(RestabilizePollMs, cancellationToken);
-            waited += RestabilizePollMs;
-            var stable = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchorX, anchorY);
-            if (stable is not null)
-            {
-                return stable;
-            }
+            countsX += (int)Math.Round((_random.NextDouble() * 2 - 1) * _options.CommandNoiseCounts);
+            countsY += (int)Math.Round((_random.NextDouble() * 2 - 1) * _options.CommandNoiseCounts);
         }
 
-        return null;
+        _driver.MoveRelative(countsX, countsY);
     }
 
     /// <summary>在线校正：比较指令位移与实测位移，更新 ppc 缓存。</summary>
@@ -510,17 +500,6 @@ public sealed class CatchLoopEngine : IDisposable
         {
             _phase = phase;
         }
-    }
-
-    private (float X, float Y) ScreenCenter()
-    {
-        var (width, height) = _sensor.LatestFrameSize;
-        if (width <= 0 || height <= 0)
-        {
-            throw new LoopException("扫描前须有捕获帧（帧尺寸为 0：捕获未起或未出帧）");
-        }
-
-        return (width / 2f, height / 2f);
     }
 
     private int NextPostSettleDelayMs() =>

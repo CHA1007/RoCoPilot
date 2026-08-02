@@ -49,6 +49,7 @@ public sealed class WgcCaptureSource : CaptureSourceCore
     private readonly TaskCompletionSource _firstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private Vortice.Direct3D11.ID3D11Device? _d3dDevice;
+    private Vortice.Direct3D11.ID3D11DeviceContext? _immediateContext;
     private IDirect3DDevice? _winRtDevice;
     private GraphicsCaptureItem? _item;
     private Direct3D11CaptureFramePool? _pool;
@@ -126,6 +127,7 @@ public sealed class WgcCaptureSource : CaptureSourceCore
             out var device);
         result.CheckError();
         _d3dDevice = device ?? throw new CaptureException("D3D11 设备创建失败");
+        _immediateContext = _d3dDevice.ImmediateContext;
 
         using var dxgiDevice = _d3dDevice.QueryInterface<IDXGIDevice>();
         _winRtDevice = WgcInterop.CreateWinRtDevice(dxgiDevice.NativePointer)
@@ -185,7 +187,7 @@ public sealed class WgcCaptureSource : CaptureSourceCore
             });
         }
 
-        var context = _d3dDevice!.ImmediateContext;
+        var context = _immediateContext!;
         context.CopyResource(_staging, texture);
         var mapped = context.Map(_staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
         try
@@ -218,6 +220,12 @@ public sealed class WgcCaptureSource : CaptureSourceCore
         if (_pool is not null)
         {
             _pool.FrameArrived -= OnFrameArrived;
+            _pool.Dispose();
+        }
+
+        if (_session is not null)
+        {
+            _session.Dispose();
         }
 
         if (_item is not null)
@@ -228,9 +236,12 @@ public sealed class WgcCaptureSource : CaptureSourceCore
         _session = null;
         _pool = null;
         _item = null;
+        _staging?.Dispose();
         _staging = null;
         (_winRtDevice as IDisposable)?.Dispose();
         _winRtDevice = null;
+        _immediateContext?.Dispose();
+        _immediateContext = null;
         _d3dDevice?.Dispose();
         _d3dDevice = null;
     }
@@ -260,6 +271,8 @@ public sealed class WgcCaptureSource : CaptureSourceCore
         _staging = null;
         (_winRtDevice as IDisposable)?.Dispose();
         _winRtDevice = null;
+        _immediateContext?.Dispose();
+        _immediateContext = null;
         _d3dDevice?.Dispose();
         _d3dDevice = null;
         _firstFrame.TrySetResult();

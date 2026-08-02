@@ -8,6 +8,7 @@ public sealed class RollingFpsMeter
     private readonly Func<long> _now;
     private readonly Queue<long> _timestamps = new();
     private readonly object _gate = new();
+    private long _lastTimestamp;
 
     public RollingFpsMeter(TimeSpan? window = null, Func<long>? timestampSource = null)
     {
@@ -22,6 +23,7 @@ public sealed class RollingFpsMeter
         lock (_gate)
         {
             _timestamps.Enqueue(now);
+            _lastTimestamp = now;
             while (_timestamps.Count > 0 && _timestamps.Peek() < cutoff)
             {
                 _timestamps.Dequeue();
@@ -63,19 +65,11 @@ public sealed class RollingFpsMeter
         lock (_gate)
         {
             _timestamps.Clear();
+            _lastTimestamp = 0;
         }
     }
 
     private long WindowTicks => (long)(_window.TotalSeconds * Stopwatch.Frequency);
 
-    private long LastEnqueued()
-    {
-        long last = 0;
-        foreach (var t in _timestamps)
-        {
-            last = t;
-        }
-
-        return last;
-    }
+    private long LastEnqueued() => _lastTimestamp;
 }

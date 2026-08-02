@@ -6,11 +6,6 @@
 
   <ItemGroup>
 
-    <InternalsVisibleTo Include="RocoPilot.Input.Tests" />
-  </ItemGroup>
-
-  <ItemGroup>
-
     <None Include="native\win-x64\interception.dll" Link="interception.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

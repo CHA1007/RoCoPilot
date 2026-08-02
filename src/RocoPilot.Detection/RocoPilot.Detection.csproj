@@ -10,11 +10,6 @@
 
   <ItemGroup>
 
-    <InternalsVisibleTo Include="RocoPilot.Detection.Tests" />
-  </ItemGroup>
-
-  <ItemGroup>
-
     <None Include="..\..\assets\models\yolo11n-roco.onnx" Link="assets\models\yolo11n-roco.onnx" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

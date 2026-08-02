@@ -47,16 +47,17 @@ public partial class RealtimePage : Page
             return;
         }
 
+        // 总开关未开启时拦住子开关
+        if (!_capture.IsRunning)
+        {
+            StatusText.Text = "请先在「启动」页开启截图器，再启动自动丢球。";
+            StatusText.Visibility = Visibility.Visible;
+            return;
+        }
+
         ((AutoThrowSettings)_settings).InferenceDevice = _store.GetShellSettings().InferenceDevice;
         ((AutoThrowSettings)_settings).DetectionIntervalMs = _store.GetShellSettings().DetectionIntervalMs;
-        if (_taskHost.TryStart(_tool, _settings))
-        {
-            if (!_capture.IsRunning)
-            {
-                var title = ((AutoThrowSettings)_settings).WindowTitleSubstring;
-                _ = _capture.StartAsync(title);
-            }
-        }
+        _taskHost.TryStart(_tool, _settings);
     }
 
     private void OnStateChanged() => Dispatcher.InvokeAsync(() =>

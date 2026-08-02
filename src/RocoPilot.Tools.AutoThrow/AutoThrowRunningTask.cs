@@ -50,6 +50,8 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         get { lock (_gate) { return _pipeline; } }
     }
 
+    public object? DiagnosticsContext => Pipeline;
+
     public event EventHandler<TaskState>? StateChanged;
 
     public event EventHandler<ToolEvent>? EventRaised;
@@ -157,7 +159,27 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         RaiseStateChanged(TaskState.Stopping);
     }
 
-    public void Dispose() => _cts?.Dispose();
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            _cts?.Cancel();
+        }
+
+        try
+        {
+            WhenStopped.Wait(TimeSpan.FromSeconds(3));
+        }
+        catch (AggregateException)
+        {
+        }
+
+        lock (_gate)
+        {
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
 
     private static ICatchPipeline CreatePipeline(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
     {
@@ -210,11 +232,15 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
 
             foreach (var step in pipeline.ArmingSteps)
             {
-                RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
+                if (!step.Quiet)
                 {
-                    ["step"] = step.Name,
-                    ["hint"] = step.Hint,
-                }));
+                    RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
+                    {
+                        ["step"] = step.Name,
+                        ["hint"] = step.Hint,
+                    }));
+                }
+
                 try
                 {
                     await step.Execute(ct);
@@ -259,8 +285,13 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
             catch (OperationCanceledException)
             {
             }
-            catch
+            catch (Exception ex)
             {
+                SafeRaiseEvent(new ToolEvent("fault", new Dictionary<string, object?>
+                {
+                    ["error"] = ex.GetBaseException().Message,
+                    ["source"] = "pipeline_run",
+                }));
             }
             finally
             {

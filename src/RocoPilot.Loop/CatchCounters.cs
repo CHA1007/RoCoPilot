@@ -27,6 +27,7 @@ public sealed class CatchCounters
     private long _runAccumMs;
     private long _runStartMs;
     private long _lastSettleMs;
+    private long _restMs;
     private bool _hasSession;
 
     public CatchCounters(Func<long>? nowMs = null, int rateWindowMinutes = 10)
@@ -103,6 +104,14 @@ public sealed class CatchCounters
         }
     }
 
+    internal void AddRest(int milliseconds)
+    {
+        lock (_gate)
+        {
+            _restMs += milliseconds;
+        }
+    }
+
     public CatchCountersSnapshot Snapshot()
     {
         lock (_gate)
@@ -125,7 +134,7 @@ public sealed class CatchCounters
                 throwsPerHour,
                 centeringRate,
                 TimeSpan.FromMilliseconds(Math.Max(0, runMs)),
-                TimeSpan.Zero,
+                TimeSpan.FromMilliseconds(_restMs),
                 TimeSpan.FromMilliseconds(Math.Max(0, sinceSettle)));
         }
     }

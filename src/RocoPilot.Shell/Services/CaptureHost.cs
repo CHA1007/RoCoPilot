@@ -40,14 +40,13 @@ public sealed class CaptureHost : IDisposable
                     return true;
                 }
 
+                source.Stopped += (_, _) =>
+                {
+                    lock (_gate) { _source = null; }
+                    Changed?.Invoke();
+                };
                 _source = source;
             }
-
-            source.Stopped += (_, _) =>
-            {
-                lock (_gate) { _source = null; }
-                Changed?.Invoke();
-            };
 
             Changed?.Invoke();
             return true;

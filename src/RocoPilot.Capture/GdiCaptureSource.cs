@@ -109,37 +109,45 @@ public sealed class GdiCaptureSource : CaptureSourceCore
             _width = width;
             _height = height;
 
-            _screenDc = NativeMethods.GetDC(IntPtr.Zero);
-            if (_screenDc == IntPtr.Zero)
+            try
             {
-                throw new CaptureException("GetDC(桌面) 失败");
-            }
-
-            _memDc = NativeMethods.CreateCompatibleDC(_screenDc);
-            if (_memDc == IntPtr.Zero)
-            {
-                throw new CaptureException("CreateCompatibleDC 失败");
-            }
-
-            var info = new NativeMethods.BITMAPINFO
-            {
-                bmiHeader = new NativeMethods.BITMAPINFOHEADER
+                _screenDc = NativeMethods.GetDC(IntPtr.Zero);
+                if (_screenDc == IntPtr.Zero)
                 {
-                    biSize = sizeof(NativeMethods.BITMAPINFOHEADER),
-                    biWidth = width,
-                    biHeight = -height,
-                    biPlanes = 1,
-                    biBitCount = 32,
-                    biCompression = NativeMethods.BI_RGB,
-                },
-            };
-            _bitmap = NativeMethods.CreateDIBSection(_memDc, in info, NativeMethods.DIB_RGB_COLORS, out _bits, IntPtr.Zero, 0);
-            if (_bitmap == IntPtr.Zero)
-            {
-                throw new CaptureException("CreateDIBSection 失败");
-            }
+                    throw new CaptureException("GetDC(桌面) 失败");
+                }
 
-            _previousObject = NativeMethods.SelectObject(_memDc, _bitmap);
+                _memDc = NativeMethods.CreateCompatibleDC(_screenDc);
+                if (_memDc == IntPtr.Zero)
+                {
+                    throw new CaptureException("CreateCompatibleDC 失败");
+                }
+
+                var info = new NativeMethods.BITMAPINFO
+                {
+                    bmiHeader = new NativeMethods.BITMAPINFOHEADER
+                    {
+                        biSize = sizeof(NativeMethods.BITMAPINFOHEADER),
+                        biWidth = width,
+                        biHeight = -height,
+                        biPlanes = 1,
+                        biBitCount = 32,
+                        biCompression = NativeMethods.BI_RGB,
+                    },
+                };
+                _bitmap = NativeMethods.CreateDIBSection(_memDc, in info, NativeMethods.DIB_RGB_COLORS, out _bits, IntPtr.Zero, 0);
+                if (_bitmap == IntPtr.Zero)
+                {
+                    throw new CaptureException("CreateDIBSection 失败");
+                }
+
+                _previousObject = NativeMethods.SelectObject(_memDc, _bitmap);
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
 
         public byte[] Grab()

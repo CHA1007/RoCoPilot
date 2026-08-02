@@ -10,6 +10,8 @@ public interface IRunningTask
 
     event EventHandler<ToolEvent>? EventRaised;
 
+    object? DiagnosticsContext => null;
+
     void Start();
 
     void RequestPause(string source = "manual");

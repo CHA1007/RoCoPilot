@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Detection;
@@ -99,8 +100,9 @@ public sealed class CatchPipeline : ICatchPipeline
             {
                 _armTask.Wait(_spec.DeviceDiscoveryTimeout + TimeSpan.FromSeconds(2));
             }
-            catch
+            catch (Exception ex)
             {
+                Trace.TraceWarning($"CatchPipeline.Dispose: 等待 Arming 任务异常: {ex.GetBaseException().Message}");
             }
         }
 
@@ -167,8 +169,8 @@ public sealed class CatchPipeline : ICatchPipeline
             {
                 _source = await _factories.Capture(new CaptureOptions
                 {
-                    WindowTitleSubstring = "洛克王国",
-                    Backend = CaptureBackendMode.ForceWgcWindow,
+                    WindowTitleSubstring = _spec.WindowTitleSubstring ?? "洛克王国",
+                    Backend = CaptureBackendMode.BitBlt,
                 }, cancellationToken);
                 _ownsSource = true;
             }
@@ -253,7 +255,10 @@ public sealed class CatchPipeline : ICatchPipeline
             _engine = new CatchLoopEngine(
                 loopOptions, _spec.Mode, _sensor!, _driver!, _controller!, _bus!, inputGate: InputGate);
             return Task.CompletedTask;
-        });
+        })
+    {
+        Quiet = true,
+    };
 
     private void CaptureCalibrationScene(Exception cause)
     {
@@ -265,8 +270,9 @@ public sealed class CatchPipeline : ICatchPipeline
                 ["error"] = cause.GetBaseException().Message,
             }));
         }
-        catch
+        catch (Exception ex)
         {
+            Trace.TraceWarning($"CaptureCalibrationScene 失败: {ex.GetBaseException().Message}");
         }
     }
 
@@ -282,8 +288,9 @@ public sealed class CatchPipeline : ICatchPipeline
                 ["conf"] = Math.Round(flip.Current.Latest.Confidence, 3),
             }));
         }
-        catch
+        catch (Exception ex)
         {
+            Trace.TraceWarning($"OnRecognitionFlipped 录制失败: {ex.GetBaseException().Message}");
         }
     }
 

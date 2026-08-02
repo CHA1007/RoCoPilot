@@ -8,8 +8,6 @@ namespace RocoPilot.Loop;
 public sealed class CenteringController
 {
     private const int GatePollChunkMs = 100;
-    private const int RestabilizeTimeoutMs = 500;
-    private const int RestabilizePollMs = 30;
 
     private readonly CenteringOptions _options;
     private readonly ICenteringSensor _sensor;
@@ -59,7 +57,7 @@ public sealed class CenteringController
         _residualX = 0;
         _residualY = 0;
         var stopwatch = Stopwatch.StartNew();
-        var (screenCenterX, screenCenterY) = ScreenCenter();
+        var (screenCenterX, screenCenterY) = LoopGuards.ScreenCenter(_sensor);
         var stepOffsets = new List<(double X, double Y)>();
         var source = CalibrationSource.None;
         double? ppcReport = null;
@@ -83,7 +81,7 @@ public sealed class CenteringController
         var offset = initialOffset;
         var steps = 0;
 
-        if (WithinTolerance(offset.X, offset.Y))
+        if (LoopGuards.WithinTolerance(offset.X, offset.Y, _options.TolerancePx))
         {
             source = CalibrationSource.Skipped;
             EmitCentered(0, offset, source, null, stopwatch);
@@ -162,7 +160,7 @@ public sealed class CenteringController
             steps++;
             stepOffsets.Add(offset);
 
-            if (WithinTolerance(offset.X, offset.Y))
+            if (LoopGuards.WithinTolerance(offset.X, offset.Y, _options.TolerancePx))
             {
                 outcome = CenteringOutcome.Centered;
                 break;
@@ -312,20 +310,6 @@ public sealed class CenteringController
             source, ppc, stopwatch.Elapsed, target, stepOffsets);
     }
 
-    private bool WithinTolerance(double offsetX, double offsetY) =>
-        Math.Abs(offsetX) <= _options.TolerancePx && Math.Abs(offsetY) <= _options.TolerancePx;
-
-    private (double X, double Y) ScreenCenter()
-    {
-        var (width, height) = _sensor.LatestFrameSize;
-        if (width <= 0 || height <= 0)
-        {
-            throw new LoopException("居中前须有捕获帧（帧尺寸为 0：捕获未起或未出帧）");
-        }
-
-        return (width / 2.0, height / 2.0);
-    }
-
     private static (double X, double Y) OffsetFromScreenCenter((float X, float Y) center, double screenCenterX, double screenCenterY) =>
         ((double)center.X - screenCenterX, (double)center.Y - screenCenterY);
 
@@ -348,11 +332,11 @@ public sealed class CenteringController
         if (immediate is not null) return immediate;
 
         var waited = 0;
-        while (waited < RestabilizeTimeoutMs)
+        while (waited < LoopTiming.RestabilizeTimeoutMs)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _sleep(RestabilizePollMs, cancellationToken);
-            waited += RestabilizePollMs;
+            _sleep(LoopTiming.RestabilizePollMs, cancellationToken);
+            waited += LoopTiming.RestabilizePollMs;
             var stable = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchor.X, anchor.Y);
             if (stable is not null) return stable;
         }

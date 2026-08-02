@@ -81,10 +81,6 @@ public sealed class AutoCalibrator
 
         if (samples.Count == 0) return null;
 
-        samples.Sort();
-        var mid = samples.Count / 2;
-        return samples.Count % 2 == 1
-            ? samples[mid]
-            : (samples[mid - 1] + samples[mid]) / 2.0;
+        return SensitivityCalibrator.Median(samples);
     }
 }

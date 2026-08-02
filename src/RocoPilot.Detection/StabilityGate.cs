@@ -87,7 +87,14 @@ public sealed class StabilityGate
 
     private sealed class Track(int id, DetectedBox first, int window)
     {
-        private readonly List<(float X, float Y)> _centers = [(first.CenterX, first.CenterY)];
+        private readonly Queue<(float X, float Y)> _centers = InitCenters(first, window);
+
+        private static Queue<(float X, float Y)> InitCenters(DetectedBox first, int window)
+        {
+            var q = new Queue<(float X, float Y)>(window + 1);
+            q.Enqueue((first.CenterX, first.CenterY));
+            return q;
+        }
 
         public int Id { get; } = id;
 
@@ -103,9 +110,9 @@ public sealed class StabilityGate
         {
             Latest = detection;
             Consecutive++;
-            _centers.Add((detection.CenterX, detection.CenterY));
+            _centers.Enqueue((detection.CenterX, detection.CenterY));
             if (_centers.Count > window)
-                _centers.RemoveAt(0);
+                _centers.Dequeue();
         }
 
         public double CenterSpread()

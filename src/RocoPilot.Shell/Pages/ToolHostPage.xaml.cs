@@ -60,9 +60,10 @@ public partial class ToolHostPage : Page
                 Observe(_taskHost.Current);
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // 截图器未启动等前置条件不满足时静默忽略，覆盖层不显示即无提示
+            // 前置条件不满足（如截图器未启动）时向用户展示原因
+            _armingFailure = ex.GetBaseException().Message;
         }
 
         RefreshStatus();

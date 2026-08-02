@@ -95,12 +95,14 @@ internal static class SendInputBuilder
 
 internal static class SendInputNative
 {
+    private static readonly int InputSize = Marshal.SizeOf<Input>();
+
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, ref Input pInputs, int cbSize);
 
     public static void Send(Input input)
     {
-        var sent = SendInput(nInputs: 1, ref input, cbSize: Marshal.SizeOf<Input>());
+        var sent = SendInput(nInputs: 1, ref input, cbSize: InputSize);
         if (sent != 1)
         {
             throw new InputDriverException($"SendInput 注入失败：插入 {sent}/1 条（Win32 错误 {Marshal.GetLastWin32Error()}）。");

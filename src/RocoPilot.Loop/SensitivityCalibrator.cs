@@ -36,7 +36,7 @@ public sealed class SensitivityCalibrator
         ArgumentNullException.ThrowIfNull(driver);
         ArgumentNullException.ThrowIfNull(cache);
 
-        var (centerX, centerY) = ScreenCenter(sensor);
+        var (centerX, centerY) = LoopGuards.ScreenCenter(sensor);
         var attempted = 0;
         var succeeded = 0;
 
@@ -48,7 +48,7 @@ public sealed class SensitivityCalibrator
 
         anchor = target.MedianCenter;
         var offset = (X: (double)target.MedianCenter.X - centerX, Y: (double)target.MedianCenter.Y - centerY);
-        if (WithinTolerance(offset.X, offset.Y))
+        if (LoopGuards.WithinTolerance(offset.X, offset.Y, _options.TolerancePx))
         {
             return new CalibrationResult(CalibrationSource.Skipped, null, anchor, offset, 0, 0);
         }
@@ -73,7 +73,7 @@ public sealed class SensitivityCalibrator
         double? largestBucketPpc = null;
         foreach (var magnitude in _options.ProbeMagnitudes)
         {
-            if (WithinTolerance(offset.X, offset.Y))
+            if (LoopGuards.WithinTolerance(offset.X, offset.Y, _options.TolerancePx))
             {
                 break;
             }
@@ -130,7 +130,7 @@ public sealed class SensitivityCalibrator
 
         return largestBucketPpc is { } ppc
             ? new CalibrationResult(CalibrationSource.Fresh, ppc, anchor, offset, succeeded, attempted)
-            : WithinTolerance(offset.X, offset.Y)
+            : LoopGuards.WithinTolerance(offset.X, offset.Y, _options.TolerancePx)
                 ? new CalibrationResult(CalibrationSource.Skipped, null, anchor, offset, succeeded, attempted)
                 : new CalibrationResult(CalibrationSource.Failed, null, anchor, offset, succeeded, attempted);
     }
@@ -158,24 +158,10 @@ public sealed class SensitivityCalibrator
         return cache.ApplyOnlineObservation(commandCounts, observed, _options.OnlineEmaWeight, _options.OnlineRelativeChangeThreshold);
     }
 
-    private bool WithinTolerance(double offsetX, double offsetY) =>
-        Math.Abs(offsetX) <= _options.TolerancePx && Math.Abs(offsetY) <= _options.TolerancePx;
-
     private static (double DirX, double DirY) DirectionTowardTarget((double X, double Y) offset) =>
         Math.Abs(offset.X) >= Math.Abs(offset.Y)
             ? (offset.X >= 0 ? 1.0 : -1.0, 0.0)
             : (0.0, offset.Y >= 0 ? 1.0 : -1.0);
-
-    private static (double X, double Y) ScreenCenter(ICenteringSensor sensor)
-    {
-        var (width, height) = sensor.LatestFrameSize;
-        if (width <= 0 || height <= 0)
-        {
-            throw new LoopException("标定前须有捕获帧（帧尺寸为 0：捕获未起或未出帧）");
-        }
-
-        return (width / 2.0, height / 2.0);
-    }
 
     internal static double Median(IReadOnlyList<double> values)
     {

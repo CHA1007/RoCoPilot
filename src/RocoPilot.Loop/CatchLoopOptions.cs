@@ -31,8 +31,8 @@ public sealed record CatchLoopOptions
 
     internal CatchLoopOptions Normalized()
     {
-        RejectNonFinite(AimJitterPx, "落点抖动幅");
-        RejectNonFinite(CommandNoiseCounts, "每步修正噪声幅");
+        LoopGuards.RejectNonFinite(AimJitterPx, "落点抖动幅");
+        LoopGuards.RejectNonFinite(CommandNoiseCounts, "每步修正噪声幅");
 
         if (SettleMs <= 0) throw new LoopException($"结算窗须为正，实得 {SettleMs}");
         if (PostSettleDelayMinMs <= 0) throw new LoopException($"投掷间隔下限须为正，实得 {PostSettleDelayMinMs}");
@@ -47,11 +47,5 @@ public sealed record CatchLoopOptions
         if (MaxAttempts <= 0) throw new LoopException($"尝试上限须为正，实得 {MaxAttempts}");
 
         return this;
-    }
-
-    private static void RejectNonFinite(double value, string what)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value))
-            throw new LoopException($"{what}须为有限数，实得 {value}");
     }
 }

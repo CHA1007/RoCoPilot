@@ -66,15 +66,26 @@ public static class WindowFinder
     /// <summary>按进程名查找主窗口（比窗口标题更稳定）。</summary>
     public static IntPtr FindByProcessName(string processName)
     {
-        foreach (var proc in Process.GetProcessesByName(processName))
+        var processes = Process.GetProcessesByName(processName);
+        try
         {
-            if (proc.MainWindowHandle != IntPtr.Zero)
+            foreach (var proc in processes)
             {
-                return proc.MainWindowHandle;
+                if (proc.MainWindowHandle != IntPtr.Zero)
+                {
+                    return proc.MainWindowHandle;
+                }
+            }
+
+            return IntPtr.Zero;
+        }
+        finally
+        {
+            foreach (var proc in processes)
+            {
+                proc.Dispose();
             }
         }
-
-        return IntPtr.Zero;
     }
 
     /// <summary>判断指定进程的窗口是否为前台窗口（按进程 ID 比较，兼容全屏/子窗口模式）。</summary>
@@ -83,12 +94,23 @@ public static class WindowFinder
         var fg = NativeMethods.GetForegroundWindow();
         if (fg == IntPtr.Zero) return false;
         NativeMethods.GetWindowThreadProcessId(fg, out var fgPid);
-        foreach (var proc in Process.GetProcessesByName(processName))
+        var processes = Process.GetProcessesByName(processName);
+        try
         {
-            if (proc.Id == fgPid) return true;
-        }
+            foreach (var proc in processes)
+            {
+                if (proc.Id == fgPid) return true;
+            }
 
-        return false;
+            return false;
+        }
+        finally
+        {
+            foreach (var proc in processes)
+            {
+                proc.Dispose();
+            }
+        }
     }
 
     /// <summary>将指定窗口激活为前台窗口（用于 Arming 时免去手动右键聚焦）。</summary>

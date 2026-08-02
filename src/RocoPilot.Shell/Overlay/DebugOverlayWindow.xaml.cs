@@ -14,6 +14,9 @@ public partial class DebugOverlayWindow : Window
     private static readonly SolidColorBrush s_labelFg = Frozen("#FF00E5FF");
     private static readonly SolidColorBrush s_activeLabelFg = Frozen("#FFFF3D00");
 
+    private readonly List<Rectangle> _boxes = new();
+    private readonly List<TextBlock> _labels = new();
+
     public DebugOverlayWindow()
     {
         InitializeComponent();
@@ -23,17 +26,19 @@ public partial class DebugOverlayWindow : Window
     /// <summary>重绘检测框。坐标从捕获帧空间映射到窗口空间。</summary>
     internal void Render(IReadOnlyList<StableTarget> targets, int frameWidth, int frameHeight, int activeTrackId = -1)
     {
-        DebugCanvas.Children.Clear();
         if (frameWidth <= 0 || frameHeight <= 0 || ActualWidth <= 0 || ActualHeight <= 0)
         {
+            CollapseFrom(0);
             return;
         }
 
+        EnsurePool(targets.Count);
         var scaleX = ActualWidth / frameWidth;
         var scaleY = ActualHeight / frameHeight;
 
-        foreach (var target in targets)
+        for (var i = 0; i < targets.Count; i++)
         {
+            var target = targets[i];
             var isActive = target.TrackId == activeTrackId;
             var box = target.Latest;
             var x1 = box.X1 * scaleX;
@@ -41,29 +46,52 @@ public partial class DebugOverlayWindow : Window
             var x2 = box.X2 * scaleX;
             var y2 = box.Y2 * scaleY;
 
-            var rect = new Rectangle
-            {
-                Width = Math.Max(1, x2 - x1),
-                Height = Math.Max(1, y2 - y1),
-                Stroke = isActive ? s_activeBoxBrush : s_boxBrush,
-                StrokeThickness = isActive ? 3 : 2,
-            };
+            var rect = _boxes[i];
+            rect.Width = Math.Max(1, x2 - x1);
+            rect.Height = Math.Max(1, y2 - y1);
+            rect.Stroke = isActive ? s_activeBoxBrush : s_boxBrush;
+            rect.StrokeThickness = isActive ? 3 : 2;
+            rect.Visibility = Visibility.Visible;
             Canvas.SetLeft(rect, x1);
             Canvas.SetTop(rect, y1);
-            DebugCanvas.Children.Add(rect);
 
-            var label = $"{PetNames.ToDisplay(box.ClassName)} {box.Confidence:F2}";
-            var text = new TextBlock
-            {
-                Text = label,
-                FontSize = 12,
-                Foreground = isActive ? s_activeLabelFg : s_labelFg,
-                Background = s_labelBg,
-                Padding = new Thickness(3, 1, 3, 1),
-            };
+            var text = _labels[i];
+            text.Text = $"{PetNames.ToDisplay(box.ClassName)} {box.Confidence:F2}";
+            text.Foreground = isActive ? s_activeLabelFg : s_labelFg;
+            text.Visibility = Visibility.Visible;
             Canvas.SetLeft(text, x1);
             Canvas.SetTop(text, Math.Max(0, y1 - 20));
+        }
+
+        CollapseFrom(targets.Count);
+    }
+
+    private void EnsurePool(int count)
+    {
+        while (_boxes.Count < count)
+        {
+            var rect = new Rectangle { Visibility = Visibility.Collapsed };
+            DebugCanvas.Children.Add(rect);
+            _boxes.Add(rect);
+
+            var text = new TextBlock
+            {
+                FontSize = 12,
+                Background = s_labelBg,
+                Padding = new Thickness(3, 1, 3, 1),
+                Visibility = Visibility.Collapsed,
+            };
             DebugCanvas.Children.Add(text);
+            _labels.Add(text);
+        }
+    }
+
+    private void CollapseFrom(int start)
+    {
+        for (var i = start; i < _boxes.Count; i++)
+        {
+            _boxes[i].Visibility = Visibility.Collapsed;
+            _labels[i].Visibility = Visibility.Collapsed;
         }
     }
 

@@ -13,7 +13,7 @@ public sealed class AutoThrowSettings
 
     public string FarmingSpotName { get; set; } = "眠枭庇护所";
 
-    public double DetectionConfidence { get; set; } = 0.25;
+    public double DetectionConfidence { get; set; } = 0.45;
 
     public double DetectionIou { get; set; } = 0.75;
 
@@ -49,7 +49,7 @@ public sealed class AutoThrowSettings
 
     public string InferenceDevice { get; set; } = "cpu";
 
-    public int DetectionIntervalMs { get; set; }
+    public int DetectionIntervalMs { get; set; } = 200;
 
     public string WindowTitleSubstring { get; set; } = DefaultWindowTitle;
 

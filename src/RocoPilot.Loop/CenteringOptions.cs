@@ -49,16 +49,16 @@ public sealed record CenteringOptions
 
     internal CenteringOptions Normalized()
     {
-        RejectNonFinite(TolerancePx, "居中容差");
-        RejectNonFinite(FallbackDivisor, "回退除数");
-        RejectNonFinite(SensitivityPpc, "内置灵敏度");
-        RejectNonFinite(MinMeasuredDisplacementPx, "最小实测位移");
-        RejectNonFinite(MinPpc, "ppc 下限");
-        RejectNonFinite(MaxPpc, "ppc 上限");
-        RejectNonFinite(OnlineEmaWeight, "在线校正权重");
-        RejectNonFinite(OnlineMinCommandCounts, "在线校正指令门槛");
-        RejectNonFinite(OnlineMinMovedPx, "在线校正位移门槛");
-        RejectNonFinite(OnlineRelativeChangeThreshold, "在线校正变化门槛");
+        LoopGuards.RejectNonFinite(TolerancePx, "居中容差");
+        LoopGuards.RejectNonFinite(FallbackDivisor, "回退除数");
+        LoopGuards.RejectNonFinite(SensitivityPpc, "内置灵敏度");
+        LoopGuards.RejectNonFinite(MinMeasuredDisplacementPx, "最小实测位移");
+        LoopGuards.RejectNonFinite(MinPpc, "ppc 下限");
+        LoopGuards.RejectNonFinite(MaxPpc, "ppc 上限");
+        LoopGuards.RejectNonFinite(OnlineEmaWeight, "在线校正权重");
+        LoopGuards.RejectNonFinite(OnlineMinCommandCounts, "在线校正指令门槛");
+        LoopGuards.RejectNonFinite(OnlineMinMovedPx, "在线校正位移门槛");
+        LoopGuards.RejectNonFinite(OnlineRelativeChangeThreshold, "在线校正变化门槛");
 
         if (TolerancePx <= 0) throw new LoopException($"居中容差须为正，实得 {TolerancePx}");
         if (MaxSteps <= 0) throw new LoopException($"最大步数须为正，实得 {MaxSteps}");
@@ -91,11 +91,5 @@ public sealed record CenteringOptions
         if (ChunkDelayMs < 0) throw new LoopException($"分片延迟不可为负，实得 {ChunkDelayMs}");
 
         return this;
-    }
-
-    private static void RejectNonFinite(double value, string what)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value))
-            throw new LoopException($"{what}须为有限数，实得 {value}");
     }
 }

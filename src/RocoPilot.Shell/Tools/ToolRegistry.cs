@@ -8,10 +8,17 @@ namespace RocoPilot.Shell.Tools;
 
 internal static class ToolRegistry
 {
-    public static IReadOnlyList<ITool> CreateTools(CaptureHost captureHost, ISettingsStore store) =>
-    [
-        new AutoThrowTool(() => captureHost.CurrentSource, store),
-    ];
+    private static IReadOnlyList<ITool>? _cached;
+
+    public static IReadOnlyList<ITool> CreateTools(CaptureHost captureHost, ISettingsStore store)
+    {
+        if (_cached is not null) return _cached;
+        _cached =
+        [
+            new AutoThrowTool(() => captureHost.CurrentSource, store),
+        ];
+        return _cached;
+    }
 
     public static Type PageTypeOf(ITool tool) => tool switch
     {

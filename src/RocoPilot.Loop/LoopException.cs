@@ -1,6 +1,6 @@
 namespace RocoPilot.Loop;
 
-public class LoopException : Exception
+public sealed class LoopException : Exception
 {
     public LoopException(string message) : base(message) { }
 
