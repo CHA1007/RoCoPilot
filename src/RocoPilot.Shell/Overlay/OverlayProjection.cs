@@ -102,10 +102,10 @@ public sealed class OverlayProjection
         lock (_gate)
         {
             var now = _nowMs();
-            string? banner = _stallAlerted && now - _stallRaisedMs <= _stallBannerMs
-                ? StallBannerText(_stallSinceSeconds)
-                : null;
-            return new OverlaySnapshot(_state, _throws, banner, _captureRunning, _phase, _scene);
+            var stalled = _stallAlerted && now - _stallRaisedMs <= _stallBannerMs;
+            string? banner = stalled ? StallBannerText(_stallSinceSeconds) : null;
+            var stallMinutes = stalled ? Math.Max(1, _stallSinceSeconds / 60) : 0;
+            return new OverlaySnapshot(_state, _throws, banner, _captureRunning, _phase, _scene, stallMinutes);
         }
     }
 

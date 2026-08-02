@@ -44,6 +44,7 @@ public sealed class OverlayController
         _host.Changed += OnHostChanged;
         _capture.Changed += OnCaptureChanged;
         _dispatcherHost.EventRaised += OnDispatcherEvent;
+        _dispatcherHost.TaskStateChanged += OnDispatcherStateChanged;
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TickInterval };
         _timer.Tick += (_, _) => TrackAndRender();
         _timer.Start();
@@ -58,6 +59,7 @@ public sealed class OverlayController
         _host.Changed -= OnHostChanged;
         _capture.Changed -= OnCaptureChanged;
         _dispatcherHost.EventRaised -= OnDispatcherEvent;
+        _dispatcherHost.TaskStateChanged -= OnDispatcherStateChanged;
         _timer?.Stop();
         _timer = null;
         _debugTimer?.Stop();
@@ -83,9 +85,27 @@ public sealed class OverlayController
             lock (_gate)
             {
                 _projection.ApplyCapture(_capture.IsRunning);
+                // 捕捉器变化与调度器拉起时序不定，播种一次当前状态避免状态点滞留旧值
+                _projection.ApplyState(_dispatcherHost.DispatcherState);
             }
 
             TrackAndRender();
+        });
+    }
+
+    private void OnDispatcherStateChanged(object? sender, TaskState state)
+    {
+        var dispatcher = _dispatcher;
+        dispatcher?.InvokeAsync(() =>
+        {
+            OverlayProjection projection;
+            lock (_gate)
+            {
+                projection = _projection;
+            }
+
+            projection.ApplyState(state);
+            RenderNow();
         });
     }
 
@@ -112,6 +132,7 @@ public sealed class OverlayController
                 {
                     _projection = new OverlayProjection();
                     _projection.ApplyCapture(_capture.IsRunning);
+                    _projection.ApplyState(_dispatcherHost.DispatcherState);
                 }
             }
 
@@ -233,7 +254,8 @@ public sealed class OverlayController
         var sx = scale?.M11 ?? 1.0;
         var sy = scale?.M22 ?? 1.0;
 
-        var left = rect.Left * sx + EdgeMargin;
+        // 灵动岛布局：游戏窗口顶部水平居中，画布窗口比胶囊宽，居中的胶囊自行变形
+        var left = (rect.Left + rect.Right) / 2.0 * sx - _window!.Width / 2;
         var top = rect.Top * sy + EdgeMargin;
         if (double.IsNaN(_window!.Left) || Math.Abs(_window.Left - left) > 0.5)
         {

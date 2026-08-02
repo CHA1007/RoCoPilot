@@ -24,12 +24,20 @@ public sealed class DispatcherHost : IDisposable
     private SceneDispatcherRunningTask? _task;
     private AutoThrowHandler? _throwHandler;
     private AutoBattleHandler? _battleHandler;
+    private bool _autoThrowEnabled;
+    private bool _autoBattleEnabled;
 
     public DispatcherHost(CaptureHost capture, ISettingsStore store, AutoThrowTool throwTool)
     {
         _capture = capture;
         _store = store;
         _throwTool = throwTool;
+
+        // 从持久化设置恢复开关状态，避免每次启动回退到默认值
+        var shell = store.GetShellSettings();
+        _autoThrowEnabled = shell.AutoThrowEnabled;
+        _autoBattleEnabled = shell.AutoBattleEnabled;
+
         _capture.Changed += OnCaptureChanged;
     }
 
@@ -50,10 +58,46 @@ public sealed class DispatcherHost : IDisposable
         get { lock (_gate) { return _task is not null; } }
     }
 
-    /// <summary>功能启用状态（由 UI 设置）。</summary>
-    public bool AutoThrowEnabled { get; set; } = true;
+    /// <summary>调度器任务状态（无任务时为 Idle），供覆盖层播种初始状态。</summary>
+    public TaskState DispatcherState
+    {
+        get { lock (_gate) { return _task?.State ?? TaskState.Idle; } }
+    }
 
-    public bool AutoBattleEnabled { get; set; } = true;
+    /// <summary>调度器任务状态迁移（覆盖层状态点/脱冲用）。</summary>
+    public event EventHandler<TaskState>? TaskStateChanged;
+
+    /// <summary>功能启用状态（由 UI 设置，变更即持久化）。</summary>
+    public bool AutoThrowEnabled
+    {
+        get => _autoThrowEnabled;
+        set
+        {
+            if (_autoThrowEnabled == value) return;
+            _autoThrowEnabled = value;
+            PersistEnables();
+        }
+    }
+
+    public bool AutoBattleEnabled
+    {
+        get => _autoBattleEnabled;
+        set
+        {
+            if (_autoBattleEnabled == value) return;
+            _autoBattleEnabled = value;
+            PersistEnables();
+        }
+    }
+
+    private void PersistEnables()
+    {
+        var shell = _store.GetShellSettings();
+        shell.AutoThrowEnabled = _autoThrowEnabled;
+        shell.AutoBattleEnabled = _autoBattleEnabled;
+        _store.SetShellSettings(shell);
+        _store.Save();
+    }
 
     public event Action? Changed;
 
@@ -147,14 +191,20 @@ public sealed class DispatcherHost : IDisposable
         Changed?.Invoke();
     }
 
-    /// <summary>UI 切换功能开关后同步到 handler。</summary>
+    /// <summary>UI 切换功能开关后同步到 handler，并请求调度器重评激活态。</summary>
     public void SyncEnables()
     {
+        SceneDispatcherRunningTask? task;
         lock (_gate)
         {
             if (_throwHandler is not null) _throwHandler.IsEnabled = AutoThrowEnabled;
             if (_battleHandler is not null) _battleHandler.IsEnabled = AutoBattleEnabled;
+            task = _task;
         }
+
+        // 仅改 IsEnabled 不够：调度器只在场景切换时参考该标志，
+        // 稳定场景下关→开不会重新拉起 handler（票 21）
+        task?.RequestRefreshActivation();
     }
 
     private void OnTaskEvent(object? sender, ToolEvent e)
@@ -175,6 +225,8 @@ public sealed class DispatcherHost : IDisposable
             lock (_gate) { _task = null; }
             Changed?.Invoke();
         }
+
+        TaskStateChanged?.Invoke(this, state);
     }
 
     public void Dispose()

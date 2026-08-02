@@ -8,4 +8,5 @@ public sealed record OverlaySnapshot(
     string? StallBanner,
     bool CaptureRunning = false,
     string? Phase = null,
-    string? Scene = null);
+    string? Scene = null,
+    int StallMinutes = 0);

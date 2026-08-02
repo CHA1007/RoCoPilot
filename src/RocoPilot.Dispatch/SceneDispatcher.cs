@@ -22,6 +22,7 @@ public sealed class SceneDispatcher
     private ISceneHandler? _activeHandler;
     private GameScene _pendingScene = GameScene.Unknown;
     private int _pendingCount;
+    private volatile bool _refreshActivation;
 
     public SceneDispatcher(
         ICaptureSource captureSource,
@@ -42,6 +43,12 @@ public sealed class SceneDispatcher
     public GameScene CurrentScene => _currentScene;
 
     public event EventHandler<ToolEvent>? EventRaised;
+
+    /// <summary>
+    /// 请求重新评估处理器激活（外部开关变更后调用）。
+    /// 仅置标志，实际评估在调度循环线程执行，避免跨线程改动激活态。
+    /// </summary>
+    public void RequestRefreshActivation() => _refreshActivation = true;
 
     /// <summary>调度主循环，阻塞直到取消。</summary>
     public void Run(CancellationToken cancellationToken)
@@ -73,6 +80,12 @@ public sealed class SceneDispatcher
 
                 var scene = DetectScene(pixels, frame.Width, frame.Height);
                 UpdateScene(scene, pixels, frame.Width, frame.Height);
+
+                if (_refreshActivation)
+                {
+                    _refreshActivation = false;
+                    RefreshActivation();
+                }
             }
             finally
             {
@@ -149,6 +162,16 @@ public sealed class SceneDispatcher
 
         // 切换后立即喂一帧
         _activeHandler?.Handle(pixels, width, height);
+    }
+
+    /// <summary>开关变更后重评激活态：停掉被禁用的活跃处理器，为当前场景补拉已启用的处理器。</summary>
+    private void RefreshActivation()
+    {
+        if (_activeHandler is not null && !_activeHandler.IsEnabled)
+            DeactivateCurrent();
+
+        if (_activeHandler is null && _currentScene != GameScene.Unknown)
+            ActivateHandler(_currentScene);
     }
 
     private void ActivateHandler(GameScene scene)

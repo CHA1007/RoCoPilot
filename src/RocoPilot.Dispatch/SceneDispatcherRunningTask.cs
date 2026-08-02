@@ -25,6 +25,7 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
     private TaskCompletionSource? _stoppedTcs;
     private TaskState _state = TaskState.Idle;
     private IInputDriver? _driver;
+    private SceneDispatcher? _dispatcher;
 
     public SceneDispatcherRunningTask(
         Func<ICaptureSource?> captureSourceProvider,
@@ -60,6 +61,12 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
     public event EventHandler<TaskState>? StateChanged;
 
     public event EventHandler<ToolEvent>? EventRaised;
+
+    /// <summary>处理器开关变更后请求重新评估激活态（未运行时无操作）。</summary>
+    public void RequestRefreshActivation()
+    {
+        lock (_gate) { _dispatcher?.RequestRefreshActivation(); }
+    }
 
     public void Start()
     {
@@ -179,6 +186,7 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
                 source, detectors, handlers, context,
                 _pollIntervalMs, _debounceFrames);
             dispatcher.EventRaised += OnDispatcherEvent;
+            lock (_gate) { _dispatcher = dispatcher; }
 
             // ── 进入 Running ──
             bool entered;
@@ -208,6 +216,8 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
         {
             if (dispatcher is not null)
                 dispatcher.EventRaised -= OnDispatcherEvent;
+
+            lock (_gate) { _dispatcher = null; }
 
             foreach (var d in detectors)
                 (d as IDisposable)?.Dispose();

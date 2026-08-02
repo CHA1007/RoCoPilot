@@ -126,7 +126,16 @@ public sealed class AutoThrowHandler : ISceneHandler
 
             // 运行
             _context?.EmitEvent(new ToolEvent("auto_throw_started"));
-            await Task.Run(() => pipeline.Run(ct), ct);
+            // 桥接捕捉循环总线事件（扫描/转向/投掷/了结/僵住等）到场景事件通道，供覆盖层投影
+            pipeline.Bus.EventRaised += OnPipelineEvent;
+            try
+            {
+                await Task.Run(() => pipeline.Run(ct), ct);
+            }
+            finally
+            {
+                pipeline.Bus.EventRaised -= OnPipelineEvent;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -151,6 +160,8 @@ public sealed class AutoThrowHandler : ISceneHandler
             _context?.EmitEvent(new ToolEvent("auto_throw_stopped"));
         }
     }
+
+    private void OnPipelineEvent(object? sender, ToolEvent e) => _context?.EmitEvent(e);
 
     private ICatchPipeline CreatePipeline()
     {
