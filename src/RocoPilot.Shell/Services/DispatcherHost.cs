@@ -7,13 +7,10 @@ using RocoPilot.Settings;
 using RocoPilot.Tools.AutoBattle;
 using RocoPilot.Tools.AutoBattle.Battle;
 using RocoPilot.Tools.AutoThrow;
+using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Services;
 
-/// <summary>
-/// 调度器宿主：截图器启动时自动拉起 <see cref="SceneDispatcher"/>，停止时自动收起。
-/// 外壳级共享服务，用户无需直接操作。
-/// </summary>
 public sealed class DispatcherHost : IDisposable
 {
     private readonly CaptureHost _capture;
@@ -24,8 +21,10 @@ public sealed class DispatcherHost : IDisposable
     private SceneDispatcherRunningTask? _task;
     private AutoThrowHandler? _throwHandler;
     private AutoBattleHandler? _battleHandler;
+    private FastTravelHandler? _fastTravelHandler;
     private bool _autoThrowEnabled;
     private bool _autoBattleEnabled;
+    private bool _fastTravelEnabled;
 
     public DispatcherHost(CaptureHost capture, ISettingsStore store, AutoThrowTool throwTool)
     {
@@ -33,18 +32,16 @@ public sealed class DispatcherHost : IDisposable
         _store = store;
         _throwTool = throwTool;
 
-        // 从持久化设置恢复开关状态，避免每次启动回退到默认值
         var shell = store.GetShellSettings();
         _autoThrowEnabled = shell.AutoThrowEnabled;
         _autoBattleEnabled = shell.AutoBattleEnabled;
+        _fastTravelEnabled = shell.FastTravelEnabled;
 
         _capture.Changed += OnCaptureChanged;
     }
 
-    /// <summary>当前场景（供覆盖层读取）。</summary>
     public GameScene CurrentScene { get; private set; } = GameScene.Unknown;
 
-    /// <summary>调试叠层用：当前自动丢球管线。</summary>
     public object? DiagnosticsContext
     {
         get
@@ -58,16 +55,13 @@ public sealed class DispatcherHost : IDisposable
         get { lock (_gate) { return _task is not null; } }
     }
 
-    /// <summary>调度器任务状态（无任务时为 Idle），供覆盖层播种初始状态。</summary>
     public TaskState DispatcherState
     {
         get { lock (_gate) { return _task?.State ?? TaskState.Idle; } }
     }
 
-    /// <summary>调度器任务状态迁移（覆盖层状态点/脱冲用）。</summary>
     public event EventHandler<TaskState>? TaskStateChanged;
 
-    /// <summary>功能启用状态（由 UI 设置，变更即持久化）。</summary>
     public bool AutoThrowEnabled
     {
         get => _autoThrowEnabled;
@@ -90,11 +84,23 @@ public sealed class DispatcherHost : IDisposable
         }
     }
 
+    public bool FastTravelEnabled
+    {
+        get => _fastTravelEnabled;
+        set
+        {
+            if (_fastTravelEnabled == value) return;
+            _fastTravelEnabled = value;
+            PersistEnables();
+        }
+    }
+
     private void PersistEnables()
     {
         var shell = _store.GetShellSettings();
         shell.AutoThrowEnabled = _autoThrowEnabled;
         shell.AutoBattleEnabled = _autoBattleEnabled;
+        shell.FastTravelEnabled = _fastTravelEnabled;
         _store.SetShellSettings(shell);
         _store.Save();
     }
@@ -144,6 +150,17 @@ public sealed class DispatcherHost : IDisposable
                 IsEnabled = AutoBattleEnabled,
             };
 
+            var fastTravelSettings = _store.GetToolSettings(
+                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                                     ?? new FastTravelSettings();
+            _fastTravelHandler = new FastTravelHandler(
+                fastTravelSettings,
+                TeleportSensor.TryCreate("assets/templates/map/teleport.png"),
+                GameFrameMapper.Create(source))
+            {
+                IsEnabled = FastTravelEnabled,
+            };
+
             var shell = _store.GetShellSettings();
             var task = new SceneDispatcherRunningTask(
                 captureSourceProvider: () => _capture.CurrentSource,
@@ -154,6 +171,7 @@ public sealed class DispatcherHost : IDisposable
                 {
                     [GameScene.OpenWorld] = _throwHandler,
                     [GameScene.Battle] = _battleHandler,
+                    [GameScene.WorldMap] = _fastTravelHandler,
                 });
 
             task.EventRaised += OnTaskEvent;
@@ -175,6 +193,7 @@ public sealed class DispatcherHost : IDisposable
             _task = null;
             _throwHandler = null;
             _battleHandler = null;
+            _fastTravelHandler = null;
         }
 
         if (task is null) return;
@@ -191,7 +210,6 @@ public sealed class DispatcherHost : IDisposable
         Changed?.Invoke();
     }
 
-    /// <summary>UI 切换功能开关后同步到 handler，并请求调度器重评激活态。</summary>
     public void SyncEnables()
     {
         SceneDispatcherRunningTask? task;
@@ -199,11 +217,10 @@ public sealed class DispatcherHost : IDisposable
         {
             if (_throwHandler is not null) _throwHandler.IsEnabled = AutoThrowEnabled;
             if (_battleHandler is not null) _battleHandler.IsEnabled = AutoBattleEnabled;
+            if (_fastTravelHandler is not null) _fastTravelHandler.IsEnabled = FastTravelEnabled;
             task = _task;
         }
 
-        // 仅改 IsEnabled 不够：调度器只在场景切换时参考该标志，
-        // 稳定场景下关→开不会重新拉起 handler（票 21）
         task?.RequestRefreshActivation();
     }
 

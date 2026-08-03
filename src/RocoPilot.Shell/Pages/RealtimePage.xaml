@@ -5,7 +5,6 @@
 
   <StackPanel Margin="32,24,32,40">
 
-    <!-- 自动丢球 -->
     <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
@@ -25,7 +24,6 @@
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
 
-        <!-- 灵敏度未校准提醒 -->
         <Border x:Name="CalibrationBanner" Margin="16,12,16,0" Padding="12,8" CornerRadius="4"
                 Visibility="Collapsed"
                 Background="{ui:ThemeResource SystemFillColorCautionBackgroundBrush}">
@@ -46,7 +44,6 @@
       </StackPanel>
     </ui:CardExpander>
 
-    <!-- 自动战斗 -->
     <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Shield24}" Margin="0,12,0,0">
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
@@ -73,7 +70,7 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="技能槽位" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="战斗中按 R 打开技能面板后按对应数字键" />
+                          Text="战斗中技能对应数字" />
           </StackPanel>
           <ComboBox x:Name="SkillSlotCombo" Grid.Column="1" Width="100"
                     SelectionChanged="OnSkillSlotChanged">
@@ -86,7 +83,24 @@
       </StackPanel>
     </ui:CardExpander>
 
-    <!-- 状态提示 -->
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Map24}" Margin="0,12,0,0">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="地图快传" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="点击世界地图中的魔力之源，炼金釜等可快速传送" />
+          </StackPanel>
+          <ui:ToggleSwitch x:Name="FastTravelToggle" Grid.Column="1"
+                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+        </Grid>
+      </ui:CardExpander.Header>
+    </ui:CardExpander>
+
     <ui:TextBlock x:Name="StatusText" Margin="0,12,0,0" FontTypography="Caption"
                   Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                   TextWrapping="Wrap" Visibility="Collapsed" />

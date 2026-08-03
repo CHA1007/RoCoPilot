@@ -7,6 +7,7 @@
 
     <ApplicationIcon>RocoPilot.ico</ApplicationIcon>
     <AssemblyName>RocoPilot</AssemblyName>
+    <Version>0.1.0</Version>
 
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -39,6 +40,7 @@
     <ProjectReference Include="..\RocoPilot.Settings\RocoPilot.Settings.csproj" />
     <ProjectReference Include="..\RocoPilot.Tools.AutoBattle\RocoPilot.Tools.AutoBattle.csproj" />
     <ProjectReference Include="..\RocoPilot.Tools.AutoThrow\RocoPilot.Tools.AutoThrow.csproj" />
+    <ProjectReference Include="..\RocoPilot.Tools.FastTravel\RocoPilot.Tools.FastTravel.csproj" />
   </ItemGroup>
 
 </Project>

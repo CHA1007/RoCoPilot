@@ -36,6 +36,7 @@ public partial class RealtimePage : Page
 
         AutoThrowToggle.IsChecked = _dispatcher.AutoThrowEnabled;
         AutoBattleToggle.IsChecked = _dispatcher.AutoBattleEnabled;
+        FastTravelToggle.IsChecked = _dispatcher.FastTravelEnabled;
 
         Loaded += (_, _) =>
         {
@@ -51,6 +52,7 @@ public partial class RealtimePage : Page
         if (!_ready) return;
         _dispatcher.AutoThrowEnabled = AutoThrowToggle.IsChecked == true;
         _dispatcher.AutoBattleEnabled = AutoBattleToggle.IsChecked == true;
+        _dispatcher.FastTravelEnabled = FastTravelToggle.IsChecked == true;
         _dispatcher.SyncEnables();
     }
 
@@ -87,8 +89,6 @@ public partial class RealtimePage : Page
         _store.SetToolSettings(_tool.Id, _throwSettings);
         _store.Save();
     }
-
-    // ── 灵敏度校准 ──
 
     private void RefreshCalibrationBanner()
     {

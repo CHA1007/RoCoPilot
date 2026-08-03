@@ -6,6 +6,7 @@
 docs/
 AGENTS.md
 CONTEXT.md
+.pi-subagents/
 
 .venv/
 __pycache__/
