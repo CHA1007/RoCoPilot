@@ -8,8 +8,6 @@ namespace RocoPilot.Loop;
 
 public sealed class CatchPipeline : ICatchPipeline
 {
-    private const int PollChunkMs = 100;
-
     private readonly CatchPipelineSpec _spec;
     private readonly CatchPipelineFactories _factories;
     private readonly CalibrationCache _cache = new();
@@ -157,7 +155,6 @@ public sealed class CatchPipeline : ICatchPipeline
                 throw new CaptureException($"未找到游戏进程 {WindowFinder.GameProcessName}，请先启动《洛克王国：世界》客户端");
             }
 
-            // 主动激活游戏窗口，免去手动右键聚焦（Unreal 引擎左键被游戏输入层截获，不触发 OS 窗口激活）
             WindowFinder.ActivateWindow(_gameWindow);
 
             if (_spec.ExistingSource is not null)
@@ -187,23 +184,13 @@ public sealed class CatchPipeline : ICatchPipeline
                 _sensor.RecognitionFlipped += OnRecognitionFlipped;
             }
 
-            try
-            {
-                await WaitFirstStableTarget(cancellationToken);
-            }
-            catch (LoopException ex)
-            {
-                CaptureCalibrationScene(ex);
-                throw;
-            }
-
             _sink = _spec.SessionLogDirectory is { } dir
                 ? new JsonlEventSink(Path.Combine(dir, "events.jsonl"))
                 : null;
             _controller = new CenteringController(
                 _spec.Centering, _sensor, _driver!, _cache, inputGate: InputGate);
             _bus = new CatchEventBus(new CatchCounters(), _sink);
-            // 票 13-D：鼠标加速开启时 ppc 标定追的是非线性靶，告警但不阻塞
+
             if (MouseAccelerationProbe.IsEnabled())
             {
                 _bus.Emit("warning", new Dictionary<string, object?>
@@ -215,9 +202,7 @@ public sealed class CatchPipeline : ICatchPipeline
             _recorder?.AttachBus(_bus);
         })
     {
-        Remedy = ex => ex is CaptureException
-            ? "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试"
-            : "把镜头转向一只野外精灵再重试",
+        Remedy = _ => "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试",
     };
 
     private ArmingStep CalibrationStep() => new(
@@ -225,9 +210,9 @@ public sealed class CatchPipeline : ICatchPipeline
         "灵敏度校准：向各轴发探针并量画面位移…",
         async cancellationToken =>
         {
-            // 校准前重新聚焦游戏窗口（用户可能在 CaptureStep 后切走）
+
             WindowFinder.ActivateGameWindow();
-            // 校准失败（null）不阻断启动，回退到手动灵敏度设置
+
             var result = await Task.Run(
                 () => AutoCalibrator.Calibrate(_source!, _driver!), cancellationToken);
             _calibratedPpc = result;
@@ -260,22 +245,6 @@ public sealed class CatchPipeline : ICatchPipeline
         Quiet = true,
     };
 
-    private void CaptureCalibrationScene(Exception cause)
-    {
-        try
-        {
-            _recorder?.Capture("calibration", new ToolEvent("arming_failed", new Dictionary<string, object?>
-            {
-                ["step"] = "calibration",
-                ["error"] = cause.GetBaseException().Message,
-            }));
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceWarning($"CaptureCalibrationScene 失败: {ex.GetBaseException().Message}");
-        }
-    }
-
     private void OnRecognitionFlipped(object? sender, RecognitionFlip flip)
     {
         try
@@ -294,21 +263,4 @@ public sealed class CatchPipeline : ICatchPipeline
         }
     }
 
-    private async Task WaitFirstStableTarget(CancellationToken cancellationToken)
-    {
-        var waited = TimeSpan.Zero;
-        var chunk = TimeSpan.FromMilliseconds(PollChunkMs);
-        while (_sensor!.ObserveStable().Count == 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (waited >= _spec.FirstStableTargetTimeout)
-            {
-                throw new LoopException(
-                    $"超时 {_spec.FirstStableTargetTimeout.TotalSeconds:0}s 未见稳定精灵（检测 / 捕获已就绪）");
-            }
-
-            await Task.Delay(chunk, cancellationToken);
-            waited += chunk;
-        }
-    }
 }

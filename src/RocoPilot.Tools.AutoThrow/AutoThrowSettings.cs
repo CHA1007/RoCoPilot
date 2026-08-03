@@ -53,7 +53,7 @@ public sealed class AutoThrowSettings
 
     public string WindowTitleSubstring { get; set; } = DefaultWindowTitle;
 
-    public bool CalibrateBeforeThrow { get; set; } = true;
+    public bool CalibrateBeforeThrow { get; set; } = false;
 
     public void SanitizeInPlace()
     {

@@ -24,17 +24,12 @@ public sealed record CatchPipelineSpec
 
     public TimeSpan DeviceDiscoveryTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
-    public TimeSpan FirstStableTargetTimeout { get; init; } = TimeSpan.FromSeconds(8);
-
     public string? SessionLogDirectory { get; init; }
 
-    /// <summary>外部提供的截图源（如 CaptureHost）。非空时 CaptureStep 直接复用，不另建；Dispose 不释放。</summary>
     public ICaptureSource? ExistingSource { get; init; }
 
-    /// <summary>投掷前是否执行场景位移法灵敏度校准。</summary>
-    public bool CalibrateBeforeThrow { get; init; } = true;
+    public bool CalibrateBeforeThrow { get; init; } = false;
 
-    /// <summary>校准成功后的回调（ppcX, ppcY），用于持久化。</summary>
     public Action<double, double>? OnCalibrated { get; init; }
 }
 
