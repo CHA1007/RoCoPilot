@@ -23,17 +23,18 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Trace 写入文件，方便排查
         var tracePath = Path.Combine(Path.GetTempPath(), "RocoPilot-trace.log");
         Trace.Listeners.Add(new TextWriterTraceListener(tracePath) { TraceOutputOptions = System.Diagnostics.TraceOptions.DateTime });
         Trace.AutoFlush = true;
 
+        var settingsStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
+        settingsStore.Load();
+
         var services = new ServiceCollection();
-        ConfigureServices(services);
+        ConfigureServices(services, settingsStore);
         _services = services.BuildServiceProvider();
 
         var store = _services.GetRequiredService<ISettingsStore>();
-        store.Load();
         SeedDefaults(store);
         store.Save();
 
@@ -44,12 +45,11 @@ public partial class App : Application
         window.Show();
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IServiceCollection services, ISettingsStore settingsStore)
     {
         services.AddNavigationViewPageProvider();
 
-        var settingsStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
-        services.AddSingleton<ISettingsStore>(settingsStore);
+        services.AddSingleton(settingsStore);
         services.AddSingleton<RunningTaskHost>();
         var captureHost = new CaptureHost();
         services.AddSingleton(captureHost);
@@ -61,7 +61,6 @@ public partial class App : Application
             services.AddTransient(ToolRegistry.PageTypeOf(tool));
         }
 
-        // 调度器宿主：截图器启动时自动拉起
         var throwTool = (RocoPilot.Tools.AutoThrow.AutoThrowTool)ToolRegistry.CreateTools(captureHost, settingsStore)[0];
         services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool));
 
