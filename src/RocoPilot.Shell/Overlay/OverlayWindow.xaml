@@ -18,7 +18,6 @@
         Width="400"
         Height="100">
 
-  <!-- 灵动岛：固定画布顶部居中放纯黑胶囊，胶囊自身在紧凑/展开两态间弹性变形 -->
   <Border x:Name="Island"
           HorizontalAlignment="Center" VerticalAlignment="Top"
           Margin="0,6,0,0"
@@ -34,7 +33,7 @@
     </Border.Effect>
 
     <Grid>
-      <!-- 紧凑态：状态点 + 阶段 ｜ 场景 + 投掷数 -->
+
       <Grid x:Name="CompactLayer" Margin="14,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
@@ -44,7 +43,7 @@
 
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
           <Ellipse x:Name="StateDot" Width="8" Height="8" Fill="#FF94A3B8" VerticalAlignment="Center" />
-          <!-- 与场景文字同字体栈/同字号：中文都回退雅黑渲染，行高指标一致，基线天然对齐 -->
+
           <TextBlock x:Name="PhaseText" Text="待机" Margin="9,0,0,0"
                      FontSize="15" FontWeight="Bold"
                      Foreground="#FFFFFFFF" VerticalAlignment="Center">
@@ -58,7 +57,6 @@
                    FontSize="15" FontWeight="SemiBold" Foreground="#99FFFFFF" VerticalAlignment="Center" />
       </Grid>
 
-      <!-- 展开态：图标 + 标题/副标题 -->
       <Grid x:Name="ExpandedLayer" Opacity="0" Margin="16,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
@@ -68,7 +66,7 @@
         <TextBlock x:Name="ExpIcon" Grid.Column="0" Text="⚠️"
                    FontSize="22" VerticalAlignment="Center" />
 
-        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+        <StackPanel x:Name="ExpText" Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
           <TextBlock x:Name="ExpTitle" Text="—"
                      FontSize="15" FontWeight="Bold"
                      Foreground="#FFFFFFFF" />
