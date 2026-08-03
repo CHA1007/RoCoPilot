@@ -23,9 +23,6 @@ public partial class AutoThrowConfigPanel : UserControl
         Loaded += OnLoaded;
     }
 
-    // NumberBox 内部用 SetCurrentValue 更新 DP，不触发绑定 UpdateSource，
-    // 导致 Binding.SourceUpdated 永远不冒泡（WPF-UI 4.3.0 已知行为）。
-    // 改为订阅 ValueChanged 路由事件，手动 UpdateSource 后提交持久化。
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _ready = true;
@@ -48,7 +45,6 @@ public partial class AutoThrowConfigPanel : UserControl
             return;
         }
 
-        // SetCurrentValue 只改 DP 不推源，手动刷绑定
         box.GetBindingExpression(Wpf.Ui.Controls.NumberBox.ValueProperty)?.UpdateSource();
         Commit();
     }
@@ -112,7 +108,7 @@ public partial class AutoThrowConfigPanel : UserControl
     private Grid CreateWhitelistRow(string name)
     {
         var row = new Grid { Margin = new Thickness(0, 0, 0, 8) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var box = new Wpf.Ui.Controls.TextBox { Text = name };

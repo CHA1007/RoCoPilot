@@ -4,10 +4,6 @@ using RocoPilot.Input;
 
 namespace RocoPilot.Dispatch;
 
-/// <summary>
-/// 将 <see cref="SceneDispatcher"/> 包装为 <see cref="IRunningTask"/>，
-/// 外壳只看到这一个任务。
-/// </summary>
 public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
 {
     private readonly Func<ICaptureSource?> _captureSourceProvider;
@@ -62,7 +58,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
 
     public event EventHandler<ToolEvent>? EventRaised;
 
-    /// <summary>处理器开关变更后请求重新评估激活态（未运行时无操作）。</summary>
     public void RequestRefreshActivation()
     {
         lock (_gate) { _dispatcher?.RequestRefreshActivation(); }
@@ -89,7 +84,7 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
 
     public void RequestPause(string source = "manual")
     {
-        // 调度器暂停＝取消循环（DeactivateCurrent 在 Run 退出时自动执行）
+
         lock (_gate)
         {
             if (_state != TaskState.Running) return;
@@ -108,7 +103,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
             _state = TaskState.Idle;
         }
 
-        // 恢复＝重新走 Start 流程（重建 CTS + 重新 Arming）
         RaiseStateChanged(TaskState.Idle);
         Start();
     }
@@ -149,7 +143,7 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
 
         try
         {
-            // ── Arming：输入设备 ──
+
             RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
             {
                 ["step"] = "input",
@@ -160,7 +154,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
             _driver = driver;
             await Task.Run(() => driver.Arm(TimeSpan.FromSeconds(10)), ct);
 
-            // ── Arming：截图源 ──
             RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
             {
                 ["step"] = "capture",
@@ -170,7 +163,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
             var source = _captureSourceProvider()
                 ?? throw new InvalidOperationException("请先在「启动」页开启截图器");
 
-            // ── Arming：检测器 + 处理器 ──
             detectors.AddRange(_detectorFactory());
             var handlers = _handlerFactory();
 
@@ -188,7 +180,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
             dispatcher.EventRaised += OnDispatcherEvent;
             lock (_gate) { _dispatcher = dispatcher; }
 
-            // ── 进入 Running ──
             bool entered;
             lock (_gate)
             {

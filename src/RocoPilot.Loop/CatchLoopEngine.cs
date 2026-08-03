@@ -4,10 +4,6 @@ using RocoPilot.Input;
 
 namespace RocoPilot.Loop;
 
-/// <summary>
-/// 快速捕捉循环：检测 → 长按 → 一次精准转向 → 松手 → 结算 → 下一轮。
-/// 不做多步迭代居中，单次 move 即投。
-/// </summary>
 public sealed class CatchLoopEngine : IDisposable
 {
     private const int SleepChunkMs = 100;
@@ -74,7 +70,6 @@ public sealed class CatchLoopEngine : IDisposable
 
     public CatchEventBus Bus => _bus;
 
-    /// <summary>当前投掷目标的 TrackId（-1＝无），调试叠层换色用。</summary>
     public int ActiveTrackId => Volatile.Read(ref _activeTrackId);
 
     public bool Pause(string source = "manual")
@@ -141,7 +136,6 @@ public sealed class CatchLoopEngine : IDisposable
             {
                 WaitAtLoopHead(cancellationToken);
 
-                // ── 扫描：选取目标 ──
                 SetPhase(CatchPhase.Scanning);
 
                 StableTarget? pick = null;
@@ -167,12 +161,10 @@ public sealed class CatchLoopEngine : IDisposable
                 Volatile.Write(ref _activeTrackId, pick.TrackId);
                 EmitTargetAcquired(stats.Attempts, pick, centerX, centerY);
 
-                // 计算偏移与转向指令（票 14 后续：垂直瞄准偏移补偿框中心偏下）
                 var aimY = pick.MedianCenter.Y + pick.Latest.Height * (float)_options.AimOffsetY;
                 var offsetX = (double)pick.MedianCenter.X - centerX;
                 var offsetY = (double)aimY - centerY;
 
-                // 已在容差内则跳过转向
                 var tolerance = _controller.AppliedOptions.TolerancePx;
                 var needTurn = Math.Abs(offsetX) > tolerance || Math.Abs(offsetY) > tolerance;
 
@@ -182,7 +174,6 @@ public sealed class CatchLoopEngine : IDisposable
                     ppc = ResolvePpc(offsetX, offsetY);
                 }
 
-                // ── 投掷：一次转向定位 → 长按蓄力 → 松手投出 ──
                 WaitWhileGateClosed(cancellationToken);
                 SetPhase(CatchPhase.Throwing);
 
@@ -237,7 +228,6 @@ public sealed class CatchLoopEngine : IDisposable
                     ["ppc"] = ppc is { } p ? Math.Round(p, 3) : null,
                 });
 
-                // ── 结算 ──
                 SetPhase(CatchPhase.Settling);
                 SleepInterruptible(_options.SettleMs, cancellationToken);
                 var recheck = TargetSelection.Pick(
@@ -259,7 +249,6 @@ public sealed class CatchLoopEngine : IDisposable
                     _stallAlerted = false;
                 }
 
-                // 在线校正 ppc（利用本次转向实测）
                 if (needTurn && ppc is { } usedPpc && usedPpc > 0)
                 {
                     TryOnlineCalibration(offsetX, offsetY, pick, recheck, usedPpc);
@@ -300,7 +289,6 @@ public sealed class CatchLoopEngine : IDisposable
         _pauseGate.Dispose();
     }
 
-    /// <summary>从缓存取 ppc；无缓存时用回退除数估算。</summary>
     private double? ResolvePpc(double offsetX, double offsetY)
     {
         var magnitude = Math.Sqrt(offsetX * offsetX + offsetY * offsetY);
@@ -310,7 +298,6 @@ public sealed class CatchLoopEngine : IDisposable
             return ppc;
         }
 
-        // 回退：用 FallbackDivisor 粗估（像素 / 除数 ≈ counts）
         return _controller.AppliedOptions.FallbackDivisor;
     }
 
@@ -331,7 +318,6 @@ public sealed class CatchLoopEngine : IDisposable
         _driver.MoveRelative(countsX, countsY);
     }
 
-    /// <summary>在线校正：比较指令位移与实测位移，更新 ppc 缓存。</summary>
     private void TryOnlineCalibration(
         double offsetX, double offsetY,
         StableTarget before, StableTarget? after, double usedPpc)
@@ -341,11 +327,9 @@ public sealed class CatchLoopEngine : IDisposable
             return;
         }
 
-        // 实测像素位移
         var movedX = (double)after.MedianCenter.X - before.MedianCenter.X;
         var movedY = (double)after.MedianCenter.Y - before.MedianCenter.Y;
 
-        // 取主轴
         var useX = Math.Abs(offsetX) >= Math.Abs(offsetY);
         var commandCounts = useX ? offsetX / usedPpc : offsetY / usedPpc;
         var movedPx = useX ? movedX : movedY;
@@ -357,7 +341,6 @@ public sealed class CatchLoopEngine : IDisposable
             return;
         }
 
-        // 方向须相反（指令向右→目标在画面左移）
         if (movedPx * commandCounts >= 0)
         {
             return;

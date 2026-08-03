@@ -15,7 +15,7 @@
           <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕捉的精灵对象" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="留空则捕捉所有识别到的精灵"
+                        Text="留空则捕捉所有识别到的精灵 Tip:目前仅支持识别恶魔狼和月牙雪熊"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -42,7 +42,7 @@
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
-      <ui:NumberBox Width="140"
+      <ui:NumberBox Width="200"
                     Minimum="0"
                     Maximum="1"
                     SmallChange="0.05"
@@ -65,7 +65,7 @@
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
-      <ui:NumberBox Width="140"
+      <ui:NumberBox Width="200"
                     Minimum="10"
                     Maximum="3000"
                     SmallChange="10"

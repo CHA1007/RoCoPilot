@@ -46,7 +46,7 @@
                           Text="相对位移计数；转不动镜头就加大（如 800 / 1200）" />
           </Grid>
         </ui:CardControl.Header>
-        <TextBox x:Name="AmountBox" Width="120" Text="400" />
+        <TextBox x:Name="AmountBox" Width="160" Text="400" />
       </ui:CardControl>
 
       <StackPanel Orientation="Horizontal" Margin="0,4,0,8">

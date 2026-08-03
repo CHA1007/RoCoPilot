@@ -1,18 +1,10 @@
 namespace RocoPilot.Loop;
 
-/// <summary>
-/// 基于 SAD（绝对差之和）的场景平移估计。
-/// 对两帧做灰度降采样后滑动匹配，返回像素位移。
-/// </summary>
 public static class SceneShiftEstimator
 {
     private const int Downsample = 4;
-    private const int Margin = 40; // 降采样后边缘裁剪（避免黑边干扰）
+    private const int Margin = 40;
 
-    /// <summary>
-    /// 估计 frameB 相对 frameA 的水平/垂直位移（像素，原始分辨率）。
-    /// 返回 null 表示匹配失败（场景纹理不足或位移超出搜索范围）。
-    /// </summary>
     public static (double Dx, double Dy)? Estimate(
         ReadOnlySpan<byte> frameA, ReadOnlySpan<byte> frameB,
         int width, int height, int maxShiftPx = 300)
@@ -27,7 +19,6 @@ public static class SceneShiftEstimator
         var maxShift = Math.Min(maxShiftPx / Downsample, Math.Min(sw, sh) / 3);
         if (maxShift < 2) return null;
 
-        // 先搜水平（主轴），再搜垂直
         var dx = FindBestShift(grayA, grayB, sw, sh, maxShift, horizontal: true);
         var dy = FindBestShift(grayA, grayB, sw, sh, maxShift, horizontal: false);
 
@@ -38,7 +29,6 @@ public static class SceneShiftEstimator
             (dy ?? 0) * Downsample);
     }
 
-    /// <summary>沿单轴滑动 SAD 搜索最佳位移。</summary>
     private static int? FindBestShift(
         byte[] a, byte[] b, int w, int h, int maxShift, bool horizontal)
     {
@@ -85,12 +75,10 @@ public static class SceneShiftEstimator
 
         if (bestShift == 0) return 0;
 
-        // 置信检查：最佳 SAD 须显著低于零位移 SAD，否则视为噪声
         if (zeroSad == 0 || bestSad > zeroSad * 0.85) return null;
         return bestShift;
     }
 
-    /// <summary>BGRA → 灰度 + 降采样。</summary>
     private static byte[] ToGrayDownsampled(ReadOnlySpan<byte> bgra, int srcW, int srcH, int dstW, int dstH)
     {
         var gray = new byte[dstW * dstH];
@@ -101,7 +89,7 @@ public static class SceneShiftEstimator
             {
                 var sx = dx * Downsample;
                 var idx = (sy * srcW + sx) * 4;
-                // BT.601 灰度：0.299R + 0.587G + 0.114B（BGRA 序）
+
                 gray[dy * dstW + dx] = (byte)(
                     (bgra[idx + 2] * 77 + bgra[idx + 1] * 150 + bgra[idx] * 29) >> 8);
             }

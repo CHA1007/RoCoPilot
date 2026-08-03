@@ -3,10 +3,6 @@ using RocoPilot.Core;
 
 namespace RocoPilot.Dispatch;
 
-/// <summary>
-/// 中央调度器：持续抓帧 → 场景检测 → 自动切换已启用的场景处理器。
-/// 同一时刻最多一个 handler 活跃（单输入源）。
-/// </summary>
 public sealed class SceneDispatcher
 {
     private const int SleepChunkMs = 100;
@@ -44,18 +40,13 @@ public sealed class SceneDispatcher
 
     public event EventHandler<ToolEvent>? EventRaised;
 
-    /// <summary>
-    /// 请求重新评估处理器激活（外部开关变更后调用）。
-    /// 仅置标志，实际评估在调度循环线程执行，避免跨线程改动激活态。
-    /// </summary>
     public void RequestRefreshActivation() => _refreshActivation = true;
 
-    /// <summary>调度主循环，阻塞直到取消。</summary>
     public void Run(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            // 失焦门控：游戏窗口不在前台时挂起，不发任何输入
+
             if (!_context.IsGameForeground())
             {
                 DeactivateCurrent();
@@ -98,7 +89,6 @@ public sealed class SceneDispatcher
         DeactivateCurrent();
     }
 
-    /// <summary>对所有检测器投票，取置信度最高者。</summary>
     private GameScene DetectScene(ReadOnlySpan<byte> pixels, int width, int height)
     {
         var bestScene = GameScene.Unknown;
@@ -117,21 +107,18 @@ public sealed class SceneDispatcher
         return bestScene;
     }
 
-    /// <summary>去抖 + 场景切换。</summary>
     private void UpdateScene(GameScene detected, ReadOnlySpan<byte> pixels, int width, int height)
     {
-        // 与当前场景一致，重置去抖计数
+
         if (detected == _currentScene)
         {
             _pendingScene = GameScene.Unknown;
             _pendingCount = 0;
 
-            // 持续喂帧给活跃 handler
             _activeHandler?.Handle(pixels, width, height);
             return;
         }
 
-        // 去抖：连续 N 帧确认才切换
         if (detected == _pendingScene)
         {
             _pendingCount++;
@@ -145,7 +132,6 @@ public sealed class SceneDispatcher
         if (_pendingCount < _debounceFrames)
             return;
 
-        // 确认切换
         var previous = _currentScene;
         DeactivateCurrent();
         _currentScene = detected;
@@ -160,11 +146,9 @@ public sealed class SceneDispatcher
 
         ActivateHandler(detected);
 
-        // 切换后立即喂一帧
         _activeHandler?.Handle(pixels, width, height);
     }
 
-    /// <summary>开关变更后重评激活态：停掉被禁用的活跃处理器，为当前场景补拉已启用的处理器。</summary>
     private void RefreshActivation()
     {
         if (_activeHandler is not null && !_activeHandler.IsEnabled)
@@ -226,7 +210,7 @@ public sealed class SceneDispatcher
             }
             catch
             {
-                // 事件订阅者异常不影响调度循环
+
             }
         }
     }

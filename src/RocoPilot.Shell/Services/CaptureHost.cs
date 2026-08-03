@@ -12,7 +12,6 @@ public sealed class CaptureHost : IDisposable
         get { lock (_gate) { return _source is not null; } }
     }
 
-    /// <summary>取当前截图源（可能为 null）。</summary>
     public ICaptureSource? CurrentSource
     {
         get { lock (_gate) { return _source; } }

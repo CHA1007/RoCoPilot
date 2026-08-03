@@ -42,7 +42,6 @@ public partial class ToolHostPage : Page
         };
     }
 
-
     private void Persist()
     {
         _store.SetToolSettings(_tool.Id, _settings);
@@ -62,7 +61,7 @@ public partial class ToolHostPage : Page
         }
         catch (Exception ex)
         {
-            // 前置条件不满足（如截图器未启动）时向用户展示原因
+
             _armingFailure = ex.GetBaseException().Message;
         }
 
@@ -149,7 +148,6 @@ public partial class ToolHostPage : Page
         ResumeButton.IsEnabled = state == TaskState.Paused;
         StopButton.IsEnabled = state != TaskState.Idle;
     }
-
 
     private void OnUi(Action action) => Dispatcher.InvokeAsync(action);
 }

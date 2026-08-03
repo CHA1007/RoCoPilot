@@ -23,7 +23,6 @@ public partial class DebugOverlayWindow : Window
         SourceInitialized += (_, _) => MakeClickThrough();
     }
 
-    /// <summary>重绘检测框。坐标从捕获帧空间映射到窗口空间。</summary>
     internal void Render(IReadOnlyList<StableTarget> targets, int frameWidth, int frameHeight, int activeTrackId = -1)
     {
         if (frameWidth <= 0 || frameHeight <= 0 || ActualWidth <= 0 || ActualHeight <= 0)

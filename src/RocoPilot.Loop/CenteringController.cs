@@ -17,7 +17,6 @@ public sealed class CenteringController
     private readonly Action<int, CancellationToken> _sleep;
     private readonly Func<bool>? _inputGate;
 
-    // 亚像素残差累积（票 13-B）：每步舍入余量带到下一步，RunOnce 入口清零
     private double _residualX;
     private double _residualY;
 
@@ -190,7 +189,7 @@ public sealed class CenteringController
             var countsPerPx = bucketPpc is { } ppc
                 ? 1.0 / ppc
                 : 1.0 / _options.FallbackDivisor;
-            // 票 13-A：欠驱动增益，每步只修正一部分，防 ppc 偏差导致过冲
+
             var commandX = offset.X * countsPerPx * _options.Gain;
             var commandY = offset.Y * countsPerPx * _options.Gain;
             var commandMagnitude = Hypot(commandX, commandY);
@@ -216,7 +215,6 @@ public sealed class CenteringController
                     moveY += noise();
                 }
 
-                // 票 13-B：亚像素残差累积
                 var rawX = moveX + _residualX;
                 var rawY = moveY + _residualY;
                 var intX = (int)Math.Round(rawX);
@@ -226,7 +224,6 @@ public sealed class CenteringController
 
                 MoveChunked(intX, intY, cancellationToken);
 
-                // 票 14：挂起感知 → 等镜头到位 → 重置 gate → 恢复 → 等重稳定
                 _sensor.SuspendSensing();
                 _sleep(_options.RecheckMs, cancellationToken);
                 _sensor.ResetStability();
@@ -323,11 +320,10 @@ public sealed class CenteringController
 
     private static double? Round3(double? value) => value is { } v ? Math.Round(v, 3) : null;
 
-    /// <summary>票 14：轮询等目标重新稳定（gate 重置后需 4 帧攻攒）。</summary>
     private StableTarget? WaitForStableTarget(
         int? trackId, (float X, float Y) anchor, CancellationToken cancellationToken)
     {
-        // 先试一次（可能已有稳定数据）
+
         var immediate = TargetSelection.Pick(_sensor.ObserveStable(), trackId, anchor.X, anchor.Y);
         if (immediate is not null) return immediate;
 
@@ -344,7 +340,6 @@ public sealed class CenteringController
         return null;
     }
 
-    /// <summary>票 13-C：幅值超阈值时拆成分片发送，片间插延迟；否则退化为单次 MoveRelative。</summary>
     private void MoveChunked(int dx, int dy, CancellationToken cancellationToken)
     {
         var magnitude = Hypot(dx, dy);

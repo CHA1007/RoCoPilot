@@ -38,13 +38,10 @@ public sealed record CenteringOptions
 
     public double OnlineRelativeChangeThreshold { get; init; } = 0.05;
 
-    /// <summary>欠驱动系数：每步只修正 offset/ppc 的 Gain 倍，防过冲。</summary>
     public double Gain { get; init; } = 0.6;
 
-    /// <summary>单步幅值超过此阈值（counts）时拆成分片发送。</summary>
     public int ChunkThreshold { get; init; } = 80;
 
-    /// <summary>分片间的等待毫秒数。</summary>
     public int ChunkDelayMs { get; init; } = 10;
 
     internal CenteringOptions Normalized()

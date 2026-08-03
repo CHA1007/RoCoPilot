@@ -18,7 +18,6 @@
               BorderThickness="1">
         <StackPanel>
 
-
           <WrapPanel>
             <ui:Button x:Name="StartButton"
                        Margin="0,0,8,8"

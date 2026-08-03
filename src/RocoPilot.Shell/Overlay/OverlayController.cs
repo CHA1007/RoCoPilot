@@ -85,7 +85,7 @@ public sealed class OverlayController
             lock (_gate)
             {
                 _projection.ApplyCapture(_capture.IsRunning);
-                // 捕捉器变化与调度器拉起时序不定，播种一次当前状态避免状态点滞留旧值
+
                 _projection.ApplyState(_dispatcherHost.DispatcherState);
             }
 
@@ -254,7 +254,6 @@ public sealed class OverlayController
         var sx = scale?.M11 ?? 1.0;
         var sy = scale?.M22 ?? 1.0;
 
-        // 灵动岛布局：游戏窗口顶部水平居中，画布窗口比胶囊宽，居中的胶囊自行变形
         var left = (rect.Left + rect.Right) / 2.0 * sx - _window!.Width / 2;
         var top = rect.Top * sy + EdgeMargin;
         if (double.IsNaN(_window!.Left) || Math.Abs(_window.Left - left) > 0.5)
@@ -272,8 +271,6 @@ public sealed class OverlayController
             hwnd, OverlayNative.HwndTopmost, 0, 0, 0, 0,
             OverlayNative.SwpNoMove | OverlayNative.SwpNoSize | OverlayNative.SwpNoActivate);
     }
-
-    // ── 调试叠层（票 13 后续：检测框可视化） ──
 
     private void RenderDebugOverlay()
     {

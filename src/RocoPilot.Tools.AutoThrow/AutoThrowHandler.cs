@@ -7,11 +7,6 @@ using RocoPilot.Settings;
 
 namespace RocoPilot.Tools.AutoThrow;
 
-/// <summary>
-/// 自动丢球的场景处理器：包装 <see cref="CatchPipeline"/>，
-/// 由 <see cref="SceneDispatcher"/> 在大世界场景切入/切出时管理生命周期。
-/// 管线自持帧循环（StreamingTargetSensor 订阅 FrameArrived），Handle 无需喂帧。
-/// </summary>
 public sealed class AutoThrowHandler : ISceneHandler
 {
     private readonly AutoThrowSettings _settings;
@@ -35,7 +30,6 @@ public sealed class AutoThrowHandler : ISceneHandler
 
     public bool IsEnabled { get; set; } = true;
 
-    /// <summary>调试叠层用。</summary>
     public ICatchPipeline? Pipeline
     {
         get { lock (_gate) { return _pipeline; } }
@@ -56,7 +50,7 @@ public sealed class AutoThrowHandler : ISceneHandler
 
     public bool Handle(ReadOnlySpan<byte> bgraPixels, int width, int height)
     {
-        // 管线自持帧循环，无需外部喂帧
+
         return _runTask is not null && !_runTask.IsCompleted;
     }
 
@@ -95,7 +89,6 @@ public sealed class AutoThrowHandler : ISceneHandler
             pipeline = CreatePipeline();
             lock (_gate) { _pipeline = pipeline; }
 
-            // Arming
             foreach (var step in pipeline.ArmingSteps)
             {
                 if (!step.Quiet)
@@ -124,9 +117,8 @@ public sealed class AutoThrowHandler : ISceneHandler
                 }
             }
 
-            // 运行
             _context?.EmitEvent(new ToolEvent("auto_throw_started"));
-            // 桥接捕捉循环总线事件（扫描/转向/投掷/了结/僵住等）到场景事件通道，供覆盖层投影
+
             pipeline.Bus.EventRaised += OnPipelineEvent;
             try
             {

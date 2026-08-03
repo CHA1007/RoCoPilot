@@ -22,6 +22,25 @@ public partial class MainWindow : FluentWindow
     private readonly RunningTaskHost _taskHost;
     private readonly OverlayController _overlay;
     private readonly CaptureHost _capture;
+    private readonly System.Windows.Threading.DispatcherTimer _brandTimer;
+    private bool _brandEnglish = true;
+
+    private void SwapBrand()
+    {
+        var ease = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(0, TimeSpan.FromMilliseconds(160));
+        fade.Completed += (_, _) =>
+        {
+            _brandEnglish = !_brandEnglish;
+            BrandText.Text = _brandEnglish ? "RocoPilot" : "洛克工具箱";
+            BrandShift.Y = 5;
+            BrandText.BeginAnimation(OpacityProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(1, TimeSpan.FromMilliseconds(160)) { EasingFunction = ease });
+            BrandShift.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(0, TimeSpan.FromMilliseconds(160)) { EasingFunction = ease });
+        };
+        BrandText.BeginAnimation(OpacityProperty, fade);
+    }
 
     public MainWindow(
         INavigationViewPageProvider pageProvider,
@@ -31,6 +50,10 @@ public partial class MainWindow : FluentWindow
         CaptureHost capture)
     {
         InitializeComponent();
+
+        _brandTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _brandTimer.Tick += (_, _) => SwapBrand();
+        _brandTimer.Start();
 
         _store = store;
         _taskHost = taskHost;
@@ -60,8 +83,6 @@ public partial class MainWindow : FluentWindow
         {
             ShellTheme.WatchSystemTheme(this);
         }
-
-
 
         Closed += (_, _) => _overlay.Shutdown();
 

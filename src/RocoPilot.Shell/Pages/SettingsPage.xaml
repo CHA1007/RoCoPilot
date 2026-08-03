@@ -58,7 +58,7 @@
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="SensitivityPpcXBox"
-                      Width="140"
+                      Width="200"
                       Minimum="0"
                       Maximum="100"
                       SmallChange="0.1"
@@ -82,7 +82,7 @@
           </Grid>
         </ui:CardControl.Header>
         <ui:NumberBox x:Name="SensitivityPpcYBox"
-                      Width="140"
+                      Width="200"
                       Minimum="0"
                       Maximum="100"
                       SmallChange="0.1"
@@ -109,6 +109,36 @@
         <ui:Button x:Name="CalibrateButton"
                    Content="校准"
                    Click="OnCalibrateClick" />
+      </ui:CardControl>
+
+      <ui:CardControl Margin="0,12,0,0">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="关于" />
+            <ui:TextBlock Grid.Row="1"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="RocoPilot · 洛克工具箱" />
+          </Grid>
+        </ui:CardControl.Header>
+        <StackPanel MinWidth="220">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <ui:TextBlock x:Name="VersionText" VerticalAlignment="Center"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" />
+            <ui:Button x:Name="CheckUpdateButton" Margin="12,0,0,0"
+                       Content="检查更新" Click="OnCheckUpdateClick" />
+            <ui:Button x:Name="TestVersionButton" Margin="8,0,0,0"
+                       Content="下载测试版" Click="OnDownloadTestClick" />
+          </StackPanel>
+          <ui:TextBlock x:Name="UpdateStatusText" Margin="0,4,0,0"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        TextWrapping="Wrap" Visibility="Collapsed" />
+        </StackPanel>
       </ui:CardControl>
     </StackPanel>
 </Page>

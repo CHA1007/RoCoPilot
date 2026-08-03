@@ -44,7 +44,6 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         get { lock (_gate) { return _stoppedTcs?.Task ?? _idleWhenStopped.Task; } }
     }
 
-    /// <summary>调试叠层用：Arming 完成后非空，停止后置空。</summary>
     public ICatchPipeline? Pipeline
     {
         get { lock (_gate) { return _pipeline; } }
@@ -186,7 +185,6 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         LogRetention.PruneSessions(RocoPaths.LogsRoot);
         var sessionDir = Path.Combine(RocoPaths.LogsRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss"));
 
-        // 视角灵敏度以全局设置（ShellSettings）为准
         var shell = store.GetShellSettings();
 
         var spec = settings.ToPipelineSpec() with { SessionLogDirectory = sessionDir, ExistingSource = captureSource };
@@ -357,8 +355,7 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
             }
             else
             {
-                // 失焦只门控输入（CatchLoopEngine / CenteringController 各自持有 inputGate），
-                // 识别持续运行，重新聚焦后无需等待稳定门控重新积累。
+
                 RaiseEvent(new ToolEvent("focus_lost"));
             }
         }

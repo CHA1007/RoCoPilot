@@ -5,10 +5,6 @@ using RocoPilot.Tools.AutoBattle.Battle;
 
 namespace RocoPilot.Tools.AutoBattle;
 
-/// <summary>
-/// 自动战斗场景处理器：战斗场景切入时按配置释放技能（v1）。
-/// 按键映射：技能面板 R，技能槽 1–4，逃跑 ESC，背包 Q，捕捉 W，更换 E。
-/// </summary>
 public sealed class AutoBattleHandler : ISceneHandler, IDisposable
 {
     private readonly AutoBattleSettings _settings;

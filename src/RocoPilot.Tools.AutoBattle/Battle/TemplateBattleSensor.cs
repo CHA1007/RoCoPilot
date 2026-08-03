@@ -3,10 +3,9 @@ using OpenCvSharp;
 
 namespace RocoPilot.Tools.AutoBattle.Battle;
 
-/// <summary>模板匹配战斗传感器：面板按钮状态 + 技能图标识别。</summary>
 public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
 {
-    // 五个面板按钮中心比例坐标（1080p 标定）
+
     private static readonly (BattlePanel Panel, double CX, double CY)[] s_buttons =
     [
         (BattlePanel.Flee,    0.743, 0.911),
@@ -16,7 +15,6 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
         (BattlePanel.Skill,   0.953, 0.916),
     ];
 
-    // 四个技能槽中心比例坐标
     private static readonly (double CX, double CY)[] s_skillSlots =
     [
         (0.188, 0.375),
@@ -28,9 +26,8 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
     private const double PanelThreshold = 0.70;
     private const double SkillThreshold = 0.65;
 
-    // 按钮搜索半径（比例）
     private const double BtnSearchR = 0.04;
-    // 技能槽搜索半径（比例）
+
     private const double SkillSearchR = 0.06;
 
     private readonly Dictionary<BattlePanel, (Mat On, Mat Off)> _panelTemplates = new();
@@ -38,7 +35,7 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
 
     public TemplateBattleSensor(string panelTemplateDir, string skillTemplateDir)
     {
-        // 加载面板按钮模板
+
         string[] names = ["flee", "bag", "capture", "switch", "skill"];
         BattlePanel[] panels = [BattlePanel.Flee, BattlePanel.Bag, BattlePanel.Capture, BattlePanel.Switch, BattlePanel.Skill];
 
@@ -51,7 +48,6 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
             _panelTemplates[panels[i]] = (on, off);
         }
 
-        // 加载技能图标模板（文件名 = 技能名）
         if (Directory.Exists(skillTemplateDir))
         {
             foreach (var file in Directory.GetFiles(skillTemplateDir, "*.png"))
@@ -75,7 +71,6 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
             var onScore = MatchAt(bgr, onTpl, cx, cy, BtnSearchR, width, height);
             var offScore = MatchAt(bgr, offTpl, cx, cy, BtnSearchR, width, height);
 
-            // 选中得分显著高于未选中 → 该面板被选中
             var margin = onScore - offScore;
             if (onScore >= PanelThreshold && margin > bestMargin)
             {
@@ -108,7 +103,6 @@ public sealed class TemplateBattleSensor : IBattleSensor, IDisposable
         return null;
     }
 
-    /// <summary>在指定比例中心周围搜索区域做 NCC 模板匹配，返回最高得分。</summary>
     private static double MatchAt(Mat bgr, Mat template, double cx, double cy, double radius, int width, int height)
     {
         var searchW = (int)(radius * 2 * width);

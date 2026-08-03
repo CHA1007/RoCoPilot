@@ -18,9 +18,21 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <ui:TitleBar Grid.Row="0"
-                 Title="RocoPilot"
-                 Icon="{ui:SymbolIcon Games24, FontSize=24}">
+    <ui:TitleBar x:Name="AppTitleBar"
+                 Grid.Row="0"
+                 Title="RocoPilot">
+
+      <ui:TitleBar.Icon>
+        <ui:ImageIcon Source="pack://application:,,,/RocoPilot.ico" Width="20" Height="20" />
+      </ui:TitleBar.Icon>
+
+      <ui:TitleBar.Header>
+        <TextBlock x:Name="BrandText" Text="RocoPilot" FontWeight="SemiBold" VerticalAlignment="Center">
+          <TextBlock.RenderTransform>
+            <TranslateTransform x:Name="BrandShift" Y="0" />
+          </TextBlock.RenderTransform>
+        </TextBlock>
+      </ui:TitleBar.Header>
       <ui:TitleBar.TrailingContent>
         <StackPanel VerticalAlignment="Top" Orientation="Horizontal">
           <ui:Button Width="40"

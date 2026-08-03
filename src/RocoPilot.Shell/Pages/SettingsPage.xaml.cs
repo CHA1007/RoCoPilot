@@ -15,9 +15,110 @@ public partial class SettingsPage : Page
     private readonly CaptureHost _capture;
     private bool _suppressThemeEvent;
 
+    private const string LatestReleaseUrl = "https://api.github.com/repos/CHA1007/RoCoPilot/releases/latest";
+    private const string ReleasesUrl = "https://api.github.com/repos/CHA1007/RoCoPilot/releases?per_page=1";
+
+    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateStatusText.Visibility = Visibility.Visible;
+        UpdateStatusText.Text = "正在检查更新…";
+
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
+            using var resp = await http.GetAsync(LatestReleaseUrl);
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                UpdateStatusText.Text = "暂无正式发布版本";
+                return;
+            }
+
+            resp.EnsureSuccessStatusCode();
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+            var pageUrl = doc.RootElement.GetProperty("html_url").GetString();
+
+            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var remote))
+            {
+                UpdateStatusText.Text = $"无法识别发布版本号：{tag}";
+                return;
+            }
+
+            var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            if (current is not null && remote > current)
+            {
+                UpdateStatusText.Text = $"发现新版本 {remote}，已在浏览器打开下载页";
+                if (pageUrl is not null)
+                {
+                    System.Diagnostics.Process.Start(
+                        new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
+                }
+            }
+            else
+            {
+                UpdateStatusText.Text = "已是最新版本";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"检查失败：{ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private async void OnDownloadTestClick(object sender, RoutedEventArgs e)
+    {
+        TestVersionButton.IsEnabled = false;
+        UpdateStatusText.Visibility = Visibility.Visible;
+        UpdateStatusText.Text = "正在查询测试版…";
+
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
+            using var resp = await http.GetAsync(ReleasesUrl);
+            resp.EnsureSuccessStatusCode();
+
+            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
+            {
+                UpdateStatusText.Text = "暂无测试版发布";
+                return;
+            }
+
+            var latest = doc.RootElement[0];
+            var tag = latest.GetProperty("tag_name").GetString() ?? "";
+            var pageUrl = latest.GetProperty("html_url").GetString();
+            var pre = latest.GetProperty("prerelease").GetBoolean();
+
+            UpdateStatusText.Text = $"已打开最新{(pre ? "测试" : "正式")}版 {tag} 下载页";
+            if (pageUrl is not null)
+            {
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"查询失败：{ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            TestVersionButton.IsEnabled = true;
+        }
+    }
+
     public SettingsPage(ISettingsStore store, CaptureHost capture)
     {
         InitializeComponent();
+
+        VersionText.Text = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3);
         _store = store;
         _capture = capture;
 
@@ -61,7 +162,6 @@ public partial class SettingsPage : Page
         CalibrateButton.IsEnabled = false;
         CalibrateHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
 
-        // 校准前自动聚焦游戏窗口
         RocoPilot.Capture.WindowFinder.ActivateGameWindow();
 
         try

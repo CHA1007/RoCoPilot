@@ -97,7 +97,7 @@
                         Grid.Row="0"
                         Grid.RowSpan="2"
                         Grid.Column="1"
-                        Width="140"
+                        Width="200"
                         Minimum="0"
                         Maximum="5000"
                         SmallChange="50"

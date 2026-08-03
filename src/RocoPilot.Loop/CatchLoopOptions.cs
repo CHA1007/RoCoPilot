@@ -20,13 +20,10 @@ public sealed record CatchLoopOptions
 
     public int MaxAttempts { get; init; } = int.MaxValue;
 
-    /// <summary>垂直瞄准偏移：框高的比例，负值=往上。</summary>
     public double AimOffsetY { get; init; } = -0.15;
 
-    /// <summary>水平灵敏度（像素/count），0 则用 FallbackDivisor。</summary>
     public double PpcX { get; init; }
 
-    /// <summary>垂直灵敏度（像素/count），0 则用 FallbackDivisor。</summary>
     public double PpcY { get; init; }
 
     internal CatchLoopOptions Normalized()
