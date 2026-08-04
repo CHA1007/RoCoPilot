@@ -17,7 +17,7 @@ public sealed class ShellSettings
 
     public bool DeveloperMode { get; set; } = false;
 
-    public string CaptureBackend { get; set; } = "bitblt";
+    public string CaptureBackend { get; set; } = "wgc";
 
     public bool DebugOverlay { get; set; }
 
