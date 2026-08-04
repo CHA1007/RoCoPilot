@@ -177,6 +177,16 @@ public sealed class CatchPipeline : ICatchPipeline
                 _spec.Detection.StableFrames, _spec.Detection.StabilitySpreadPx, _spec.Detection.AssociationRadiusPx),
                 retainFrames, _spec.DetectionIntervalMs);
             _sensor.Start();
+
+            var firstFrame = await Task.WhenAny(
+                _sensor.FirstFrameArrived,
+                Task.Delay(CaptureDefaults.FirstFrameTimeout, cancellationToken));
+            if (firstFrame != _sensor.FirstFrameArrived)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new CaptureException(
+                    $"{CaptureDefaults.FirstFrameTimeout.TotalSeconds:0}s 内没有帧（后端 {_source.BackendName}：捕获已起但未出帧）");
+            }
             if (_spec.SessionLogDirectory is { } sessionDir)
             {
                 var store = new SceneStore(Path.Combine(sessionDir, "scenes"), _factories.SceneImageEncoder());
@@ -202,7 +212,9 @@ public sealed class CatchPipeline : ICatchPipeline
             _recorder?.AttachBus(_bus);
         })
     {
-        Remedy = _ => "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试",
+        Remedy = ex => ex is CaptureException cex && cex.Message.Contains("未出帧")
+            ? "换一个截图模式（启动页：WGC ↔ BitBlt）再启动；若游戏窗口最小化过，先还原窗口"
+            : "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试",
     };
 
     private ArmingStep CalibrationStep() => new(

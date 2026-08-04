@@ -31,6 +31,7 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     private SemaphoreSlim? _frameSignal;
     private int _started;
     private int _suspended;
+    private readonly TaskCompletionSource _firstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public StreamingTargetSensor(ICaptureSource source, IDetector detector, StabilityGate gate, bool retainFrames = false, int minIntervalMs = 0)
     {
@@ -42,6 +43,8 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     }
 
     public event EventHandler<Exception>? Faulted;
+
+    public Task FirstFrameArrived => _firstFrame.Task;
 
     public event EventHandler<RecognitionFlip>? RecognitionFlipped;
 
@@ -200,6 +203,12 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
                     }
 
                     _lastSequence = frame.Sequence;
+                    lock (_snapshotLock)
+                    {
+                        _frameSize = (frame.Width, frame.Height);
+                    }
+
+                    _firstFrame.TrySetResult();
 
                     try
                     {
@@ -210,7 +219,6 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
                         lock (_snapshotLock)
                         {
                             _snapshot = stable;
-                            _frameSize = (frame.Width, frame.Height);
                             if (_retainFrames)
                             {
                                 RetainFrame(frame, boxes);
