@@ -47,8 +47,7 @@ public static class CaptureSourceFactory
         CaptureBackendMode.ForceWgcMonitor => [() => new WgcCaptureSource(WgcTarget.PrimaryMonitor(options.FpsWindow, options.FirstFrameTimeout))],
         CaptureBackendMode.ForceGdi => [() => new GdiCaptureSource(options.FpsWindow)],
         CaptureBackendMode.BitBlt => [() => new GdiCaptureSource(options.FpsWindow)],
-        CaptureBackendMode.DwmSharedSurface => throw new CaptureException("DwmGetDxSharedSurface 尚未实现"),
-        CaptureBackendMode.Wgc or CaptureBackendMode.WgcHdr => WgcStages(options),
+        CaptureBackendMode.Wgc => WgcStages(options),
         _ => AutoStages(options),
     };
 

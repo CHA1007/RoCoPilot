@@ -49,8 +49,6 @@
                     SelectionChanged="OnBackendChanged">
             <ComboBoxItem Content="BitBlt" />
             <ComboBoxItem Content="WindowsGraphicsCapture" />
-            <ComboBoxItem Content="WindowsGraphicsCapture (HDR)" />
-            <ComboBoxItem Content="DwmGetDxSharedSurface" />
           </ComboBox>
         </Grid>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />

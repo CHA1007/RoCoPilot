@@ -12,11 +12,7 @@ public enum CaptureBackendMode
 
     BitBlt,
 
-    DwmSharedSurface,
-
     Wgc,
-
-    WgcHdr,
 }
 
 public sealed record CaptureOptions

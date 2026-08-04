@@ -14,8 +14,6 @@ public partial class LaunchPage : Page
     [
         ("bitblt", CaptureBackendMode.BitBlt),
         ("wgc", CaptureBackendMode.Wgc),
-        ("wgc-hdr", CaptureBackendMode.WgcHdr),
-        ("dwm", CaptureBackendMode.DwmSharedSurface),
     ];
 
     private readonly ISettingsStore _store;
