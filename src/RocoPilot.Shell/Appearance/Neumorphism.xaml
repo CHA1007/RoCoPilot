@@ -1,5 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:controls="clr-namespace:RocoPilot.Shell.Controls">
+
+  <RotateTransform x:Key="NeuChevronCollapsed" Angle="-90" />
+  <RotateTransform x:Key="NeuChevronExpanded" Angle="0" />
 
   <Color x:Key="NeuLightShadowColor">#FF34383F</Color>
   <Color x:Key="NeuDarkShadowColor">#FF16181C</Color>
@@ -108,6 +113,80 @@
     <Setter Property="Padding" Value="18,9" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template" Value="{StaticResource NeuButtonTemplate}" />
+  </Style>
+
+  <Style x:Key="NeuExpander" TargetType="controls:NeuExpander">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="controls:NeuExpander">
+          <Grid>
+            <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="135" Opacity="0.9"
+                                  Color="{DynamicResource NeuLightShadowColor}" />
+              </Border.Effect>
+            </Border>
+            <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="315" Opacity="0.55"
+                                  Color="{DynamicResource NeuDarkShadowColor}" />
+              </Border.Effect>
+            </Border>
+            <StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ToggleButton Grid.Column="0"
+                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                  <ToggleButton.Template>
+                    <ControlTemplate TargetType="ToggleButton">
+                      <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon x:Name="Chevron"
+                                       Grid.Column="0"
+                                       Margin="18,0,10,0"
+                                       FontSize="14"
+                                       Symbol="ChevronDown24"
+                                       Foreground="{DynamicResource NeuTextSecondary}"
+                                       RenderTransformOrigin="0.5,0.5"
+                                       RenderTransform="{StaticResource NeuChevronCollapsed}" />
+                        <ContentPresenter Grid.Column="1"
+                                          Margin="0,14,16,14"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}" />
+                      </Grid>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                          <Setter TargetName="Chevron" Property="RenderTransform" Value="{StaticResource NeuChevronExpanded}" />
+                        </Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </ToggleButton.Template>
+                  <ContentPresenter Content="{TemplateBinding Header}" />
+                </ToggleButton>
+                <ContentPresenter Grid.Column="1"
+                                  Margin="0,0,16,0"
+                                  VerticalAlignment="Center"
+                                  Content="{TemplateBinding Trailing}" />
+              </Grid>
+              <Border x:Name="ExpandedContent" Visibility="Collapsed">
+                <ContentPresenter Margin="18,2,18,18" Content="{TemplateBinding Content}" />
+              </Border>
+            </StackPanel>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsExpanded" Value="True">
+              <Setter TargetName="ExpandedContent" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="NeuPrimaryButton" TargetType="Button">

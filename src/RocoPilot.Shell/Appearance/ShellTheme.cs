@@ -53,7 +53,7 @@ internal static class ShellTheme
             SystemThemeWatcher.UnWatch(_watched);
         }
 
-        SystemThemeWatcher.Watch(window, Wpf.Ui.Controls.WindowBackdropType.Mica, updateAccents: false);
+        SystemThemeWatcher.Watch(window, Wpf.Ui.Controls.WindowBackdropType.None, updateAccents: false);
         _watched = window;
     }
 }

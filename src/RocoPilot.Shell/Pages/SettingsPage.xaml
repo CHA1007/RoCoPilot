@@ -3,142 +3,148 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="{StaticResource PagePadding}">
+  <Grid Background="{DynamicResource NeuBase}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="{StaticResource PagePadding}">
 
-      <ui:CardControl>
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="主题" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="切换后立即生效" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="主题" />
+              <ui:TextBlock FontTypography="Caption" Foreground="{DynamicResource NeuTextSecondary}" Text="切换后立即生效" />
+            </StackPanel>
+            <ComboBox x:Name="ThemeCombo" Grid.Column="1" Width="160" VerticalAlignment="Center" SelectionChanged="OnThemeSelectionChanged">
+              <ComboBoxItem Content="跟随系统" />
+              <ComboBoxItem Content="浅色" />
+              <ComboBoxItem Content="深色" />
+            </ComboBox>
           </Grid>
-        </ui:CardControl.Header>
-        <ComboBox x:Name="ThemeCombo" Width="160" SelectionChanged="OnThemeSelectionChanged">
-          <ComboBoxItem Content="跟随系统" />
-          <ComboBoxItem Content="浅色" />
-          <ComboBoxItem Content="深色" />
-        </ComboBox>
-      </ui:CardControl>
+        </ContentControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="调试叠层" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="调试叠层" />
+              <ui:TextBlock FontTypography="Caption" Foreground="{DynamicResource NeuTextSecondary}" Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
+            </StackPanel>
+            <ui:ToggleSwitch x:Name="DebugOverlayToggle" Grid.Column="1" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
           </Grid>
-        </ui:CardControl.Header>
-        <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
-      </ui:CardControl>
+        </ContentControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="水平灵敏度" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="水平灵敏度" />
+              <ui:TextBlock FontTypography="Caption" Foreground="{DynamicResource NeuTextSecondary}" Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
+            </StackPanel>
+            <ui:NumberBox x:Name="SensitivityPpcXBox"
+                          Grid.Column="1"
+                          Width="200"
+                          VerticalAlignment="Center"
+                          Minimum="0"
+                          Maximum="100"
+                          SmallChange="0.1"
+                          MaxDecimalPlaces="3"
+                          ValidationMode="InvalidInputOverwritten"
+                          ValueChanged="OnSensitivityChanged" />
           </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="SensitivityPpcXBox"
-                      Width="200"
-                      Minimum="0"
-                      Maximum="100"
-                      SmallChange="0.1"
-                      MaxDecimalPlaces="3"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
+        </ContentControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直灵敏度" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="垂直灵敏度" />
+              <ui:TextBlock FontTypography="Caption" Foreground="{DynamicResource NeuTextSecondary}" Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
+            </StackPanel>
+            <ui:NumberBox x:Name="SensitivityPpcYBox"
+                          Grid.Column="1"
+                          Width="200"
+                          VerticalAlignment="Center"
+                          Minimum="0"
+                          Maximum="100"
+                          SmallChange="0.1"
+                          MaxDecimalPlaces="3"
+                          ValidationMode="InvalidInputOverwritten"
+                          ValueChanged="OnSensitivityChanged" />
           </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="SensitivityPpcYBox"
-                      Width="200"
-                      Minimum="0"
-                      Maximum="100"
-                      SmallChange="0.1"
-                      MaxDecimalPlaces="3"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
+        </ContentControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="自动校准灵敏度" />
-            <ui:TextBlock x:Name="CalibrateHint"
-                          Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="校准会短暂转动镜头，请先开启截图并保持游戏窗口聚焦" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="自动校准灵敏度" />
+              <ui:TextBlock x:Name="CalibrateHint"
+                            FontTypography="Caption"
+                            Foreground="{DynamicResource NeuTextSecondary}"
+                            Text="校准会短暂转动镜头，请先开启截图并保持游戏窗口聚焦" />
+            </StackPanel>
+            <Button x:Name="CalibrateButton"
+                    Grid.Column="1"
+                    Style="{StaticResource NeuButton}"
+                    Padding="14,7"
+                    Content="校准"
+                    VerticalAlignment="Center"
+                    Click="OnCalibrateClick" />
           </Grid>
-        </ui:CardControl.Header>
-        <ui:Button x:Name="CalibrateButton"
-                   Content="校准"
-                   Click="OnCalibrateClick" />
-      </ui:CardControl>
+        </ContentControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="关于" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="RocoPilot · 洛克工具箱" />
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="关于" />
+              <ui:TextBlock FontTypography="Caption" Foreground="{DynamicResource NeuTextSecondary}" Text="RocoPilot · 洛克工具箱" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" MinWidth="220">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:TextBlock x:Name="VersionText" VerticalAlignment="Center" Foreground="{DynamicResource NeuTextSecondary}" />
+                <Button x:Name="CheckUpdateButton"
+                        Margin="12,0,0,0"
+                        Style="{StaticResource NeuButton}"
+                        Padding="14,7"
+                        Content="检查更新"
+                        Click="OnCheckUpdateClick" />
+                <Button x:Name="TestVersionButton"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource NeuButton}"
+                        Padding="14,7"
+                        Content="下载测试版"
+                        Click="OnDownloadTestClick" />
+              </StackPanel>
+              <ui:TextBlock x:Name="UpdateStatusText"
+                            Margin="0,4,0,0"
+                            FontTypography="Caption"
+                            Foreground="{DynamicResource NeuTextSecondary}"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
+            </StackPanel>
           </Grid>
-        </ui:CardControl.Header>
-        <StackPanel MinWidth="220">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <ui:TextBlock x:Name="VersionText" VerticalAlignment="Center"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" />
-            <ui:Button x:Name="CheckUpdateButton" Margin="12,0,0,0"
-                       Content="检查更新" Click="OnCheckUpdateClick" />
-            <ui:Button x:Name="TestVersionButton" Margin="8,0,0,0"
-                       Content="下载测试版" Click="OnDownloadTestClick" />
-          </StackPanel>
-          <ui:TextBlock x:Name="UpdateStatusText" Margin="0,4,0,0"
-                        FontTypography="Caption"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        TextWrapping="Wrap" Visibility="Collapsed" />
-        </StackPanel>
-      </ui:CardControl>
-    </StackPanel>
+        </ContentControl>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </Page>

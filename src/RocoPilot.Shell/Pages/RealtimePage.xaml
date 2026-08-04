@@ -1,108 +1,104 @@
 <Page x:Class="RocoPilot.Shell.Pages.RealtimePage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:controls="clr-namespace:RocoPilot.Shell.Controls">
 
-  <StackPanel Margin="32,24,32,40">
+  <Grid Background="{DynamicResource NeuBase}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="{StaticResource PagePadding}">
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
-      <ui:CardExpander.Header>
-        <Grid HorizontalAlignment="Stretch">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="自动丢球" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="大世界场景下自动识别精灵并投球" />
+        <controls:NeuExpander Style="{StaticResource NeuExpander}">
+          <controls:NeuExpander.Header>
+            <StackPanel>
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="自动丢球" />
+              <ui:TextBlock Foreground="{DynamicResource NeuTextSecondary}" Text="大世界场景下自动识别精灵并投球" />
+            </StackPanel>
+          </controls:NeuExpander.Header>
+          <controls:NeuExpander.Trailing>
+            <ui:ToggleSwitch x:Name="AutoThrowToggle" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+          </controls:NeuExpander.Trailing>
+          <StackPanel>
+            <Border x:Name="CalibrationBanner"
+                    Margin="0,0,0,12"
+                    Padding="12,8"
+                    CornerRadius="12"
+                    Visibility="Collapsed"
+                    Background="{ui:ThemeResource SystemFillColorCautionBackgroundBrush}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ui:TextBlock x:Name="CalibrationHint"
+                              Grid.Column="0"
+                              VerticalAlignment="Center"
+                              TextWrapping="Wrap"
+                              Foreground="{ui:ThemeResource SystemFillColorCautionBrush}"
+                              Text="尚未校准转向灵敏度，投掷方向可能偏移。请先开启截图，再点击右侧校准。" />
+                <Button x:Name="CalibrateButton"
+                        Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Style="{StaticResource NeuButton}"
+                        Padding="14,7"
+                        Content="校准"
+                        VerticalAlignment="Center"
+                        Click="OnCalibrateClick" />
+              </Grid>
+            </Border>
+            <ContentControl x:Name="ConfigHost" />
           </StackPanel>
-          <ui:ToggleSwitch x:Name="AutoThrowToggle" Grid.Column="1"
-                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
-        </Grid>
-      </ui:CardExpander.Header>
-      <StackPanel>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        </controls:NeuExpander>
 
-        <Border x:Name="CalibrationBanner" Margin="16,12,16,0" Padding="12,8" CornerRadius="4"
-                Visibility="Collapsed"
-                Background="{ui:ThemeResource SystemFillColorCautionBackgroundBrush}">
+        <controls:NeuExpander Style="{StaticResource NeuExpander}" Margin="0,20,0,0">
+          <controls:NeuExpander.Header>
+            <StackPanel>
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="自动战斗" />
+              <ui:TextBlock Foreground="{DynamicResource NeuTextSecondary}" Text="战斗场景下自动释放技能" />
+            </StackPanel>
+          </controls:NeuExpander.Header>
+          <controls:NeuExpander.Trailing>
+            <ui:ToggleSwitch x:Name="AutoBattleToggle" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+          </controls:NeuExpander.Trailing>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <ui:TextBlock x:Name="CalibrationHint" Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
-                          Foreground="{ui:ThemeResource SystemFillColorCautionBrush}"
-                          Text="尚未校准转向灵敏度，投掷方向可能偏移。请先开启截图，再点击右侧校准。" />
-            <ui:Button x:Name="CalibrateButton" Grid.Column="1" Margin="12,0,0,0"
-                       Content="校准" VerticalAlignment="Center" Click="OnCalibrateClick" />
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="技能槽位" />
+              <ui:TextBlock Foreground="{DynamicResource NeuTextSecondary}" Text="战斗中技能对应数字" />
+            </StackPanel>
+            <ComboBox x:Name="SkillSlotCombo" Grid.Column="1" Width="100" SelectionChanged="OnSkillSlotChanged">
+              <ComboBoxItem Content="1" />
+              <ComboBoxItem Content="2" />
+              <ComboBoxItem Content="3" />
+              <ComboBoxItem Content="4" />
+            </ComboBox>
           </Grid>
-        </Border>
+        </controls:NeuExpander>
 
-        <ContentControl x:Name="ConfigHost" Margin="16" />
+        <ContentControl Style="{StaticResource NeuRaised}" Margin="0,20,0,0" Padding="18,14">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+              <ui:TextBlock FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="地图快传" />
+              <ui:TextBlock Foreground="{DynamicResource NeuTextSecondary}" Text="点击世界地图中的魔力之源，炼金釜等可快速传送" />
+            </StackPanel>
+            <ui:ToggleSwitch x:Name="FastTravelToggle" Grid.Column="1" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+          </Grid>
+        </ContentControl>
+
+        <ui:TextBlock x:Name="StatusText"
+                      Margin="0,16,0,0"
+                      FontTypography="Caption"
+                      Foreground="{DynamicResource NeuTextSecondary}"
+                      TextWrapping="Wrap"
+                      Visibility="Collapsed" />
       </StackPanel>
-    </ui:CardExpander>
-
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Shield24}" Margin="0,12,0,0">
-      <ui:CardExpander.Header>
-        <Grid HorizontalAlignment="Stretch">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="自动战斗" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="战斗场景下自动释放技能" />
-          </StackPanel>
-          <ui:ToggleSwitch x:Name="AutoBattleToggle" Grid.Column="1"
-                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
-        </Grid>
-      </ui:CardExpander.Header>
-      <StackPanel>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="技能槽位" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="战斗中技能对应数字" />
-          </StackPanel>
-          <ComboBox x:Name="SkillSlotCombo" Grid.Column="1" Width="100"
-                    SelectionChanged="OnSkillSlotChanged">
-            <ComboBoxItem Content="1" />
-            <ComboBoxItem Content="2" />
-            <ComboBoxItem Content="3" />
-            <ComboBoxItem Content="4" />
-          </ComboBox>
-        </Grid>
-      </StackPanel>
-    </ui:CardExpander>
-
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Map24}" Margin="0,12,0,0">
-      <ui:CardExpander.Header>
-        <Grid HorizontalAlignment="Stretch">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="地图快传" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="点击世界地图中的魔力之源，炼金釜等可快速传送" />
-          </StackPanel>
-          <ui:ToggleSwitch x:Name="FastTravelToggle" Grid.Column="1"
-                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
-        </Grid>
-      </ui:CardExpander.Header>
-    </ui:CardExpander>
-
-    <ui:TextBlock x:Name="StatusText" Margin="0,12,0,0" FontTypography="Caption"
-                  Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                  TextWrapping="Wrap" Visibility="Collapsed" />
-  </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </Page>

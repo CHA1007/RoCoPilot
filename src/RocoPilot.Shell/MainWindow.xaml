@@ -10,9 +10,9 @@
                  MinHeight="480"
                  WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True"
-                 WindowBackdropType="Mica">
+                 WindowBackdropType="None">
 
-  <Grid>
+  <Grid Background="{DynamicResource NeuBase}">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />

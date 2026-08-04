@@ -96,13 +96,13 @@ public partial class LaunchPage : Page
     {
         if (_capture.IsRunning)
         {
-            CaptureButton.Content = "停止";
-            CaptureButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Dismiss24 };
+            CaptureButtonText.Text = "停止";
+            CaptureButtonIcon.Symbol = SymbolRegular.Dismiss24;
         }
         else
         {
-            CaptureButton.Content = "启动";
-            CaptureButton.Icon = new SymbolIcon { Symbol = SymbolRegular.Play24 };
+            CaptureButtonText.Text = "启动";
+            CaptureButtonIcon.Symbol = SymbolRegular.Play24;
         }
     }
 }
