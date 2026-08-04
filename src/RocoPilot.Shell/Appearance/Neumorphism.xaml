@@ -1,16 +1,24 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:controls="clr-namespace:RocoPilot.Shell.Controls">
 
   <RotateTransform x:Key="NeuChevronCollapsed" Angle="-90" />
   <RotateTransform x:Key="NeuChevronExpanded" Angle="0" />
 
-  <Color x:Key="NeuLightShadowColor">#FF34383F</Color>
-  <Color x:Key="NeuDarkShadowColor">#FF16181C</Color>
+  <Color x:Key="NeuLightShadowColor">#FF454C58</Color>
+  <Color x:Key="NeuDarkShadowColor">#FF1E2228</Color>
 
-  <SolidColorBrush x:Key="NeuBase" Color="#FF282B31" />
-  <SolidColorBrush x:Key="NeuSunkenFill" Color="#FF22252A" />
+  <sys:Double x:Key="NeuCardLightBlur">16</sys:Double>
+  <sys:Double x:Key="NeuCardLightDepth">5</sys:Double>
+  <sys:Double x:Key="NeuCardLightOpacity">0.9</sys:Double>
+  <sys:Double x:Key="NeuCardDarkBlur">22</sys:Double>
+  <sys:Double x:Key="NeuCardDarkDepth">6</sys:Double>
+  <sys:Double x:Key="NeuCardDarkOpacity">0.4</sys:Double>
+
+  <SolidColorBrush x:Key="NeuBase" Color="#FF2B3038" />
+  <SolidColorBrush x:Key="NeuSunkenFill" Color="#FF252A32" />
   <SolidColorBrush x:Key="NeuTextPrimary" Color="#FFE9EBF1" />
   <SolidColorBrush x:Key="NeuTextSecondary" Color="#FF9AA2B1" />
   <SolidColorBrush x:Key="NeuAccent" Color="#FF5B8DEF" />
@@ -24,13 +32,19 @@
           <Grid>
             <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
               <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="135" Opacity="0.9"
+                <DropShadowEffect BlurRadius="{DynamicResource NeuCardLightBlur}"
+                                  ShadowDepth="{DynamicResource NeuCardLightDepth}"
+                                  Opacity="{DynamicResource NeuCardLightOpacity}"
+                                  Direction="135"
                                   Color="{DynamicResource NeuLightShadowColor}" />
               </Border.Effect>
             </Border>
             <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
               <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="315" Opacity="0.55"
+                <DropShadowEffect BlurRadius="{DynamicResource NeuCardDarkBlur}"
+                                  ShadowDepth="{DynamicResource NeuCardDarkDepth}"
+                                  Opacity="{DynamicResource NeuCardDarkOpacity}"
+                                  Direction="315"
                                   Color="{DynamicResource NeuDarkShadowColor}" />
               </Border.Effect>
             </Border>
@@ -122,13 +136,19 @@
           <Grid>
             <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
               <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="135" Opacity="0.9"
+                <DropShadowEffect BlurRadius="{DynamicResource NeuCardLightBlur}"
+                                  ShadowDepth="{DynamicResource NeuCardLightDepth}"
+                                  Opacity="{DynamicResource NeuCardLightOpacity}"
+                                  Direction="135"
                                   Color="{DynamicResource NeuLightShadowColor}" />
               </Border.Effect>
             </Border>
             <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
               <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="315" Opacity="0.55"
+                <DropShadowEffect BlurRadius="{DynamicResource NeuCardDarkBlur}"
+                                  ShadowDepth="{DynamicResource NeuCardDarkDepth}"
+                                  Opacity="{DynamicResource NeuCardDarkOpacity}"
+                                  Direction="315"
                                   Color="{DynamicResource NeuDarkShadowColor}" />
               </Border.Effect>
             </Border>
