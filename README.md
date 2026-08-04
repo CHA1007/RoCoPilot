@@ -1,4 +1,3 @@
-<p align="center">简体中文 | <a href="README_EN.md">English</a></p>
 
 <p align="center">
   <img src="assets/icon.png" alt="RocoPilot 图标" width="96">
@@ -17,6 +16,8 @@
   <a href="https://velopack.io"><img src="https://img.shields.io/badge/更新-Velopack-6C3FC5" alt="更新 Velopack"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/许可证-GPL--3.0-blue" alt="许可证 GPL-3.0"></a>
 </p>
+
+<p align="center">简体中文 | <a href="README_EN.md">English</a></p>
 
 ## 功能特性
 
@@ -44,7 +45,7 @@
 
 目前仅提供**测试版**，暂时只能通过自行构建使用：克隆仓库后执行
 
-两种构建方式任选其一，产物均在 `publish/` 目录，直接运行其中的 `RocoPilot.exe` 即可：
+两种构建方式任选其一，产物均在仓库根目录的 `publish/` 文件夹，直接运行其中的 `RocoPilot.exe` 即可（依赖的 dll 必须与 exe 同目录，不要只拷 exe）：
 
 **自包含版** —— 内置 .NET Runtime，装完即用：
 

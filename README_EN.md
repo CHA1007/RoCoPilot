@@ -42,7 +42,7 @@ Dynamic Island OSD — floating status window:
 
 ## Getting the Software
 
-Only a **beta** channel exists for now; build it yourself: clone the repo and run one of the two commands below. Output lands in `publish/`, run `RocoPilot.exe` directly
+Only a **beta** channel exists for now; build it yourself: clone the repo and run one of the two commands below
 
 **Self-contained** — bundles the .NET Runtime, runs out of the box:
 
@@ -55,6 +55,8 @@ dotnet publish src/RocoPilot.Shell -c Release -r win-x64 --self-contained true -
 ```
 dotnet publish src/RocoPilot.Shell -c Release -r win-x64 --self-contained false -o publish
 ```
+
+For both options the output lands in `publish/` at the repo root — run `RocoPilot.exe` there directly (keep the accompanying dlls next to the exe, do not copy the exe alone)
 
 A **stable** installer will be published later on the Releases page, with in-app delta upgrades
 
