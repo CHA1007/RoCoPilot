@@ -11,7 +11,7 @@ public enum AppTheme
 
 public sealed class ShellSettings
 {
-    public AppTheme Theme { get; set; } = AppTheme.Dark;
+    public AppTheme Theme { get; set; } = AppTheme.System;
 
     public string AccentColor { get; set; } = "#0078D4";
 
