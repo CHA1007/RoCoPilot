@@ -5,116 +5,91 @@
 
   <StackPanel>
 
-    <ContentControl Style="{StaticResource NeuRaised}" Margin="0,0,0,16" Padding="16,14">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid Grid.Column="0" Margin="0,0,16,0">
+    <ui:CardControl Margin="0,0,0,12" VerticalContentAlignment="Top" Padding="16,12">
+      <ui:CardControl.Header>
+        <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="捕捉的精灵对象" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕捉的精灵对象" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
-                        Foreground="{DynamicResource NeuTextSecondary}"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="留空则捕捉所有识别到的精灵 Tip:目前仅支持识别恶魔狼和月牙雪熊"
                         TextWrapping="Wrap" />
         </Grid>
-        <StackPanel Grid.Column="1" VerticalAlignment="Top">
-          <StackPanel x:Name="WhitelistHost" Margin="0,0,0,8" />
-          <Button HorizontalAlignment="Right"
-                  Style="{StaticResource NeuButton}"
-                  Padding="14,7"
-                  Click="OnAddWhitelistClick">
-            <StackPanel Orientation="Horizontal">
-              <ui:SymbolIcon Symbol="Add24" FontSize="14" />
-              <TextBlock Margin="6,0,0,0" Text="添加精灵名" />
-            </StackPanel>
-          </Button>
-        </StackPanel>
-      </Grid>
-    </ContentControl>
+      </ui:CardControl.Header>
+      <StackPanel>
+        <StackPanel x:Name="WhitelistHost" Margin="0,0,0,8" />
+        <ui:Button HorizontalAlignment="Right"
+                   Content="添加精灵名"
+                   Icon="{ui:SymbolIcon Add24}"
+                   Click="OnAddWhitelistClick" />
+      </StackPanel>
+    </ui:CardControl>
 
-    <ContentControl Style="{StaticResource NeuRaised}" Margin="0,0,0,16" Padding="16,14">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid Grid.Column="0" Margin="0,0,16,0">
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="识别置信度阈值" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="识别置信度阈值" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
-                        Foreground="{DynamicResource NeuTextSecondary}"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="数值越低识别越宽松，也越容易误判"
                         TextWrapping="Wrap" />
         </Grid>
-        <ui:NumberBox Grid.Column="1"
-                      Width="200"
-                      VerticalAlignment="Center"
-                      Minimum="0"
-                      Maximum="1"
-                      SmallChange="0.05"
-                      MaxDecimalPlaces="2"
-                      ValidationMode="InvalidInputOverwritten"
-                      Value="{Binding DetectionConfidence}" />
-      </Grid>
-    </ContentControl>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="200"
+                    Minimum="0"
+                    Maximum="1"
+                    SmallChange="0.05"
+                    MaxDecimalPlaces="2"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding DetectionConfidence}" />
+    </ui:CardControl>
 
-    <ContentControl Style="{StaticResource NeuRaised}" Margin="0,0,0,16" Padding="16,14">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid Grid.Column="0" Margin="0,0,16,0">
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
-                        Foreground="{DynamicResource NeuTextSecondary}"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="长按蓄力投出咕噜球的时间，一般保持默认即可"
                         TextWrapping="Wrap" />
         </Grid>
-        <ui:NumberBox Grid.Column="1"
-                      Width="200"
-                      VerticalAlignment="Center"
-                      Minimum="10"
-                      Maximum="3000"
-                      SmallChange="10"
-                      MaxDecimalPlaces="0"
-                      ValidationMode="InvalidInputOverwritten"
-                      Value="{Binding ChargeMs}" />
-      </Grid>
-    </ContentControl>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="200"
+                    Minimum="10"
+                    Maximum="3000"
+                    SmallChange="10"
+                    MaxDecimalPlaces="0"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding ChargeMs}" />
+    </ui:CardControl>
 
-    <ContentControl Style="{StaticResource NeuRaised}" Margin="0,0,0,16" Padding="16,14">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid Grid.Column="0" Margin="0,0,16,0">
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Foreground="{DynamicResource NeuTextPrimary}" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
-                        Foreground="{DynamicResource NeuTextSecondary}"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         Text="启动时自动测量转向灵敏度，关闭则使用手动值"
                         TextWrapping="Wrap" />
         </Grid>
-        <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding CalibrateBeforeThrow}" />
-      </Grid>
-    </ContentControl>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding CalibrateBeforeThrow}" />
+    </ui:CardControl>
 
   </StackPanel>
 </UserControl>

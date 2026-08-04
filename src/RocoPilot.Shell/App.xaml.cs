@@ -39,7 +39,6 @@ public partial class App : Application
         store.Save();
 
         ShellTheme.Apply(store.GetShellSettings().Theme);
-        NeuPalette.Install();
 
         var window = _services.GetRequiredService<MainWindow>();
         MainWindow = window;
