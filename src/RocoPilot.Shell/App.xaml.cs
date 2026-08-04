@@ -7,7 +7,6 @@ using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Overlay;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
-using RocoPilot.Shell.Services;
 using RocoPilot.Shell.Tools;
 using Wpf.Ui.DependencyInjection;
 

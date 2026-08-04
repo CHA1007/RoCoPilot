@@ -30,7 +30,7 @@ public static class AppUpdater
 
     public static void ApplyPendingUpdate()
     {
-        if (!IsInstalled || !Stable.Value.IsUpdatePendingRestart)
+        if (!IsInstalled || Stable.Value.UpdatePendingRestart is null)
         {
             return;
         }

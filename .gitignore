@@ -27,3 +27,5 @@ obj/
 *.suo
 prototypes/
 tests/
+publish/
+releases/
