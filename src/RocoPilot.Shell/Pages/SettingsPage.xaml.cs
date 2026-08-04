@@ -26,40 +26,29 @@ public partial class SettingsPage : Page
 
         try
         {
-            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
-            using var resp = await http.GetAsync(LatestReleaseUrl);
-
-            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            if (!AppUpdater.IsInstalled)
             {
-                UpdateStatusText.Text = "暂无正式发布版本";
+                await PortableCheckUpdateAsync();
                 return;
             }
 
-            resp.EnsureSuccessStatusCode();
-            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-            var pageUrl = doc.RootElement.GetProperty("html_url").GetString();
-
-            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var remote))
-            {
-                UpdateStatusText.Text = $"无法识别发布版本号：{tag}";
-                return;
-            }
-
-            var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (current is not null && remote > current)
-            {
-                UpdateStatusText.Text = $"发现新版本 {remote}，已在浏览器打开下载页";
-                if (pageUrl is not null)
-                {
-                    System.Diagnostics.Process.Start(
-                        new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
-                }
-            }
-            else
+            var version = await AppUpdater.CheckAsync(beta: false);
+            if (version is null)
             {
                 UpdateStatusText.Text = "已是最新版本";
+                return;
+            }
+
+            UpdateStatusText.Text = $"发现新版本 {version}，正在下载…";
+            await AppUpdater.DownloadAsync(beta: false);
+            UpdateStatusText.Text = $"新版本 {version} 已就绪";
+
+            var choice = MessageBox.Show(
+                $"新版本 {version} 已下载完成，立即重启以完成更新？",
+                "RocoPilot", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (choice == MessageBoxResult.Yes)
+            {
+                AppUpdater.RestartToApply();
             }
         }
         catch (Exception ex)
@@ -72,6 +61,45 @@ public partial class SettingsPage : Page
         }
     }
 
+    private async Task PortableCheckUpdateAsync()
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
+        using var resp = await http.GetAsync(LatestReleaseUrl);
+
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            UpdateStatusText.Text = "暂无正式发布版本";
+            return;
+        }
+
+        resp.EnsureSuccessStatusCode();
+        using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+        var pageUrl = doc.RootElement.GetProperty("html_url").GetString();
+
+        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var remote))
+        {
+            UpdateStatusText.Text = $"无法识别发布版本号：{tag}";
+            return;
+        }
+
+        var current = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        if (current is not null && remote > current)
+        {
+            UpdateStatusText.Text = $"发现新版本 {remote}，已在浏览器打开下载页";
+            if (pageUrl is not null)
+            {
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
+            }
+        }
+        else
+        {
+            UpdateStatusText.Text = "已是最新版本";
+        }
+    }
+
     private async void OnDownloadTestClick(object sender, RoutedEventArgs e)
     {
         TestVersionButton.IsEnabled = false;
@@ -80,28 +108,29 @@ public partial class SettingsPage : Page
 
         try
         {
-            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
-            using var resp = await http.GetAsync(ReleasesUrl);
-            resp.EnsureSuccessStatusCode();
+            if (!AppUpdater.IsInstalled)
+            {
+                await PortableDownloadTestAsync();
+                return;
+            }
 
-            using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
+            var version = await AppUpdater.CheckAsync(beta: true);
+            if (version is null)
             {
                 UpdateStatusText.Text = "暂无测试版发布";
                 return;
             }
 
-            var latest = doc.RootElement[0];
-            var tag = latest.GetProperty("tag_name").GetString() ?? "";
-            var pageUrl = latest.GetProperty("html_url").GetString();
-            var pre = latest.GetProperty("prerelease").GetBoolean();
+            UpdateStatusText.Text = $"发现测试版 {version}，正在下载…";
+            await AppUpdater.DownloadAsync(beta: true);
+            UpdateStatusText.Text = $"测试版 {version} 已就绪";
 
-            UpdateStatusText.Text = $"已打开最新{(pre ? "测试" : "正式")}版 {tag} 下载页";
-            if (pageUrl is not null)
+            var choice = MessageBox.Show(
+                $"测试版 {version} 已下载完成，立即重启以完成更新？",
+                "RocoPilot", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (choice == MessageBoxResult.Yes)
             {
-                System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
+                AppUpdater.RestartToApply();
             }
         }
         catch (Exception ex)
@@ -111,6 +140,33 @@ public partial class SettingsPage : Page
         finally
         {
             TestVersionButton.IsEnabled = true;
+        }
+    }
+
+    private async Task PortableDownloadTestAsync()
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("RocoPilot");
+        using var resp = await http.GetAsync(ReleasesUrl);
+        resp.EnsureSuccessStatusCode();
+
+        using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
+        {
+            UpdateStatusText.Text = "暂无测试版发布";
+            return;
+        }
+
+        var latest = doc.RootElement[0];
+        var tag = latest.GetProperty("tag_name").GetString() ?? "";
+        var pageUrl = latest.GetProperty("html_url").GetString();
+        var pre = latest.GetProperty("prerelease").GetBoolean();
+
+        UpdateStatusText.Text = $"已打开最新{(pre ? "测试" : "正式")}版 {tag} 下载页";
+        if (pageUrl is not null)
+        {
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(pageUrl) { UseShellExecute = true });
         }
     }
 

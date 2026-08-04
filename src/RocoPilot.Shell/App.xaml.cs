@@ -7,6 +7,7 @@ using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Overlay;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
+using RocoPilot.Shell.Services;
 using RocoPilot.Shell.Tools;
 using Wpf.Ui.DependencyInjection;
 
@@ -22,6 +23,14 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        try
+        {
+            AppUpdater.ApplyPendingUpdate();
+        }
+        catch
+        {
+        }
 
         var tracePath = Path.Combine(Path.GetTempPath(), "RocoPilot-trace.log");
         Trace.Listeners.Add(new TextWriterTraceListener(tracePath) { TraceOutputOptions = System.Diagnostics.TraceOptions.DateTime });
