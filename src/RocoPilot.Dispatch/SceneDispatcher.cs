@@ -19,6 +19,7 @@ public sealed class SceneDispatcher
     private GameScene _pendingScene = GameScene.Unknown;
     private int _pendingCount;
     private volatile bool _refreshActivation;
+    private bool _suspendedByFocusLoss;
 
     public SceneDispatcher(
         ICaptureSource captureSource,
@@ -49,7 +50,12 @@ public sealed class SceneDispatcher
 
             if (!_context.IsGameForeground())
             {
-                DeactivateCurrent();
+                if (_activeHandler is not null)
+                {
+                    DeactivateCurrent();
+                    _suspendedByFocusLoss = true;
+                }
+
                 SleepInterruptible(_pollIntervalMs, cancellationToken);
                 continue;
             }
@@ -115,6 +121,12 @@ public sealed class SceneDispatcher
             _pendingScene = GameScene.Unknown;
             _pendingCount = 0;
 
+            if (_activeHandler is null && _suspendedByFocusLoss)
+            {
+                _suspendedByFocusLoss = false;
+                ActivateHandler(detected);
+            }
+
             _activeHandler?.Handle(pixels, width, height);
             return;
         }
@@ -133,6 +145,7 @@ public sealed class SceneDispatcher
             return;
 
         var previous = _currentScene;
+        _suspendedByFocusLoss = false;
         DeactivateCurrent();
         _currentScene = detected;
         _pendingScene = GameScene.Unknown;
