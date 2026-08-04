@@ -23,7 +23,7 @@
                  Title="RocoPilot">
 
       <ui:TitleBar.Icon>
-        <ui:ImageIcon Source="pack://application:,,,/RocoPilot.ico" Width="20" Height="20" />
+        <ui:ImageIcon Source="pack://application:,,,/RocoPilot.ico" Width="16" Height="16" />
       </ui:TitleBar.Icon>
 
       <ui:TitleBar.Header>
