@@ -59,7 +59,6 @@ public partial class App : Application
         foreach (var tool in ToolRegistry.CreateTools(captureHost, settingsStore))
         {
             services.AddSingleton(tool.GetType(), tool);
-            services.AddTransient(ToolRegistry.PageTypeOf(tool));
         }
 
         var throwTool = (RocoPilot.Tools.AutoThrow.AutoThrowTool)ToolRegistry.CreateTools(captureHost, settingsStore)[0];
