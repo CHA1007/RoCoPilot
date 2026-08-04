@@ -36,6 +36,19 @@ public partial class AutoThrowConfigPanel : UserControl
             toggle.Checked += OnToggleChanged;
             toggle.Unchecked += OnToggleChanged;
         }
+
+        foreach (var combo in FindAllChildren<System.Windows.Controls.ComboBox>(this))
+        {
+            combo.SelectionChanged += OnComboSelectionChanged;
+        }
+    }
+
+    private void OnComboSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_ready)
+        {
+            Commit();
+        }
     }
 
     private void OnNumberBoxValueChanged(object sender, RoutedEventArgs e)

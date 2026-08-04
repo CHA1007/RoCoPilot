@@ -58,6 +58,51 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="推理设备" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="GPU（DirectML）速度更快，CPU 兼容性更好"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ComboBox Width="200"
+                SelectedValuePath="Tag"
+                SelectedValue="{Binding InferenceDevice}">
+        <ComboBoxItem Content="CPU" Tag="cpu" />
+        <ComboBoxItem Content="GPU (DirectML)" Tag="gpu" />
+      </ComboBox>
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="触发器间隔（毫秒）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="两次推理之间的最小间隔，0＝每帧都跑"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:NumberBox Width="200"
+                    Minimum="0"
+                    Maximum="5000"
+                    SmallChange="50"
+                    MaxDecimalPlaces="0"
+                    ValidationMode="InvalidInputOverwritten"
+                    Value="{Binding DetectionIntervalMs}" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
           <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"

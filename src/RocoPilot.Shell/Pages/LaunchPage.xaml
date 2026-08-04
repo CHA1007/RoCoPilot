@@ -51,58 +51,6 @@
             <ComboBoxItem Content="WindowsGraphicsCapture" />
           </ComboBox>
         </Grid>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="推理设备" />
-          <ui:TextBlock Grid.Row="1"
-                        Grid.Column="0"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="GPU（DirectML）速度更快，CPU 兼容性更好" />
-          <ComboBox x:Name="DeviceCombo"
-                    Grid.Row="0"
-                    Grid.RowSpan="2"
-                    Grid.Column="1"
-                    Width="260"
-                    SelectionChanged="OnDeviceChanged">
-            <ComboBoxItem Content="CPU" />
-            <ComboBoxItem Content="GPU (DirectML)" />
-          </ComboBox>
-        </Grid>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16,16,16,16">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="触发器间隔（毫秒）" />
-          <ui:TextBlock Grid.Row="1"
-                        Grid.Column="0"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="两次推理之间的最小间隔，0＝每帧都跑" />
-          <ui:NumberBox x:Name="IntervalBox"
-                        Grid.Row="0"
-                        Grid.RowSpan="2"
-                        Grid.Column="1"
-                        Width="200"
-                        Minimum="0"
-                        Maximum="5000"
-                        SmallChange="50"
-                        MaxDecimalPlaces="0"
-                        ValidationMode="InvalidInputOverwritten"
-                        ValueChanged="OnIntervalChanged" />
-        </Grid>
       </StackPanel>
     </ui:CardExpander>
   </StackPanel>

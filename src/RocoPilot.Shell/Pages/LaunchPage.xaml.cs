@@ -27,8 +27,6 @@ public partial class LaunchPage : Page
 
         var shell = store.GetShellSettings();
         BackendCombo.SelectedIndex = Math.Max(0, Array.FindIndex(s_backends, b => b.Key == shell.CaptureBackend));
-        DeviceCombo.SelectedIndex = string.Equals(shell.InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-        IntervalBox.Value = shell.DetectionIntervalMs;
 
         Loaded += (_, _) =>
         {
@@ -55,23 +53,6 @@ public partial class LaunchPage : Page
         if (BackendCombo.SelectedIndex < 0) return;
         var shell = _store.GetShellSettings();
         shell.CaptureBackend = s_backends[BackendCombo.SelectedIndex].Key;
-        _store.SetShellSettings(shell);
-        _store.Save();
-    }
-
-    private void OnDeviceChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (DeviceCombo.SelectedIndex < 0) return;
-        var shell = _store.GetShellSettings();
-        shell.InferenceDevice = DeviceCombo.SelectedIndex == 1 ? "gpu" : "cpu";
-        _store.SetShellSettings(shell);
-        _store.Save();
-    }
-
-    private void OnIntervalChanged(object sender, RoutedEventArgs e)
-    {
-        var shell = _store.GetShellSettings();
-        shell.DetectionIntervalMs = (int)Math.Clamp(IntervalBox.Value ?? 0, 0, 5000);
         _store.SetShellSettings(shell);
         _store.Save();
     }

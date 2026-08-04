@@ -19,10 +19,6 @@ public sealed class ShellSettings
 
     public string CaptureBackend { get; set; } = "bitblt";
 
-    public string InferenceDevice { get; set; } = "cpu";
-
-    public int DetectionIntervalMs { get; set; } = 200;
-
     public bool DebugOverlay { get; set; }
 
     public double SensitivityPpcX { get; set; } = 1.35;
