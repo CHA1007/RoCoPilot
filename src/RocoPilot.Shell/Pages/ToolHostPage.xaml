@@ -3,62 +3,84 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="720" HorizontalAlignment="Left">
-      <ui:TextBlock x:Name="TitleText" FontTypography="TitleLarge" Text="工具" />
-      <ui:TextBlock x:Name="SubtitleText"
-                    Margin="0,6,0,20"
-                    FontTypography="Body"
-                    Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                    TextWrapping="Wrap" />
+  <Grid Background="{DynamicResource NeuBase}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="720" HorizontalAlignment="Left">
+        <ui:TextBlock x:Name="TitleText" FontTypography="TitleLarge" Foreground="{DynamicResource NeuTextPrimary}" Text="工具" />
+        <ui:TextBlock x:Name="SubtitleText"
+                      Margin="0,6,0,24"
+                      FontTypography="Body"
+                      Foreground="{DynamicResource NeuTextSecondary}"
+                      TextWrapping="Wrap" />
 
-      <Border Padding="16,14,16,14"
-              CornerRadius="8"
-              Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
-              BorderBrush="{ui:ThemeResource CardStrokeColorDefaultBrush}"
-              BorderThickness="1">
-        <StackPanel>
+        <ContentControl Style="{StaticResource NeuRaised}" Padding="18,16">
+          <StackPanel>
 
-          <WrapPanel>
-            <ui:Button x:Name="StartButton"
-                       Margin="0,0,8,8"
-                       Appearance="Primary"
-                       Content="启动"
-                       Icon="{ui:SymbolIcon Play24}"
-                       Click="OnStartClick" />
-            <ui:Button x:Name="PauseButton"
-                       Margin="0,0,8,8"
-                       Content="暂停"
-                       Icon="{ui:SymbolIcon Pause24}"
-                       Click="OnPauseClick" />
-            <ui:Button x:Name="ResumeButton"
-                       Margin="0,0,8,8"
-                       Content="恢复"
-                       Icon="{ui:SymbolIcon Play24}"
-                       Click="OnResumeClick" />
-            <ui:Button x:Name="StopButton"
-                       Margin="0,0,8,8"
-                       Content="停止"
-                       Icon="{ui:SymbolIcon Stop24}"
-                       Click="OnStopClick" />
-          </WrapPanel>
+            <WrapPanel>
+              <Button x:Name="StartButton"
+                      Style="{StaticResource NeuPrimaryButton}"
+                      Margin="0,0,14,12"
+                      Click="OnStartClick">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon Symbol="Play24" FontSize="15" />
+                  <TextBlock Margin="8,0,0,0" Text="启动" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="PauseButton"
+                      Style="{StaticResource NeuButton}"
+                      Margin="0,0,14,12"
+                      Click="OnPauseClick">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon Symbol="Pause24" FontSize="15" />
+                  <TextBlock Margin="8,0,0,0" Text="暂停" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="ResumeButton"
+                      Style="{StaticResource NeuButton}"
+                      Margin="0,0,14,12"
+                      Click="OnResumeClick">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon Symbol="Play24" FontSize="15" />
+                  <TextBlock Margin="8,0,0,0" Text="恢复" />
+                </StackPanel>
+              </Button>
+              <Button x:Name="StopButton"
+                      Style="{StaticResource NeuButton}"
+                      Margin="0,0,14,12"
+                      Click="OnStopClick">
+                <StackPanel Orientation="Horizontal">
+                  <ui:SymbolIcon Symbol="Stop24" FontSize="15" />
+                  <TextBlock Margin="8,0,0,0" Text="停止" />
+                </StackPanel>
+              </Button>
+            </WrapPanel>
 
-          <ui:TextBlock x:Name="ArmingHintText"
-                        Margin="0,8,0,0"
-                        FontTypography="Body"
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
-          <ui:TextBlock x:Name="ArmingFailureText"
-                        Margin="0,8,0,0"
-                        FontTypography="Body"
-                        Foreground="#FFC42B1C"
-                        TextWrapping="Wrap"
-                        Visibility="Collapsed" />
+            <ContentControl x:Name="StatusWell"
+                            Style="{StaticResource NeuSunken}"
+                            Margin="0,4,0,0"
+                            Padding="14,10"
+                            Visibility="Collapsed">
+              <StackPanel>
+                <ui:TextBlock x:Name="ArmingHintText"
+                              FontTypography="Body"
+                              Foreground="{DynamicResource NeuTextPrimary}"
+                              TextWrapping="Wrap"
+                              Visibility="Collapsed" />
+                <ui:TextBlock x:Name="ArmingFailureText"
+                              FontTypography="Body"
+                              Foreground="{DynamicResource NeuDanger}"
+                              TextWrapping="Wrap"
+                              Visibility="Collapsed" />
+              </StackPanel>
+            </ContentControl>
 
-        </StackPanel>
-      </Border>
+          </StackPanel>
+        </ContentControl>
 
-      <ui:TextBlock Margin="0,28,0,12" FontTypography="Subtitle" Text="配置" />
+        <ui:TextBlock Margin="0,32,0,16" FontTypography="Subtitle" Foreground="{DynamicResource NeuTextPrimary}" Text="配置" />
 
-      <ContentControl x:Name="ConfigPanelHost" />
-  </StackPanel>
+        <ContentControl x:Name="ConfigPanelHost" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </Page>

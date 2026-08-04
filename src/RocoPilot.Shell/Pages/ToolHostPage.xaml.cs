@@ -135,14 +135,13 @@ public partial class ToolHostPage : Page
     private void RefreshStatus()
     {
         var state = _taskHost.Current?.State ?? TaskState.Idle;
+        var hintVisible = state == TaskState.Arming && _armingHint is not null;
+        var failureVisible = state == TaskState.Idle && _armingFailure is not null;
         ArmingHintText.Text = _armingHint;
-        ArmingHintText.Visibility = state == TaskState.Arming && _armingHint is not null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        ArmingHintText.Visibility = hintVisible ? Visibility.Visible : Visibility.Collapsed;
         ArmingFailureText.Text = _armingFailure;
-        ArmingFailureText.Visibility = state == TaskState.Idle && _armingFailure is not null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        ArmingFailureText.Visibility = failureVisible ? Visibility.Visible : Visibility.Collapsed;
+        StatusWell.Visibility = hintVisible || failureVisible ? Visibility.Visible : Visibility.Collapsed;
         StartButton.IsEnabled = _taskHost.Current is null;
         PauseButton.IsEnabled = state == TaskState.Running;
         ResumeButton.IsEnabled = state == TaskState.Paused;

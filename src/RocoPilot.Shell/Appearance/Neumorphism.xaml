@@ -1,0 +1,121 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Color x:Key="NeuLightShadowColor">#FF34383F</Color>
+  <Color x:Key="NeuDarkShadowColor">#FF16181C</Color>
+
+  <SolidColorBrush x:Key="NeuBase" Color="#FF282B31" />
+  <SolidColorBrush x:Key="NeuSunkenFill" Color="#FF22252A" />
+  <SolidColorBrush x:Key="NeuTextPrimary" Color="#FFE9EBF1" />
+  <SolidColorBrush x:Key="NeuTextSecondary" Color="#FF9AA2B1" />
+  <SolidColorBrush x:Key="NeuAccent" Color="#FF5B8DEF" />
+  <SolidColorBrush x:Key="NeuOnAccent" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="NeuDanger" Color="#FFFF7A6B" />
+
+  <Style x:Key="NeuRaised" TargetType="ContentControl">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContentControl">
+          <Grid>
+            <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="135" Opacity="0.9"
+                                  Color="{DynamicResource NeuLightShadowColor}" />
+              </Border.Effect>
+            </Border>
+            <Border Background="{DynamicResource NeuBase}" CornerRadius="16">
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="5" Direction="315" Opacity="0.55"
+                                  Color="{DynamicResource NeuDarkShadowColor}" />
+              </Border.Effect>
+            </Border>
+            <ContentPresenter Margin="{TemplateBinding Padding}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="NeuSunken" TargetType="ContentControl">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContentControl">
+          <Border Background="{DynamicResource NeuSunkenFill}" CornerRadius="12" BorderThickness="1">
+            <Border.BorderBrush>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Offset="0" Color="{DynamicResource NeuDarkShadowColor}" />
+                <GradientStop Offset="1" Color="{DynamicResource NeuLightShadowColor}" />
+              </LinearGradientBrush>
+            </Border.BorderBrush>
+            <ContentPresenter Margin="{TemplateBinding Padding}" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <ControlTemplate x:Key="NeuButtonTemplate" TargetType="Button">
+    <Grid>
+      <Border x:Name="LightShadow" Background="{TemplateBinding Background}" CornerRadius="12">
+        <Border.Effect>
+          <DropShadowEffect BlurRadius="10" ShadowDepth="3" Direction="135" Opacity="0.9"
+                            Color="{DynamicResource NeuLightShadowColor}" />
+        </Border.Effect>
+      </Border>
+      <Border x:Name="DarkShadow" Background="{TemplateBinding Background}" CornerRadius="12">
+        <Border.Effect>
+          <DropShadowEffect BlurRadius="10" ShadowDepth="3" Direction="315" Opacity="0.5"
+                            Color="{DynamicResource NeuDarkShadowColor}" />
+        </Border.Effect>
+      </Border>
+      <Border x:Name="HoverOverlay" Background="#0AFFFFFF" CornerRadius="12" Opacity="0" />
+      <Border x:Name="PressedOverlay" Background="#1F000000" CornerRadius="12" Opacity="0" BorderThickness="1">
+        <Border.BorderBrush>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Offset="0" Color="{DynamicResource NeuDarkShadowColor}" />
+            <GradientStop Offset="1" Color="{DynamicResource NeuLightShadowColor}" />
+          </LinearGradientBrush>
+        </Border.BorderBrush>
+      </Border>
+      <ContentPresenter x:Name="ContentHost"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="{TemplateBinding Padding}"
+                        RecognizesAccessKey="True" />
+    </Grid>
+    <ControlTemplate.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter TargetName="HoverOverlay" Property="Opacity" Value="1" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter TargetName="LightShadow" Property="Opacity" Value="0" />
+        <Setter TargetName="DarkShadow" Property="Opacity" Value="0" />
+        <Setter TargetName="HoverOverlay" Property="Opacity" Value="0" />
+        <Setter TargetName="PressedOverlay" Property="Opacity" Value="1" />
+      </Trigger>
+      <Trigger Property="IsEnabled" Value="False">
+        <Setter TargetName="LightShadow" Property="Opacity" Value="0" />
+        <Setter TargetName="DarkShadow" Property="Opacity" Value="0" />
+        <Setter TargetName="PressedOverlay" Property="Opacity" Value="1" />
+        <Setter TargetName="ContentHost" Property="Opacity" Value="0.45" />
+      </Trigger>
+    </ControlTemplate.Triggers>
+  </ControlTemplate>
+
+  <Style x:Key="NeuButton" TargetType="Button">
+    <Setter Property="Background" Value="{DynamicResource NeuBase}" />
+    <Setter Property="Foreground" Value="{DynamicResource NeuTextPrimary}" />
+    <Setter Property="Padding" Value="18,9" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template" Value="{StaticResource NeuButtonTemplate}" />
+  </Style>
+
+  <Style x:Key="NeuPrimaryButton" TargetType="Button">
+    <Setter Property="Background" Value="{DynamicResource NeuAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource NeuOnAccent}" />
+    <Setter Property="Padding" Value="18,9" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template" Value="{StaticResource NeuButtonTemplate}" />
+  </Style>
+
+</ResourceDictionary>
