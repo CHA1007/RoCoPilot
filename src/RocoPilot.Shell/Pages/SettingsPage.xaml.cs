@@ -69,7 +69,7 @@ public partial class SettingsPage : Page
 
         if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            UpdateStatusText.Text = "暂无正式发布版本";
+            UpdateStatusText.Text = "暂无稳定版本";
             return;
         }
 
@@ -162,7 +162,7 @@ public partial class SettingsPage : Page
         var pageUrl = latest.GetProperty("html_url").GetString();
         var pre = latest.GetProperty("prerelease").GetBoolean();
 
-        UpdateStatusText.Text = $"已打开最新{(pre ? "测试" : "正式")}版 {tag} 下载页";
+        UpdateStatusText.Text = $"已打开最新{(pre ? "测试" : "稳定")}版 {tag} 下载页";
         if (pageUrl is not null)
         {
             System.Diagnostics.Process.Start(
