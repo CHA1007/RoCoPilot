@@ -7,10 +7,16 @@
 
     <ApplicationIcon>RocoPilot.ico</ApplicationIcon>
     <AssemblyName>RocoPilot</AssemblyName>
+    <StartupObject>RocoPilot.Shell.App</StartupObject>
     <Version>0.2.0</Version>
 
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

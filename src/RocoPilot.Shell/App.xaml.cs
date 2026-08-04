@@ -8,12 +8,22 @@ using RocoPilot.Shell.Overlay;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
 using RocoPilot.Shell.Tools;
+using Velopack;
 using Wpf.Ui.DependencyInjection;
 
 namespace RocoPilot.Shell;
 
 public partial class App : Application
 {
+    [STAThread]
+    public static void Main()
+    {
+        VelopackApp.Build().Run();
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
+    }
+
     private static IServiceProvider? _services;
 
     internal static IServiceProvider Services =>
