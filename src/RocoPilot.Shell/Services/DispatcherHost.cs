@@ -164,7 +164,7 @@ public sealed class DispatcherHost : IDisposable
             var shell = _store.GetShellSettings();
             var task = new SceneDispatcherRunningTask(
                 captureSourceProvider: () => _capture.CurrentSource,
-                driverFactory: () => InputDriverFactory.Create("interception"),
+                driverFactory: InputDriverFactory.Create,
                 isGameForeground: () => WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName),
                 detectorFactory: () => SceneDetectors.CreateAll(),
                 handlerFactory: () => new Dictionary<GameScene, ISceneHandler>

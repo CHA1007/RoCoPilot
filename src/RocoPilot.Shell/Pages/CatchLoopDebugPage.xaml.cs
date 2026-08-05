@@ -33,7 +33,6 @@ public partial class CatchLoopDebugPage : Page
     private Thread? _worker;
     private CancellationTokenSource? _cts;
     private int _generation;
-    private string _backend = InputDriverFactory.Interception;
     private CatchLoopMode _mode = CatchLoopMode.MoveOnly;
     private bool _stalled;
 
@@ -88,10 +87,8 @@ public partial class CatchLoopDebugPage : Page
                 WindowTitleSubstring = string.IsNullOrEmpty(substring) ? null : substring,
             });
 
-            driver = InputDriverFactory.Create(_backend);
-            SetStatus(_backend == InputDriverFactory.Interception
-                ? "设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）"
-                : "sendinput 无设备栈，设备发现即刻通过。");
+            driver = InputDriverFactory.Create();
+            SetStatus("设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）");
             await Task.Run(() => driver.Arm(DiscoverTimeout));
 
             if (generation != _generation)
@@ -209,11 +206,6 @@ public partial class CatchLoopDebugPage : Page
             engine.Pause("page");
             SetStatus("暂停中：尝试边界收完当前一发宏后零输入（~1.3s）");
         }
-    }
-
-    private void OnBackendChanged(object sender, SelectionChangedEventArgs e)
-    {
-        _backend = BackendCombo.SelectedIndex == 1 ? InputDriverFactory.SendInput : InputDriverFactory.Interception;
     }
 
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)

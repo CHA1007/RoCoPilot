@@ -1,5 +1,4 @@
 using RocoPilot.Detection;
-using RocoPilot.Input;
 
 namespace RocoPilot.Tools.AutoThrow;
 
@@ -45,8 +44,6 @@ public sealed class AutoThrowSettings
 
     public double CommandNoiseCounts { get; set; }
 
-    public string InputBackend { get; set; } = InputDriverFactory.Interception;
-
     public string InferenceDevice { get; set; } = "cpu";
 
     public int DetectionIntervalMs { get; set; } = 200;
@@ -59,7 +56,6 @@ public sealed class AutoThrowSettings
     {
         FarmingSpotName = (FarmingSpotName ?? string.Empty).Trim();
         DetectionWhitelist = SanitizeWhitelist(DetectionWhitelist);
-        InputBackend = SanitizeBackend(InputBackend);
         InferenceDevice = string.Equals(InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase) ? "gpu" : "cpu";
         DetectionIntervalMs = (int)Clamp(DetectionIntervalMs, 0, 5000);
         WindowTitleSubstring = SanitizeWindowTitle(WindowTitleSubstring);
@@ -91,14 +87,6 @@ public sealed class AutoThrowSettings
 
     private static double Clamp(double value, double min, double max) =>
         double.IsFinite(value) ? Math.Clamp(value, min, max) : min;
-
-    private static string SanitizeBackend(string? backend)
-    {
-        var normalized = (backend ?? string.Empty).Trim().ToLowerInvariant();
-        return normalized is InputDriverFactory.Interception or InputDriverFactory.SendInput
-            ? normalized
-            : InputDriverFactory.Interception;
-    }
 
     private static string SanitizeWindowTitle(string? title)
     {

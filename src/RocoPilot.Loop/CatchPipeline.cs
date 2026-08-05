@@ -126,7 +126,7 @@ public sealed class CatchPipeline : ICatchPipeline
         "设备初始化：验证 Interception 驱动可用…",
         async cancellationToken =>
         {
-            var driver = _factories.Driver(_spec.InputBackend);
+            var driver = _factories.Driver();
             _driver = driver;
             _armTask = Task.Run(() => driver.Arm(_spec.DeviceDiscoveryTimeout));
             try

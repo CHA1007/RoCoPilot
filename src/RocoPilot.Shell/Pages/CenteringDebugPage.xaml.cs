@@ -35,7 +35,6 @@ public partial class CenteringDebugPage : Page
     private Thread? _worker;
     private CancellationTokenSource? _cts;
     private int _generation;
-    private string _backend = InputDriverFactory.Interception;
 
     private IReadOnlyList<CaptureWindow> _windows = [];
     private WriteableBitmap? _bitmap;
@@ -95,10 +94,8 @@ public partial class CenteringDebugPage : Page
                 WindowTitleSubstring = string.IsNullOrEmpty(substring) ? null : substring,
             });
 
-            driver = InputDriverFactory.Create(_backend);
-            SetStatus(_backend == InputDriverFactory.Interception
-                ? "设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）"
-                : "sendinput 无设备栈，设备发现即刻通过。");
+            driver = InputDriverFactory.Create();
+            SetStatus("设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）");
             await Task.Run(() => driver.Arm(DiscoverTimeout));
 
             if (generation != _generation)
@@ -187,11 +184,6 @@ public partial class CenteringDebugPage : Page
     {
         TearDownPipeline();
         SetStatus("已停止");
-    }
-
-    private void OnBackendChanged(object sender, SelectionChangedEventArgs e)
-    {
-        _backend = BackendCombo.SelectedIndex == 1 ? InputDriverFactory.SendInput : InputDriverFactory.Interception;
     }
 
     private void WorkerLoop()

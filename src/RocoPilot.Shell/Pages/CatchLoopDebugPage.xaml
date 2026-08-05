@@ -34,20 +34,6 @@
                       Margin="0,0,0,12"
                       PlaceholderText="如：洛克王国（留空＝直接整屏捕获）"
                       Text="洛克王国" />
-          <DockPanel Margin="0,0,0,8">
-            <ui:TextBlock DockPanel.Dock="Left"
-                          Margin="0,0,12,0"
-                          VerticalAlignment="Center"
-                          FontTypography="Body"
-                          Text="输入后端" />
-            <ComboBox x:Name="BackendCombo"
-                      HorizontalAlignment="Stretch"
-                      SelectedIndex="0"
-                      SelectionChanged="OnBackendChanged">
-              <ComboBoxItem Content="interception（真机：转镜头 + 投掷）" />
-              <ComboBoxItem Content="sendinput（桌面：动光标，对 Roco 镜头无效）" />
-            </ComboBox>
-          </DockPanel>
           <DockPanel>
             <ui:TextBlock DockPanel.Dock="Left"
                           Margin="0,0,12,0"

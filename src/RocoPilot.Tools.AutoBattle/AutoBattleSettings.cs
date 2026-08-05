@@ -8,8 +8,6 @@ public sealed class AutoBattleSettings
 
     public int ClickDelayMaxMs { get; set; } = 500;
 
-    public string InputBackend { get; set; } = "interception";
-
     public void SanitizeInPlace()
     {
         SkillSlot = (int)Math.Clamp(SkillSlot, 1, 4);

@@ -54,13 +54,6 @@
                        Icon="{ui:SymbolIcon Stop24}"
                        IsEnabled="False"
                        Click="OnStopClick" />
-            <ComboBox x:Name="BackendCombo"
-                      HorizontalAlignment="Stretch"
-                      SelectedIndex="0"
-                      SelectionChanged="OnBackendChanged">
-              <ComboBoxItem Content="interception（真机：转镜头）" />
-              <ComboBoxItem Content="sendinput（桌面：动光标，对 Roco 镜头无效）" />
-            </ComboBox>
           </DockPanel>
         </StackPanel>
       </Border>

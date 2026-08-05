@@ -56,7 +56,6 @@ public static class AutoThrowMappings
             WindowTitleSubstring = string.IsNullOrWhiteSpace(settings.WindowTitleSubstring)
                 ? AutoThrowSettings.DefaultWindowTitle
                 : settings.WindowTitleSubstring.Trim(),
-            InputBackend = settings.InputBackend,
             UseGpu = string.Equals(settings.InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase),
             DetectionIntervalMs = settings.DetectionIntervalMs,
             CalibrateBeforeThrow = settings.CalibrateBeforeThrow,

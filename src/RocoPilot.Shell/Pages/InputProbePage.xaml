@@ -10,27 +10,7 @@
                     FontTypography="Body"
                     Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap"
-                    Text="合成输入真机验证（人执行）。① 选后端 → ② 设备发现（Interception 收得到事件才算驱动真在设备栈）→ ③ 发探针。游戏聚焦下 interception 应转镜头（光标与镜头同动）；sendinput 仅供桌面动光标调试，对 Roco 镜头无效是已知结论。" />
-
-      <ui:CardControl Margin="0,0,0,12">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="输入后端" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="interception＝内核过滤驱动注入（主）；sendinput＝Win32 队列注入（桌面回退）" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ComboBox x:Name="BackendCombo" Width="220" SelectionChanged="OnBackendChanged">
-          <ComboBoxItem Content="interception（驱动注入）" />
-          <ComboBoxItem Content="sendinput（桌面回退）" />
-        </ComboBox>
-      </ui:CardControl>
+                    Text="合成输入真机验证（人执行）。① 设备发现（Interception 收得到事件才算驱动真在设备栈）→ ② 发探针。游戏聚焦下应转镜头（光标与镜头同动）。" />
 
       <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>

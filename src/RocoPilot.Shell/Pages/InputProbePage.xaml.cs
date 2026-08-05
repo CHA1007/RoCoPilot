@@ -12,36 +12,21 @@ public partial class InputProbePage : Page
 
     private readonly Brush _defaultStatusBrush;
     private IInputDriver? _driver;
-    private string _backend = InputDriverFactory.Interception;
 
     public InputProbePage()
     {
         InitializeComponent();
         _defaultStatusBrush = StatusText.Foreground;
-        BackendCombo.SelectedIndex = 0;
         Unloaded += (_, _) => DisposeDriver();
     }
 
-    private IInputDriver Driver => _driver ??= InputDriverFactory.Create(_backend);
-
-    private void OnBackendChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (BackendCombo.SelectedIndex < 0) return;
-
-        _backend = BackendCombo.SelectedIndex == 0
-            ? InputDriverFactory.Interception
-            : InputDriverFactory.SendInput;
-        DisposeDriver();
-        SetStatus($"已切到 {_backend}。请重新「② 设备发现」。", isError: false);
-    }
+    private IInputDriver Driver => _driver ??= InputDriverFactory.Create();
 
     private async void OnArm(object sender, RoutedEventArgs e)
     {
         var driver = Driver;
         SetButtonsEnabled(false);
-        SetStatus(_backend == InputDriverFactory.Interception
-            ? "设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈；收不到会明确报错）"
-            : "sendinput 无设备栈，设备发现即刻通过。", isError: false);
+        SetStatus("设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）", isError: false);
 
         try
         {
@@ -103,11 +88,7 @@ public partial class InputProbePage : Page
 
     private async void OnArmKey(object sender, RoutedEventArgs e)
     {
-        if (Driver is not InterceptionDriver interception)
-        {
-            SetStatus("sendinput 无设备栈：键盘按键直接可用，无需发现键盘设备。", isError: false);
-            return;
-        }
+        var interception = (InterceptionDriver)Driver;
 
         SetButtonsEnabled(false);
         SetStatus("键盘设备发现中：10 秒内随便按一个键……", isError: false);
