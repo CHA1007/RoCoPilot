@@ -84,7 +84,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
 
     public void RequestPause(string source = "manual")
     {
-
         lock (_gate)
         {
             if (_state != TaskState.Running) return;
@@ -140,42 +139,43 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
     {
         SceneDispatcher? dispatcher = null;
         var detectors = new List<ISceneDetector>();
+        ICaptureSource? source = null;
 
         try
         {
+            string ArmingRemedy(Exception _) => "检查截图器和 Interception 驱动状态后重试";
 
-            RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
+            var steps = new[]
             {
-                ["step"] = "input",
-                ["hint"] = "验证 Interception 驱动可用…",
-            }));
+                new ArmingStep("input", "验证 Interception 驱动可用…", async token =>
+                {
+                    var driver = _driverFactory();
+                    _driver = driver;
+                    await Task.Run(() => driver.Arm(TimeSpan.FromSeconds(10)), token);
+                }) { Remedy = ArmingRemedy },
+                new ArmingStep("capture", "验证截图源可用…", _ =>
+                {
+                    source = _captureSourceProvider()
+                        ?? throw new InvalidOperationException("请先在「启动」页开启截图器");
+                    return Task.CompletedTask;
+                }) { Remedy = ArmingRemedy },
+            };
 
-            var driver = _driverFactory();
-            _driver = driver;
-            await Task.Run(() => driver.Arm(TimeSpan.FromSeconds(10)), ct);
-
-            RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
-            {
-                ["step"] = "capture",
-                ["hint"] = "验证截图源可用…",
-            }));
-
-            var source = _captureSourceProvider()
-                ?? throw new InvalidOperationException("请先在「启动」页开启截图器");
+            if (!await Arming.ExecuteAsync(steps, SafeRaiseEvent, ct)) return;
 
             detectors.AddRange(_detectorFactory());
             var handlers = _handlerFactory();
 
             var context = new SceneContext
             {
-                InputDriver = driver,
+                InputDriver = _driver!,
                 EmitEvent = RaiseEvent,
                 IsGameForeground = _isGameForeground,
                 CancellationToken = ct,
             };
 
             dispatcher = new SceneDispatcher(
-                source, detectors, handlers, context,
+                source!, detectors, handlers, context,
                 _pollIntervalMs, _debounceFrames);
             dispatcher.EventRaised += OnDispatcherEvent;
             lock (_gate) { _dispatcher = dispatcher; }
@@ -197,10 +197,10 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
         }
         catch (Exception ex)
         {
-            SafeRaiseEvent(new ToolEvent("arming_failed", new Dictionary<string, object?>
+            SafeRaiseEvent(new ToolEvent("fault", new Dictionary<string, object?>
             {
                 ["error"] = ex.GetBaseException().Message,
-                ["remedy"] = "检查截图器和 Interception 驱动状态后重试",
+                ["source"] = "dispatcher_run",
             }));
         }
         finally

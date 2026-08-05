@@ -1,4 +1,4 @@
-namespace RocoPilot.Loop;
+namespace RocoPilot.Core;
 
 public sealed record ArmingStep(string Name, string Hint, Func<CancellationToken, Task> Execute)
 {

@@ -228,32 +228,9 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
                 _pipeline = pipeline;
             }
 
-            foreach (var step in pipeline.ArmingSteps)
+            if (!await Arming.ExecuteAsync(pipeline.ArmingSteps, RaiseEvent, ct))
             {
-                if (!step.Quiet)
-                {
-                    RaiseEvent(new ToolEvent("arming_step", new Dictionary<string, object?>
-                    {
-                        ["step"] = step.Name,
-                        ["hint"] = step.Hint,
-                    }));
-                }
-
-                try
-                {
-                    await step.Execute(ct);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    var cause = ex.GetBaseException();
-                    RaiseEvent(new ToolEvent("arming_failed", new Dictionary<string, object?>
-                    {
-                        ["step"] = step.Name,
-                        ["error"] = cause.Message,
-                        ["remedy"] = step.Remedy?.Invoke(cause) ?? "查日志排障后重试",
-                    }));
-                    return;
-                }
+                return;
             }
 
             bool entered;
