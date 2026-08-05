@@ -86,7 +86,7 @@ public partial class App : Application
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());
 
         services.AddTransient<LaunchPage>();
-        services.AddTransient<EggQueryPage>();
+        services.AddSingleton<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<InputProbePage>();

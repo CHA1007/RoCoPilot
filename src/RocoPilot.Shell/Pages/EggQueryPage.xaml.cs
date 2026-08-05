@@ -51,10 +51,16 @@ public partial class EggQueryPage : Page
 
     private const string AllGroupsValue = "";
 
+    private const int RenderBatch = 120;
+
     private readonly PetCatalog _catalog;
     private readonly Dictionary<string, Pet> _byDisplayName;
     private readonly List<Pet> _selectedPets = [];
     private readonly List<string> _filterGroups = [];
+    private readonly List<PetCard> _resultCards = [];
+    private readonly System.Collections.ObjectModel.ObservableCollection<PetCard> _visibleCards = [];
+    private int _renderedCount;
+    private ScrollViewer? _hostScroll;
     private readonly System.Windows.Threading.DispatcherTimer _hintTimer = new()
     {
         Interval = TimeSpan.FromSeconds(2.5),
@@ -68,12 +74,74 @@ public partial class EggQueryPage : Page
         InitializeComponent();
         _catalog = catalog;
         _byDisplayName = catalog.Pets.ToDictionary(p => p.DisplayName);
+        ResultList.ItemsSource = _visibleCards;
         _hintTimer.Tick += (_, _) =>
         {
             _hintTimer.Stop();
             SearchHint.Visibility = Visibility.Collapsed;
         };
+        Loaded += OnPageLoaded;
         RefreshAll();
+    }
+
+    private void OnPageLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_hostScroll is { IsLoaded: true }) return;
+
+        if (_hostScroll is not null)
+        {
+            _hostScroll.ScrollChanged -= OnHostScrollChanged;
+        }
+
+        _hostScroll = FindAncestorScrollViewer(this);
+        if (_hostScroll is null)
+        {
+            while (_renderedCount < _resultCards.Count) RenderMore();
+            return;
+        }
+
+        _hostScroll.ScrollChanged += OnHostScrollChanged;
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var host = _hostScroll;
+            if (host is not null && host.ScrollableHeight <= 0)
+            {
+                while (_renderedCount < _resultCards.Count) RenderMore();
+            }
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private static ScrollViewer? FindAncestorScrollViewer(DependencyObject child)
+    {
+        var current = System.Windows.Media.VisualTreeHelper.GetParent(child);
+        while (current is not null)
+        {
+            if (current is ScrollViewer scrollViewer) return scrollViewer;
+            current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
+
+    private void OnHostScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        var host = _hostScroll;
+        if (host is null || host.ScrollableHeight <= 0) return;
+        if (host.VerticalOffset >= host.ScrollableHeight - 400) RenderMore();
+    }
+
+    private void RenderMore()
+    {
+        if (_renderedCount >= _resultCards.Count) return;
+
+        var end = Math.Min(_renderedCount + RenderBatch, _resultCards.Count);
+        for (var i = _renderedCount; i < end; i++)
+        {
+            _visibleCards.Add(_resultCards[i]);
+        }
+
+        _renderedCount = end;
     }
 
     private void OnSearchTextChanged(object sender, AutoSuggestBoxTextChangedEventArgs e) =>
@@ -276,9 +344,12 @@ public partial class EggQueryPage : Page
         var pets = query.ToList();
         ResultSummary.Text = ScopeLabel(shared);
         ResultCount.Text = $"共 {pets.Count} 只";
-        ResultList.ItemsSource = pets
-            .Select(p => new PetCard(p))
-            .ToList();
+
+        _resultCards.Clear();
+        _resultCards.AddRange(pets.Select(p => new PetCard(p)));
+        _visibleCards.Clear();
+        _renderedCount = 0;
+        RenderMore();
 
         EmptyHint.Text = "没有符合筛选的精灵";
         EmptyHint.Visibility = pets.Count == 0 && !pairBlocked ? Visibility.Visible : Visibility.Collapsed;
