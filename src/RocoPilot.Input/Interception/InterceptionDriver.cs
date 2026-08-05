@@ -132,6 +132,30 @@ public sealed class InterceptionDriver : IInputDriver
 
     public void KeyUp(InputKey key) => SendKey(key, down: false);
 
+    public void SendRawStroke(ReceivedStroke stroke)
+    {
+        switch (stroke.Kind)
+        {
+            case ReceivedDeviceKind.Keyboard:
+                var keyDev = _keyDevice ?? throw new InputDriverException("尚未发现键盘设备——发原始 stroke 前先 Arm()（设备发现）。");
+                DeliverKeyStroke(keyDev, new InterceptionKeyStroke { Code = stroke.Code, State = stroke.State });
+                break;
+            case ReceivedDeviceKind.Mouse:
+                var mouseDev = RequireMouseDevice();
+                DeliverMouseStroke(mouseDev, new InterceptionMouseStroke
+                {
+                    State = stroke.State,
+                    Flags = stroke.Flags,
+                    Rolling = stroke.Rolling,
+                    X = stroke.X,
+                    Y = stroke.Y,
+                });
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(stroke), stroke.Kind, "未知的 stroke 设备类型。");
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
