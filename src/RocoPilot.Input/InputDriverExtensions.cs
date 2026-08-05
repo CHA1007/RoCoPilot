@@ -2,11 +2,12 @@ namespace RocoPilot.Input;
 
 public static class InputDriverExtensions
 {
-    public static void KeyPress(this IInputDriver driver, InputKey key, int holdMs = 50) =>
-        MacroRunner.Run(driver, [MacroStep.Press(key, holdMs)]);
-
-    public static void RunMacro(this IInputDriver driver, IReadOnlyList<MacroStep> steps) =>
-        MacroRunner.Run(driver, steps);
+    public static void KeyPress(this IInputDriver driver, InputKey key, int holdMs = 50)
+    {
+        driver.KeyDown(key);
+        Thread.Sleep(holdMs);
+        driver.KeyUp(key);
+    }
 
     public static void ClickAt(this IInputDriver driver, int screenX, int screenY, int holdMs = 50)
     {

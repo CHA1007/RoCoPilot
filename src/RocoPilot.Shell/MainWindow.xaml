@@ -18,8 +18,7 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <ui:TitleBar x:Name="AppTitleBar"
-                 Grid.Row="0"
+    <ui:TitleBar Grid.Row="0"
                  Title="RocoPilot">
 
       <ui:TitleBar.Icon>
@@ -62,8 +61,7 @@
                        IsPaneToggleVisible="True"
                        OpenPaneLength="160" />
 
-    <tray:NotifyIcon x:Name="TrayIcon"
-                     Grid.Row="0"
+    <tray:NotifyIcon Grid.Row="0"
                      Icon="pack://application:,,,/RocoPilot.ico"
                      TooltipText="RocoPilot"
                      FocusOnLeftClick="False"
