@@ -6,6 +6,7 @@ namespace RocoPilot.Routing;
 public sealed class RouteStore
 {
     private const string RouteFileName = "route.json";
+    private const string GraphFileName = "graph.json";
     private const string KeyframesDirectoryName = "keyframes";
 
     private readonly string _routesRoot;
@@ -94,6 +95,70 @@ public sealed class RouteStore
         return summaries.OrderByDescending(summary => summary.RecordedAt).ToList();
     }
 
+    public async Task SaveGraphAsync(RouteGraph graph, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+
+        Directory.CreateDirectory(_routesRoot);
+        var file = new GraphFile(
+            graph.Name,
+            [.. graph.Nodes.Select(ToNodeRecord)],
+            [.. graph.Edges]);
+
+        var jsonPath = Path.Combine(_routesRoot, GraphFileName);
+        await using var stream = File.Create(jsonPath);
+        await JsonSerializer.SerializeAsync(stream, file, cancellationToken: cancellationToken);
+    }
+
+    public async Task<RouteGraph> LoadGraphAsync(CancellationToken cancellationToken = default)
+    {
+        var jsonPath = Path.Combine(_routesRoot, GraphFileName);
+        if (!File.Exists(jsonPath))
+            throw new FileNotFoundException("路线执行图不存在。", jsonPath);
+
+        await using var stream = File.OpenRead(jsonPath);
+        var file = await JsonSerializer.DeserializeAsync<GraphFile>(stream, cancellationToken: cancellationToken)
+            ?? throw new InvalidDataException($"执行图文件损坏：{jsonPath}");
+
+        var graph = new RouteGraph(
+            file.Name,
+            [.. file.Nodes.Select(FromNodeRecord)],
+            [.. file.Edges]);
+
+        try
+        {
+            graph.OrderedChain();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new InvalidDataException($"执行图无效：{ex.Message}", ex);
+        }
+
+        return graph;
+    }
+
+    private static NodeRecord ToNodeRecord(RouteNode node) => new(
+        node.Id,
+        node.Kind,
+        node.Name,
+        node.CanvasX,
+        node.CanvasY,
+        node.PoiName,
+        node.RouteName,
+        node.MaxLaps,
+        node.MaxDuration);
+
+    private static RouteNode FromNodeRecord(NodeRecord record) => new(
+        record.Kind,
+        record.Name,
+        record.CanvasX,
+        record.CanvasY,
+        record.PoiName,
+        record.RouteName,
+        record.MaxLaps,
+        record.MaxDuration,
+        record.Id);
+
     private string RouteDirectory(string name) => Path.Combine(_routesRoot, SanitizeFolderName(name));
 
     internal static string SanitizeFolderName(string name)
@@ -111,4 +176,17 @@ public sealed class RouteStore
         List<KeyframeEntry> Keyframes);
 
     private sealed record KeyframeEntry(double OffsetMs, string File, int Width, int Height);
+
+    private sealed record GraphFile(string Name, List<NodeRecord> Nodes, List<RouteEdge> Edges);
+
+    private sealed record NodeRecord(
+        Guid Id,
+        RouteNodeKind Kind,
+        string Name,
+        double CanvasX,
+        double CanvasY,
+        string? PoiName,
+        string? RouteName,
+        int? MaxLaps,
+        TimeSpan? MaxDuration);
 }
