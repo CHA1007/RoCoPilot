@@ -26,7 +26,7 @@ public sealed class RouteRecorder
         _driver = driver;
         _capture = capture;
         _store = store;
-        _minimapRegion = minimapRegion ?? MinimapSnapshotRegion.TopLeft;
+        _minimapRegion = minimapRegion ?? MinimapSnapshotRegion.TopRight;
         _keyframeInterval = keyframeInterval ?? TimeSpan.FromSeconds(2);
     }
 

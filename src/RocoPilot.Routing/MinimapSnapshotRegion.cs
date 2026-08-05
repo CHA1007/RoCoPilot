@@ -2,7 +2,7 @@ namespace RocoPilot.Routing;
 
 public sealed record MinimapSnapshotRegion(double X, double Y, double Width, double Height)
 {
-    public static readonly MinimapSnapshotRegion TopLeft = new(0.01, 0.02, 0.18, 0.30);
+    public static readonly MinimapSnapshotRegion TopRight = new(0.81, 0.02, 0.18, 0.30);
 
     public (int X, int Y, int Width, int Height) Resolve(int frameWidth, int frameHeight)
     {
