@@ -6,9 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.11.0.20250507" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.11.0.20250507" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RocoPilot.Capture\RocoPilot.Capture.csproj" />
+    <ProjectReference Include="..\RocoPilot.Dispatch\RocoPilot.Dispatch.csproj" />
     <ProjectReference Include="..\RocoPilot.Input\RocoPilot.Input.csproj" />
     <ProjectReference Include="..\RocoPilot.Settings\RocoPilot.Settings.csproj" />
+    <ProjectReference Include="..\RocoPilot.Tools.FastTravel\RocoPilot.Tools.FastTravel.csproj" />
   </ItemGroup>
 
 </Project>
