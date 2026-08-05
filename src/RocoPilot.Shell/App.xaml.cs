@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using RocoPilot.Breeding;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Overlay;
@@ -81,7 +82,10 @@ public partial class App : Application
         var throwTool = (RocoPilot.Tools.AutoThrow.AutoThrowTool)ToolRegistry.CreateTools(captureHost, settingsStore)[0];
         services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool));
 
+        services.AddSingleton(_ => PetCatalog.LoadEmbedded());
+
         services.AddTransient<LaunchPage>();
+        services.AddTransient<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<InputProbePage>();

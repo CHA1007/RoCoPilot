@@ -93,6 +93,7 @@ public partial class MainWindow : FluentWindow
     {
         NavigationView.MenuItems.Add(new NavigationViewItem("启动", SymbolRegular.Rocket24, typeof(LaunchPage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("实时", SymbolRegular.TargetArrow24, typeof(RealtimePage)));
+        NavigationView.MenuItems.Add(new NavigationViewItem("孵蛋", SymbolRegular.FoodEgg24, typeof(EggQueryPage)));
 
         if (_store.GetShellSettings().DeveloperMode)
         {

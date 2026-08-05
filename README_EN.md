@@ -23,6 +23,7 @@
 - **Auto Throw** — Recognizes wild spirits in the open world, auto-centers the camera, aims and throws balls to keep catching
 - **Auto Battle** — Recognizes battle scenes and casts skills automatically to finish rounds
 - **Fast Travel** — Recognizes the world map and clicks the teleport button after you pick a map element such as the Magic Source or the Alchemy Cauldron
+- **Egg Query** — Ships with full spirit egg group data; look up a spirit's egg groups, or find all spirits that can breed together in a group
 - **Central Dispatch** — Detects the current game scene and switches tools automatically, no manual intervention
 - **Dynamic Island OSD** — A floating status window above the game screen showing live state and key readings
 - **Auto Pause on Focus Loss** — Suspends everything when the game window loses focus, resumes when it regains focus

@@ -38,6 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RocoPilot.Breeding\RocoPilot.Breeding.csproj" />
     <ProjectReference Include="..\RocoPilot.Capture\RocoPilot.Capture.csproj" />
     <ProjectReference Include="..\RocoPilot.Core\RocoPilot.Core.csproj" />
     <ProjectReference Include="..\RocoPilot.Detection\RocoPilot.Detection.csproj" />

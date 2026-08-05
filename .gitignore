@@ -12,6 +12,7 @@ CONTEXT.md
 __pycache__/
 *.py[cod]
 data/
+!assets/data/
 logs/
 runs/
 *.pt
