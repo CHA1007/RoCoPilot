@@ -3,6 +3,7 @@ using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Dispatch;
 using RocoPilot.Input;
+using RocoPilot.Routing;
 using RocoPilot.Settings;
 using RocoPilot.Tools.AutoBattle;
 using RocoPilot.Tools.AutoBattle.Battle;
@@ -16,24 +17,30 @@ public sealed class DispatcherHost : IDisposable
     private readonly CaptureHost _capture;
     private readonly ISettingsStore _store;
     private readonly ITool _throwTool;
+    private readonly RouteStore _routeStore;
 
     private readonly object _gate = new();
     private SceneDispatcherRunningTask? _task;
     private AutoThrowHandler? _throwHandler;
+    private RoutePlaybackHandler? _playbackHandler;
+    private OpenWorldModeSelector? _openWorld;
     private AutoBattleHandler? _battleHandler;
     private FastTravelHandler? _fastTravelHandler;
     private bool _autoThrowEnabled;
+    private bool _routePlaybackEnabled;
     private bool _autoBattleEnabled;
     private bool _fastTravelEnabled;
 
-    public DispatcherHost(CaptureHost capture, ISettingsStore store, ITool throwTool)
+    public DispatcherHost(CaptureHost capture, ISettingsStore store, ITool throwTool, RouteStore routeStore)
     {
         _capture = capture;
         _store = store;
         _throwTool = throwTool;
+        _routeStore = routeStore;
 
         var shell = store.GetShellSettings();
         _autoThrowEnabled = shell.AutoThrowEnabled;
+        _routePlaybackEnabled = shell.RoutePlaybackEnabled;
         _autoBattleEnabled = shell.AutoBattleEnabled;
         _fastTravelEnabled = shell.FastTravelEnabled;
 
@@ -69,6 +76,19 @@ public sealed class DispatcherHost : IDisposable
         {
             if (_autoThrowEnabled == value) return;
             _autoThrowEnabled = value;
+            if (value) _routePlaybackEnabled = false;
+            PersistEnables();
+        }
+    }
+
+    public bool RoutePlaybackEnabled
+    {
+        get => _routePlaybackEnabled;
+        set
+        {
+            if (_routePlaybackEnabled == value) return;
+            _routePlaybackEnabled = value;
+            if (value) _autoThrowEnabled = false;
             PersistEnables();
         }
     }
@@ -99,6 +119,7 @@ public sealed class DispatcherHost : IDisposable
     {
         var shell = _store.GetShellSettings();
         shell.AutoThrowEnabled = _autoThrowEnabled;
+        shell.RoutePlaybackEnabled = _routePlaybackEnabled;
         shell.AutoBattleEnabled = _autoBattleEnabled;
         shell.FastTravelEnabled = _fastTravelEnabled;
         _store.SetShellSettings(shell);
@@ -144,6 +165,17 @@ public sealed class DispatcherHost : IDisposable
                 IsEnabled = AutoThrowEnabled,
             };
 
+            _playbackHandler = new RoutePlaybackHandler(
+                _routeStore,
+                _store,
+                () => _capture.CurrentSource,
+                () => CurrentScene)
+            {
+                IsEnabled = RoutePlaybackEnabled,
+            };
+
+            _openWorld = new OpenWorldModeSelector(_playbackHandler, _throwHandler);
+
             var sensor = new TemplateBattleSensor("assets/templates/panel", "assets/templates/skills");
             _battleHandler = new AutoBattleHandler(battleSettings, sensor)
             {
@@ -169,7 +201,7 @@ public sealed class DispatcherHost : IDisposable
                 detectorFactory: () => SceneDetectors.CreateAll(),
                 handlerFactory: () => new Dictionary<GameScene, ISceneHandler>
                 {
-                    [GameScene.OpenWorld] = _throwHandler,
+                    [GameScene.OpenWorld] = _openWorld,
                     [GameScene.Battle] = _battleHandler,
                     [GameScene.WorldMap] = _fastTravelHandler,
                 });
@@ -187,16 +219,24 @@ public sealed class DispatcherHost : IDisposable
     {
         Trace.TraceInformation("[DispatcherHost] 截图器停止，收起调度器");
         SceneDispatcherRunningTask? task;
+        RoutePlaybackHandler? playback;
         lock (_gate)
         {
             task = _task;
             _task = null;
+            _openWorld = null;
             _throwHandler = null;
+            playback = _playbackHandler;
+            _playbackHandler = null;
             _battleHandler = null;
             _fastTravelHandler = null;
         }
 
-        if (task is null) return;
+        if (task is null)
+        {
+            playback?.Dispose();
+            return;
+        }
 
         task.EventRaised -= OnTaskEvent;
         task.StateChanged -= OnTaskStateChanged;
@@ -206,6 +246,7 @@ public sealed class DispatcherHost : IDisposable
         catch (AggregateException) { }
 
         task.Dispose();
+        playback?.Dispose();
         CurrentScene = GameScene.Unknown;
         Changed?.Invoke();
     }
@@ -216,8 +257,10 @@ public sealed class DispatcherHost : IDisposable
         lock (_gate)
         {
             if (_throwHandler is not null) _throwHandler.IsEnabled = AutoThrowEnabled;
+            if (_playbackHandler is not null) _playbackHandler.IsEnabled = RoutePlaybackEnabled;
             if (_battleHandler is not null) _battleHandler.IsEnabled = AutoBattleEnabled;
             if (_fastTravelHandler is not null) _fastTravelHandler.IsEnabled = FastTravelEnabled;
+            _openWorld?.ApplySelection();
             task = _task;
         }
 
@@ -250,5 +293,58 @@ public sealed class DispatcherHost : IDisposable
     {
         _capture.Changed -= OnCaptureChanged;
         Stop();
+    }
+
+    private sealed class OpenWorldModeSelector : ISceneHandler
+    {
+        private readonly ISceneHandler[] _modesByPriority;
+        private ISceneHandler? _active;
+        private SceneContext? _context;
+
+        public OpenWorldModeSelector(params ISceneHandler[] modesByPriority)
+            => _modesByPriority = modesByPriority;
+
+        public GameScene Scene => GameScene.OpenWorld;
+
+        public bool IsEnabled => _modesByPriority.Any(mode => mode.IsEnabled);
+
+        private ISceneHandler? SelectedMode => _modesByPriority.FirstOrDefault(mode => mode.IsEnabled);
+
+        public void Activate(SceneContext context)
+        {
+            _context = context;
+            if (SelectedMode is not { } mode) return;
+            mode.Activate(context);
+            _active = mode;
+        }
+
+        public bool Handle(ReadOnlySpan<byte> bgraPixels, int width, int height)
+        {
+            var active = _active;
+            if (active is null || !ReferenceEquals(active, SelectedMode)) return false;
+            return active.Handle(bgraPixels, width, height);
+        }
+
+        public void Deactivate()
+        {
+            _active?.Deactivate();
+            _active = null;
+            _context = null;
+        }
+
+        public void ApplySelection()
+        {
+            var selected = SelectedMode;
+            if (ReferenceEquals(_active, selected)) return;
+
+            _active?.Deactivate();
+            _active = null;
+
+            if (selected is not null && _context is not null && selected.IsEnabled)
+            {
+                selected.Activate(_context);
+                _active = selected;
+            }
+        }
     }
 }

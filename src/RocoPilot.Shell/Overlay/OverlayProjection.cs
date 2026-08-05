@@ -18,6 +18,7 @@ public sealed class OverlayProjection
     private long _stallRaisedMs;
     private int _stallSinceSeconds;
     private string? _scene;
+    private int _routeLap;
 
     public OverlayProjection(Func<long>? nowMs = null, long stallBannerMs = DefaultStallBannerMs)
     {
@@ -93,8 +94,51 @@ public sealed class OverlayProjection
                     _phase = null;
                     break;
 
+                case "route_started":
+                    _routeLap = 0;
+                    _phase = "路线开始";
+                    break;
+
+                case "node_started":
+                    _phase = RoutePhase(toolEvent.Data?.GetValueOrDefault("node") as string);
+                    break;
+
+                case "segment_done":
+                    _phase = RoutePhase("分段完成");
+                    break;
+
+                case "anchor_teleport":
+                    _phase = RoutePhase(
+                        toolEvent.Data?.GetValueOrDefault("phase") as string == "landed" ? "已落地" : "传送中");
+                    break;
+
+                case "stuck_retry":
+                    _phase = RoutePhase($"重试×{toolEvent.Data?.GetValueOrDefault("attempt") ?? 0}");
+                    break;
+
+                case "loop_lap":
+                    _routeLap = toolEvent.Data?.GetValueOrDefault("lap") is int lap ? lap : _routeLap;
+                    _phase = RoutePhase(null);
+                    break;
+
+                case "route_suspended":
+                    _phase = "挂起";
+                    break;
+
+                case "graph_finished":
+                case "route_playback_fault":
+                    _routeLap = 0;
+                    _phase = null;
+                    break;
+
             }
         }
+    }
+
+    private string RoutePhase(string? detail)
+    {
+        var lap = _routeLap > 0 ? $"第{_routeLap}圈" : "路线";
+        return string.IsNullOrEmpty(detail) ? lap : $"{lap}｜{detail}";
     }
 
     public OverlaySnapshot Snapshot()

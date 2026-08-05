@@ -5,7 +5,25 @@
 
   <StackPanel Margin="32,24,32,40">
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Road24}">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="路线回放" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="开放世界下按执行图自动跑图（锚点传送 + 录制回放），与自动丢球互斥" />
+          </StackPanel>
+          <ui:ToggleSwitch x:Name="RoutePlaybackToggle" Grid.Column="1"
+                           Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
+        </Grid>
+      </ui:CardExpander.Header>
+    </ui:CardExpander>
+
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}" Margin="0,12,0,0">
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>

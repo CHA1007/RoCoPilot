@@ -35,6 +35,13 @@ public sealed class GraphExecutor
     private readonly Func<GameScene> _currentScene;
     private readonly Action<ToolEvent>? _emitEvent;
     private readonly GraphExecutorOptions _options;
+    private readonly Stopwatch _runWatch = new();
+
+    private RouteGraph? _graph;
+    private IReadOnlyList<RouteNode> _chain = [];
+    private int _index;
+    private int _laps;
+    private int _attempts;
 
     public GraphExecutor(
         RoutePlayer player,
@@ -52,40 +59,65 @@ public sealed class GraphExecutor
         _options = options ?? new GraphExecutorOptions();
     }
 
+    public RouteGraph? CurrentGraph => _graph;
+
+    public void Reset()
+    {
+        _graph = null;
+        _chain = [];
+        _index = 0;
+        _laps = 0;
+        _attempts = 0;
+        _runWatch.Reset();
+    }
+
     public async Task<GraphExecutionResult> RunAsync(RouteGraph graph, CancellationToken stoppingToken = default)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
-        IReadOnlyList<RouteNode> chain;
-        try
+        if (!ReferenceEquals(graph, _graph))
         {
-            chain = graph.OrderedChain();
+            IReadOnlyList<RouteNode> chain;
+            try
+            {
+                chain = graph.OrderedChain();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return new GraphExecutionResult(GraphCompletionReason.Faulted, ex.Message, 0, null);
+            }
+
+            _graph = graph;
+            _chain = chain;
+            _index = 0;
+            _laps = 0;
+            _attempts = 0;
+            _runWatch.Restart();
+
+            if (_chain.Count == 0)
+            {
+                Reset();
+                return new GraphExecutionResult(GraphCompletionReason.Faulted, "执行图为空。", 0, null);
+            }
+
+            Emit("route_started", new Dictionary<string, object?>
+            {
+                ["graph"] = graph.Name,
+                ["nodes"] = _chain.Count,
+            });
         }
-        catch (InvalidOperationException ex)
-        {
-            return new GraphExecutionResult(GraphCompletionReason.Faulted, ex.Message, 0, null);
-        }
 
-        if (chain.Count == 0)
-            return new GraphExecutionResult(GraphCompletionReason.Faulted, "执行图为空。", 0, null);
-
-        var runWatch = Stopwatch.StartNew();
-        var laps = 0;
-        var index = 0;
-        var attempts = 0;
-
-        Emit("route_started", new Dictionary<string, object?>
-        {
-            ["graph"] = graph.Name,
-            ["nodes"] = chain.Count,
-        });
+        _runWatch.Start();
 
         while (true)
         {
             if (stoppingToken.IsCancellationRequested)
-                return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+            {
+                _runWatch.Stop();
+                return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+            }
 
-            var node = chain[index];
+            var node = _chain[_index];
 
             Emit("node_started", new Dictionary<string, object?>
             {
@@ -100,20 +132,26 @@ public sealed class GraphExecutor
                 {
                     var teleportResult = await Task.Run(() => _teleport.Teleport(node.PoiName!, stoppingToken), CancellationToken.None);
                     if (stoppingToken.IsCancellationRequested)
-                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                    {
+                        _runWatch.Stop();
+                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                    }
 
                     if (teleportResult.Succeeded)
                     {
                         SegmentDone(node);
-                        index++;
-                        attempts = 0;
+                        _index++;
+                        _attempts = 0;
                         break;
                     }
 
-                    if (FailNode(node, $"锚点传送失败：{teleportResult.Message}", chain, ref index, ref attempts) is { } fault)
-                        return new GraphExecutionResult(GraphCompletionReason.Faulted, fault, laps, node.Name);
+                    if (FailNode(node, $"锚点传送失败：{teleportResult.Message}") is { } fault)
+                        return FinishWithFault(fault, node);
                     if (stoppingToken.IsCancellationRequested)
-                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                    {
+                        _runWatch.Stop();
+                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                    }
                     break;
                 }
 
@@ -126,14 +164,18 @@ public sealed class GraphExecutor
                     }
                     catch (OperationCanceledException)
                     {
-                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                        _runWatch.Stop();
+                        return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
                     }
                     catch (Exception ex)
                     {
-                        if (FailNode(node, $"路线加载失败：{ex.Message}", chain, ref index, ref attempts) is { } fault)
-                            return new GraphExecutionResult(GraphCompletionReason.Faulted, fault, laps, node.Name);
+                        if (FailNode(node, $"路线加载失败：{ex.Message}") is { } fault)
+                            return FinishWithFault(fault, node);
                         if (stoppingToken.IsCancellationRequested)
-                            return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                        {
+                            _runWatch.Stop();
+                            return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                        }
                         break;
                     }
 
@@ -142,18 +184,22 @@ public sealed class GraphExecutor
                     {
                         case PlaybackOutcome.Completed:
                             SegmentDone(node);
-                            index++;
-                            attempts = 0;
+                            _index++;
+                            _attempts = 0;
                             break;
 
                         case PlaybackOutcome.Stopped:
-                            return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                            _runWatch.Stop();
+                            return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
 
                         case PlaybackOutcome.Stuck:
-                            if (FailNode(node, "回放卡死（画面长时间无变化）。", chain, ref index, ref attempts) is { } fault)
-                                return new GraphExecutionResult(GraphCompletionReason.Faulted, fault, laps, node.Name);
+                            if (FailNode(node, "回放卡死（画面长时间无变化）。") is { } fault)
+                                return FinishWithFault(fault, node);
                             if (stoppingToken.IsCancellationRequested)
-                                return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", laps, null);
+                            {
+                                _runWatch.Stop();
+                                return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                            }
                             break;
                     }
 
@@ -162,27 +208,42 @@ public sealed class GraphExecutor
 
                 case RouteNodeKind.Loop:
                 {
-                    laps++;
+                    _laps++;
                     Emit("loop_lap", new Dictionary<string, object?>
                     {
-                        ["lap"] = laps,
-                        ["elapsed_ms"] = runWatch.Elapsed.TotalMilliseconds,
+                        ["lap"] = _laps,
+                        ["elapsed_ms"] = _runWatch.Elapsed.TotalMilliseconds,
                     });
 
-                    if (node.MaxLaps is { } maxLaps && laps >= maxLaps)
-                        return new GraphExecutionResult(GraphCompletionReason.Completed, $"达到圈数上限（{maxLaps} 圈）。", laps, null);
-                    if (node.MaxDuration is { } maxDuration && runWatch.Elapsed >= maxDuration)
-                        return new GraphExecutionResult(GraphCompletionReason.Completed, $"达到时长上限（{maxDuration}）。", laps, null);
+                    if (node.MaxLaps is { } maxLaps && _laps >= maxLaps)
+                        return FinishCompleted($"达到圈数上限（{maxLaps} 圈）。");
+                    if (node.MaxDuration is { } maxDuration && _runWatch.Elapsed >= maxDuration)
+                        return FinishCompleted($"达到时长上限（{maxDuration}）。");
 
-                    index = 0;
-                    attempts = 0;
+                    _index = 0;
+                    _attempts = 0;
                     break;
                 }
             }
 
-            if (index >= chain.Count)
-                return new GraphExecutionResult(GraphCompletionReason.Completed, "执行图运行完成。", laps, null);
+            if (_index >= _chain.Count)
+                return FinishCompleted("执行图运行完成。");
         }
+    }
+
+    private GraphExecutionResult FinishCompleted(string message)
+    {
+        var result = new GraphExecutionResult(GraphCompletionReason.Completed, message, _laps, null);
+        Reset();
+        return result;
+    }
+
+    private GraphExecutionResult FinishWithFault(string message, RouteNode node)
+    {
+        _runWatch.Stop();
+        var result = new GraphExecutionResult(GraphCompletionReason.Faulted, message, _laps, node.Name);
+        Reset();
+        return result;
     }
 
     private async Task<PlaybackResult> PlayWithBattleSuspendAsync(Route route, RouteNode node, CancellationToken stoppingToken)
@@ -229,26 +290,21 @@ public sealed class GraphExecutor
         return await playTask;
     }
 
-    private string? FailNode(
-        RouteNode node,
-        string reason,
-        IReadOnlyList<RouteNode> chain,
-        ref int index,
-        ref int attempts)
+    private string? FailNode(RouteNode node, string reason)
     {
-        attempts++;
-        if (attempts <= _options.MaxNodeRetries)
+        _attempts++;
+        if (_attempts <= _options.MaxNodeRetries)
         {
             Emit("stuck_retry", new Dictionary<string, object?>
             {
                 ["node"] = node.Name,
-                ["attempt"] = attempts,
+                ["attempt"] = _attempts,
                 ["reason"] = reason,
             });
             return null;
         }
 
-        var fallbackIndex = NearestUpstreamAnchor(chain, index);
+        var fallbackIndex = NearestUpstreamAnchor(_chain, _index);
         if (fallbackIndex < 0)
         {
             var message = $"节点「{node.Name}」重试超限（{reason}），且无上游锚点可回退，执行终止。";
@@ -261,15 +317,15 @@ public sealed class GraphExecutor
             return message;
         }
 
-        var anchor = chain[fallbackIndex];
+        var anchor = _chain[fallbackIndex];
         Emit("anchor_fallback", new Dictionary<string, object?>
         {
             ["from"] = node.Name,
             ["anchor"] = anchor.Name,
             ["reason"] = reason,
         });
-        index = fallbackIndex;
-        attempts = 0;
+        _index = fallbackIndex;
+        _attempts = 0;
         return null;
     }
 

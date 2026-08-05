@@ -16,6 +16,7 @@ public partial class RealtimePage : Page
     private readonly DispatcherHost _dispatcher;
     private readonly object _throwSettings;
     private bool _ready;
+    private bool _syncing;
 
     public RealtimePage(AutoThrowTool tool, ISettingsStore store, CaptureHost capture, DispatcherHost dispatcher)
     {
@@ -35,12 +36,14 @@ public partial class RealtimePage : Page
         SkillSlotCombo.SelectedIndex = Math.Clamp((battleSettings?.SkillSlot ?? 1) - 1, 0, 3);
 
         AutoThrowToggle.IsChecked = _dispatcher.AutoThrowEnabled;
+        RoutePlaybackToggle.IsChecked = _dispatcher.RoutePlaybackEnabled;
         AutoBattleToggle.IsChecked = _dispatcher.AutoBattleEnabled;
         FastTravelToggle.IsChecked = _dispatcher.FastTravelEnabled;
 
         Loaded += (_, _) =>
         {
             _ready = true;
+            SyncToggleChecks();
             _dispatcher.EventRaised += OnDispatcherEvent;
             RefreshCalibrationBanner();
         };
@@ -49,11 +52,34 @@ public partial class RealtimePage : Page
 
     private void OnToggleChanged(object sender, RoutedEventArgs e)
     {
-        if (!_ready) return;
-        _dispatcher.AutoThrowEnabled = AutoThrowToggle.IsChecked == true;
+        if (!_ready || _syncing) return;
+
+        if (ReferenceEquals(sender, RoutePlaybackToggle))
+        {
+            _dispatcher.AutoThrowEnabled = AutoThrowToggle.IsChecked == true;
+            _dispatcher.RoutePlaybackEnabled = RoutePlaybackToggle.IsChecked == true;
+        }
+        else
+        {
+            _dispatcher.RoutePlaybackEnabled = RoutePlaybackToggle.IsChecked == true;
+            _dispatcher.AutoThrowEnabled = AutoThrowToggle.IsChecked == true;
+        }
+
         _dispatcher.AutoBattleEnabled = AutoBattleToggle.IsChecked == true;
         _dispatcher.FastTravelEnabled = FastTravelToggle.IsChecked == true;
         _dispatcher.SyncEnables();
+
+        SyncToggleChecks();
+    }
+
+    private void SyncToggleChecks()
+    {
+        _syncing = true;
+        RoutePlaybackToggle.IsChecked = _dispatcher.RoutePlaybackEnabled;
+        AutoThrowToggle.IsChecked = _dispatcher.AutoThrowEnabled;
+        AutoBattleToggle.IsChecked = _dispatcher.AutoBattleEnabled;
+        FastTravelToggle.IsChecked = _dispatcher.FastTravelEnabled;
+        _syncing = false;
     }
 
     private void OnSkillSlotChanged(object sender, SelectionChangedEventArgs e)

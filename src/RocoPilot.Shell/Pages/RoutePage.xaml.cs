@@ -1,19 +1,15 @@
 using System.IO;
 using System.Windows;
 using RocoPilot.Capture;
-using RocoPilot.Core;
 using RocoPilot.Input;
 using RocoPilot.Routing;
-using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
-using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Pages;
 
 public partial class RoutePage : System.Windows.Controls.Page
 {
     private const string PoiTemplateRoot = "assets/templates/map/poi";
-    private const string TeleportTemplatePath = "assets/templates/map/teleport.png";
     private const string GraphName = "采集路线图";
     private const ushort EndRecordingScanCode = 0x2D;
     private const ushort KeyUpStateFlag = 0x001;
@@ -21,14 +17,10 @@ public partial class RoutePage : System.Windows.Controls.Page
     private readonly RouteStore _store;
     private readonly CaptureHost _capture;
     private readonly DispatcherHost _dispatcher;
-    private readonly ISettingsStore _settings;
 
     private List<RouteNode> _nodes = [];
     private List<RouteEdge> _edges = [];
 
-    private CancellationTokenSource? _runCts;
-    private IInputDriver? _runDriver;
-    private TeleportSensor? _runSensor;
     private Guid? _activeNodeId;
     private int _laps;
     private int _retries;
@@ -39,13 +31,12 @@ public partial class RoutePage : System.Windows.Controls.Page
     private TaskCompletionSource<string?>? _recordCompletion;
     private volatile bool _recordStopRequested;
 
-    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher, ISettingsStore settings)
+    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher)
     {
         InitializeComponent();
         _store = store;
         _capture = capture;
         _dispatcher = dispatcher;
-        _settings = settings;
 
         Loaded += OnLoaded;
 
@@ -54,10 +45,14 @@ public partial class RoutePage : System.Windows.Controls.Page
         GraphCanvas.EdgeRequested += OnEdgeRequested;
         GraphCanvas.EdgeDeleted += OnEdgeDeleted;
         GraphCanvas.NodeMoved += OnNodeMoved;
+
+        _dispatcher.EventRaised += OnDispatcherEvent;
+        _dispatcher.Changed += OnDispatcherChanged;
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateToolbarState();
         if (_graphLoaded) return;
         _graphLoaded = true;
         try
@@ -314,151 +309,101 @@ public partial class RoutePage : System.Windows.Controls.Page
         }
     }
 
-    private void OnRunClick(object sender, RoutedEventArgs e) => _ = RunGraphAsync();
-
-    private async Task RunGraphAsync()
+    private void OnRunClick(object sender, RoutedEventArgs e)
     {
-        if (_runCts is not null || _recorder is not null) return;
-
-        if (_nodes.Count == 0)
+        if (_recorder is not null)
         {
-            SetStatus("执行图为空——先添加节点并连线");
+            SetStatus("录制中——按 X 结束录制后再运行");
             return;
         }
 
-        var graph = BuildGraph();
-        try
+        if (!_capture.IsRunning)
         {
-            graph.OrderedChain();
-        }
-        catch (InvalidOperationException ex)
-        {
-            SetStatus($"无法运行：{ex.Message}");
+            SetStatus("请先开启截图源（启动页）——回放由调度器在截图器运行时驱动");
             return;
         }
 
-        var source = _capture.CurrentSource;
-        if (source is null)
-        {
-            SetStatus("请先开启截图源（卡死检测与锚点传送都依赖画面）");
-            return;
-        }
-
-        var driver = InputDriverFactory.Create();
-        try
-        {
-            await Task.Run(() => driver.Arm(TimeSpan.FromSeconds(10)));
-        }
-        catch (Exception ex)
-        {
-            driver.Dispose();
-            SetStatus($"输入驱动初始化失败：{ex.Message}");
-            return;
-        }
-
-        var cts = new CancellationTokenSource();
-        _runCts = cts;
-        _runDriver = driver;
         _laps = 0;
         _retries = 0;
+        _dispatcher.RoutePlaybackEnabled = true;
+        _dispatcher.SyncEnables();
         UpdateToolbarState();
-        UpdateStatusLine("执行开始");
-
-        var teleportSettings = _settings.GetToolSettings(
-            "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
-                               ?? new FastTravelSettings();
-
-        var player = new RoutePlayer(driver, source);
-        var sensor = TeleportSensor.TryCreate(TeleportTemplatePath);
-        _runSensor = sensor;
-        var guide = new PoiTeleportGuide(
-            grabFrame: () => source.TryGrabLatest(out var frame) ? frame : null,
-            inputDriver: driver,
-            teleportSensor: sensor,
-            teleportSettings: teleportSettings,
-            frameToScreen: GameFrameMapper.Create(source),
-            isGameForeground: () => WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName),
-            emitEvent: OnGraphEvent);
-
-        var executor = new GraphExecutor(player, guide, _store.LoadAsync, () => _dispatcher.CurrentScene, OnGraphEvent);
-
-        _ = Task.Run(async () =>
-        {
-            GraphExecutionResult result;
-            try
-            {
-                result = await executor.RunAsync(graph, cts.Token);
-            }
-            catch (Exception ex)
-            {
-                result = new GraphExecutionResult(GraphCompletionReason.Faulted, ex.Message, _laps, null);
-            }
-
-            await Dispatcher.InvokeAsync(() => OnRunFinished(result));
-        });
+        UpdateStatusLine("已开启路线回放（开放世界场景生效，与自动丢球互斥）");
     }
 
-    private void OnStopClick(object sender, RoutedEventArgs e) => _runCts?.Cancel();
-
-    private void OnRunFinished(GraphExecutionResult result)
+    private void OnStopClick(object sender, RoutedEventArgs e)
     {
-        _runDriver?.Dispose();
-        _runDriver = null;
-        _runSensor?.Dispose();
-        _runSensor = null;
-        _runCts = null;
+        _dispatcher.RoutePlaybackEnabled = false;
+        _dispatcher.SyncEnables();
+        UpdateToolbarState();
+    }
+
+    private void OnDispatcherChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        UpdateToolbarState();
+        UpdateStatusLine();
+    });
+
+    private void OnDispatcherEvent(object? sender, ToolEvent toolEvent) => Dispatcher.BeginInvoke(() =>
+    {
+        switch (toolEvent.Name)
+        {
+            case "node_started":
+                if (toolEvent.Data?["node_id"] is string nodeIdText
+                    && Guid.TryParse(nodeIdText, out var nodeId))
+                {
+                    _activeNodeId = nodeId;
+                    GraphCanvas.SetActive(nodeId);
+                }
+
+                UpdateStatusLine();
+                break;
+
+            case "loop_lap":
+                if (toolEvent.Data?["lap"] is int lap) _laps = lap;
+                UpdateStatusLine();
+                break;
+
+            case "stuck_retry":
+                _retries++;
+                UpdateStatusLine($"节点重试（{_retries} 次）：{toolEvent.Data?["reason"]}");
+                break;
+
+            case "anchor_fallback":
+                UpdateStatusLine($"回退到锚点「{toolEvent.Data?["anchor"]}」重跑");
+                break;
+
+            case "route_suspended":
+                ClearActiveNode();
+                SetStatus(_dispatcher.RoutePlaybackEnabled
+                    ? "回放挂起（战斗或失焦），恢复后自动续跑"
+                    : "已停止路线回放");
+                break;
+
+            case "graph_finished":
+                ClearActiveNode();
+                SetStatus($"运行结束：{toolEvent.Data?["message"]}·失败重试 {_retries} 次");
+                _laps = 0;
+                _retries = 0;
+                UpdateToolbarState();
+                break;
+
+            case "route_playback_fault":
+                ClearActiveNode();
+                SetStatus($"回放未运行：{toolEvent.Data?["error"]}");
+                break;
+        }
+    });
+
+    private void ClearActiveNode()
+    {
         _activeNodeId = null;
         GraphCanvas.SetActive(null);
-        UpdateToolbarState();
-
-        var summary = result.Reason switch
-        {
-            GraphCompletionReason.Completed => $"运行完成：{result.Message}",
-            GraphCompletionReason.Stopped => $"已停止（已跑 {result.LapsCompleted} 圈）",
-            _ => $"执行失败：{result.Message}",
-        };
-        UpdateStatusLine($"{summary} · 失败重试 {_retries} 次");
-    }
-
-    private void OnGraphEvent(ToolEvent toolEvent)
-    {
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (_runCts is null) return;
-
-            switch (toolEvent.Name)
-            {
-                case "node_started":
-                    if (toolEvent.Data?["node_id"] is string nodeIdText
-                        && Guid.TryParse(nodeIdText, out var nodeId))
-                    {
-                        _activeNodeId = nodeId;
-                        GraphCanvas.SetActive(nodeId);
-                    }
-
-                    UpdateStatusLine();
-                    break;
-
-                case "loop_lap":
-                    if (toolEvent.Data?["lap"] is int lap) _laps = lap;
-                    UpdateStatusLine();
-                    break;
-
-                case "stuck_retry":
-                    _retries++;
-                    UpdateStatusLine($"节点重试（{_retries} 次）：{toolEvent.Data?["reason"]}");
-                    break;
-
-                case "anchor_fallback":
-                    UpdateStatusLine($"回退到锚点「{toolEvent.Data?["anchor"]}」重跑");
-                    break;
-            }
-        });
     }
 
     private void UpdateStatusLine(string? transient = null)
     {
-        if (_runCts is null)
+        if (!_dispatcher.RoutePlaybackEnabled)
         {
             if (transient is not null) SetStatus(transient);
             return;
@@ -471,7 +416,7 @@ public partial class RoutePage : System.Windows.Controls.Page
 
     private async Task<string?> StartRecordingAsync()
     {
-        if (_recorder is not null || _runCts is not null)
+        if (_recorder is not null || _dispatcher.RoutePlaybackEnabled)
         {
             SetStatus("已有录制或执行在进行");
             return null;
@@ -560,7 +505,7 @@ public partial class RoutePage : System.Windows.Controls.Page
 
     private void UpdateToolbarState()
     {
-        var running = _runCts is not null;
+        var running = _dispatcher.RoutePlaybackEnabled;
         var recording = _recorder is not null;
         var busy = running || recording;
 
@@ -573,7 +518,7 @@ public partial class RoutePage : System.Windows.Controls.Page
 
     private bool EnsureEditable()
     {
-        if (_runCts is not null)
+        if (_dispatcher.RoutePlaybackEnabled)
         {
             SetStatus("执行中——先停止再编辑图");
             return false;

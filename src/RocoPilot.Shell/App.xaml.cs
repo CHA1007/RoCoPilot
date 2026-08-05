@@ -74,7 +74,8 @@ public partial class App : Application
         var captureHost = new CaptureHost();
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
-        services.AddSingleton<RouteStore>();
+        var routeStore = new RouteStore();
+        services.AddSingleton(routeStore);
 
         var tools = ToolRegistry.CreateTools(captureHost, settingsStore);
         foreach (var tool in tools)
@@ -83,7 +84,7 @@ public partial class App : Application
         }
 
         var throwTool = tools.Single(t => t.Id == RocoPilot.Tools.AutoThrow.AutoThrowTool.ToolId);
-        services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool));
+        services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool, routeStore));
 
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());
 
