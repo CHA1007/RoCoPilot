@@ -15,7 +15,7 @@ public sealed class DispatcherHost : IDisposable
 {
     private readonly CaptureHost _capture;
     private readonly ISettingsStore _store;
-    private readonly AutoThrowTool _throwTool;
+    private readonly ITool _throwTool;
 
     private readonly object _gate = new();
     private SceneDispatcherRunningTask? _task;
@@ -26,7 +26,7 @@ public sealed class DispatcherHost : IDisposable
     private bool _autoBattleEnabled;
     private bool _fastTravelEnabled;
 
-    public DispatcherHost(CaptureHost capture, ISettingsStore store, AutoThrowTool throwTool)
+    public DispatcherHost(CaptureHost capture, ISettingsStore store, ITool throwTool)
     {
         _capture = capture;
         _store = store;

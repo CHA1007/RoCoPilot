@@ -74,12 +74,13 @@ public partial class App : Application
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
 
-        foreach (var tool in ToolRegistry.CreateTools(captureHost, settingsStore))
+        var tools = ToolRegistry.CreateTools(captureHost, settingsStore);
+        foreach (var tool in tools)
         {
             services.AddSingleton(tool.GetType(), tool);
         }
 
-        var throwTool = (RocoPilot.Tools.AutoThrow.AutoThrowTool)ToolRegistry.CreateTools(captureHost, settingsStore)[0];
+        var throwTool = tools.Single(t => t.Id == RocoPilot.Tools.AutoThrow.AutoThrowTool.ToolId);
         services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool));
 
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());

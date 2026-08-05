@@ -22,8 +22,6 @@ public sealed class AutoThrowTool : IToolUi
 
     public string Id => ToolId;
 
-    public string DisplayName => "自动丢球";
-
     public SymbolRegular Icon => SymbolRegular.TargetArrow24;
 
     public Type SettingsType => typeof(AutoThrowSettings);

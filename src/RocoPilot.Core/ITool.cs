@@ -4,8 +4,6 @@ public interface ITool
 {
     string Id { get; }
 
-    string DisplayName { get; }
-
     Type SettingsType { get; }
 
     object CreateDefaultSettings();
