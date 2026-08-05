@@ -24,7 +24,7 @@ public sealed class CatchPipeline : ICatchPipeline
     private FailureSceneRecorder? _recorder;
     private IntPtr _gameWindow;
     private Task? _armTask;
-    private AutoCalibrator.CalibrationResult? _calibratedPpc;
+    private AutoCalibrator.PpcProbeResult? _calibratedPpc;
 
     public CatchPipeline(CatchPipelineSpec? spec = null, CatchPipelineFactories? factories = null)
     {

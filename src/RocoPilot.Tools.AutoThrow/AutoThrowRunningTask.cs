@@ -6,17 +6,11 @@ using RocoPilot.Settings;
 
 namespace RocoPilot.Tools.AutoThrow;
 
-public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
+public sealed class AutoThrowRunningTask : RunningTaskBase
 {
     private readonly Func<ICatchPipeline> _pipelineFactory;
     private readonly TimeSpan _focusPollInterval;
 
-    private readonly object _gate = new();
-    private readonly TaskCompletionSource _idleWhenStopped = new();
-
-    private CancellationTokenSource? _cts;
-    private TaskCompletionSource? _stoppedTcs;
-    private TaskState _state = TaskState.Idle;
     private ICatchPipeline? _pipeline;
     private Thread? _focusWatcher;
 
@@ -29,74 +23,38 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
     {
         _pipelineFactory = pipelineFactory ?? throw new ArgumentNullException(nameof(pipelineFactory));
         _focusPollInterval = focusPollInterval ?? TimeSpan.FromMilliseconds(250);
-        _idleWhenStopped.SetResult();
     }
 
-    public string ToolId => AutoThrowTool.ToolId;
-
-    public TaskState State
-    {
-        get { lock (_gate) { return _state; } }
-    }
-
-    public Task WhenStopped
-    {
-        get { lock (_gate) { return _stoppedTcs?.Task ?? _idleWhenStopped.Task; } }
-    }
+    public override string ToolId => AutoThrowTool.ToolId;
 
     public ICatchPipeline? Pipeline
     {
-        get { lock (_gate) { return _pipeline; } }
+        get { lock (Gate) { return _pipeline; } }
     }
 
-    public object? DiagnosticsContext => Pipeline;
+    public override object? DiagnosticsContext => Pipeline;
 
-    public event EventHandler<TaskState>? StateChanged;
-
-    public event EventHandler<ToolEvent>? EventRaised;
-
-    public void Start()
-    {
-        CancellationToken token;
-        lock (_gate)
-        {
-            if (_state != TaskState.Idle)
-            {
-                throw new InvalidOperationException($"单活跃任务：当前态 {_state}，仅 Idle 可启动（ADR-0003）");
-            }
-
-            _cts?.Dispose();
-            _cts = new CancellationTokenSource();
-            _stoppedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            token = _cts.Token;
-            _state = TaskState.Arming;
-        }
-
-        RaiseStateChanged(TaskState.Arming);
-        _ = Task.Run(() => RunWorkerAsync(token));
-    }
-
-    public void RequestPause(string source = "manual")
+    public override void RequestPause(string source = "manual")
     {
         ICatchPipeline? pipeline;
-        lock (_gate)
+        lock (Gate)
         {
-            if (_state != TaskState.Running)
+            if (CurrentState != TaskState.Running)
             {
                 return;
             }
 
-            _state = TaskState.Paused;
+            CurrentState = TaskState.Paused;
             pipeline = _pipeline;
         }
 
         if (pipeline is null || !pipeline.Pause(source))
         {
-            lock (_gate)
+            lock (Gate)
             {
-                if (_state == TaskState.Paused)
+                if (CurrentState == TaskState.Paused)
                 {
-                    _state = TaskState.Running;
+                    CurrentState = TaskState.Running;
                 }
             }
 
@@ -107,27 +65,27 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         RaiseStateChanged(TaskState.Paused);
     }
 
-    public void RequestResume(string source = "manual")
+    public override void RequestResume(string source = "manual")
     {
         ICatchPipeline? pipeline;
-        lock (_gate)
+        lock (Gate)
         {
-            if (_state != TaskState.Paused)
+            if (CurrentState != TaskState.Paused)
             {
                 return;
             }
 
-            _state = TaskState.Running;
+            CurrentState = TaskState.Running;
             pipeline = _pipeline;
         }
 
         if (pipeline is null || !pipeline.Resume(source))
         {
-            lock (_gate)
+            lock (Gate)
             {
-                if (_state == TaskState.Running)
+                if (CurrentState == TaskState.Running)
                 {
-                    _state = TaskState.Paused;
+                    CurrentState = TaskState.Paused;
                 }
             }
 
@@ -140,44 +98,6 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         }
 
         RaiseStateChanged(TaskState.Running);
-    }
-
-    public void RequestStop()
-    {
-        lock (_gate)
-        {
-            if (_state is not (TaskState.Arming or TaskState.Running or TaskState.Paused))
-            {
-                return;
-            }
-
-            _state = TaskState.Stopping;
-            _cts?.Cancel();
-        }
-
-        RaiseStateChanged(TaskState.Stopping);
-    }
-
-    public void Dispose()
-    {
-        lock (_gate)
-        {
-            _cts?.Cancel();
-        }
-
-        try
-        {
-            WhenStopped.Wait(TimeSpan.FromSeconds(3));
-        }
-        catch (AggregateException)
-        {
-        }
-
-        lock (_gate)
-        {
-            _cts?.Dispose();
-            _cts = null;
-        }
     }
 
     private static ICatchPipeline CreatePipeline(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
@@ -217,13 +137,13 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         });
     }
 
-    private async Task RunWorkerAsync(CancellationToken ct)
+    protected override async Task RunWorkerAsync(CancellationToken ct)
     {
         ICatchPipeline? pipeline = null;
         try
         {
             pipeline = _pipelineFactory();
-            lock (_gate)
+            lock (Gate)
             {
                 _pipeline = pipeline;
             }
@@ -233,17 +153,7 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
                 return;
             }
 
-            bool entered;
-            lock (_gate)
-            {
-                entered = _state == TaskState.Arming;
-                if (entered)
-                {
-                    _state = TaskState.Running;
-                }
-            }
-
-            if (!entered)
+            if (!TryEnterRunning())
             {
                 return;
             }
@@ -286,15 +196,13 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
         finally
         {
             StopFocusWatcher();
-            lock (_gate)
+            lock (Gate)
             {
                 _pipeline = null;
-                _state = TaskState.Idle;
             }
 
             pipeline?.Dispose();
-            RaiseStateChanged(TaskState.Idle);
-            _stoppedTcs?.TrySetResult();
+            FinishStopped();
         }
     }
 
@@ -332,7 +240,6 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
             }
             else
             {
-
                 RaiseEvent(new ToolEvent("focus_lost"));
             }
         }
@@ -350,19 +257,4 @@ public sealed class AutoThrowRunningTask : IRunningTask, IDisposable
     }
 
     private void OnPipelineEvent(object? sender, ToolEvent toolEvent) => RaiseEvent(toolEvent);
-
-    private void RaiseStateChanged(TaskState state) => StateChanged?.Invoke(this, state);
-
-    private void RaiseEvent(ToolEvent toolEvent) => EventRaised?.Invoke(this, toolEvent);
-
-    private void SafeRaiseEvent(ToolEvent toolEvent)
-    {
-        try
-        {
-            RaiseEvent(toolEvent);
-        }
-        catch
-        {
-        }
-    }
 }

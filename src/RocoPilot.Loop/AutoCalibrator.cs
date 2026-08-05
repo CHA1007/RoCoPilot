@@ -9,9 +9,9 @@ public sealed class AutoCalibrator
     private const int SettleMs = 400;
     private const int ProbeRounds = 3;
 
-    public sealed record CalibrationResult(double PpcX, double PpcY);
+    public sealed record PpcProbeResult(double PpcX, double PpcY);
 
-    public static CalibrationResult? Calibrate(
+    public static PpcProbeResult? Calibrate(
         ICaptureSource capture,
         IInputDriver driver,
         Action<int>? sleepMs = null)
@@ -25,7 +25,7 @@ public sealed class AutoCalibrator
 
         if (ppcX is null && ppcY is null) return null;
 
-        return new CalibrationResult(ppcX ?? 0, ppcY ?? 0);
+        return new PpcProbeResult(ppcX ?? 0, ppcY ?? 0);
     }
 
     private static double? CalibrateAxis(

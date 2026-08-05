@@ -4,7 +4,7 @@ using RocoPilot.Input;
 
 namespace RocoPilot.Dispatch;
 
-public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
+public sealed class SceneDispatcherRunningTask : RunningTaskBase
 {
     private readonly Func<ICaptureSource?> _captureSourceProvider;
     private readonly Func<IInputDriver> _driverFactory;
@@ -14,12 +14,6 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
     private readonly int _pollIntervalMs;
     private readonly int _debounceFrames;
 
-    private readonly object _gate = new();
-    private readonly TaskCompletionSource _idleWhenStopped = new();
-
-    private CancellationTokenSource? _cts;
-    private TaskCompletionSource? _stoppedTcs;
-    private TaskState _state = TaskState.Idle;
     private IInputDriver? _driver;
     private SceneDispatcher? _dispatcher;
 
@@ -39,103 +33,42 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
         _handlerFactory = handlerFactory ?? throw new ArgumentNullException(nameof(handlerFactory));
         _pollIntervalMs = pollIntervalMs;
         _debounceFrames = debounceFrames;
-        _idleWhenStopped.SetResult();
     }
 
-    public string ToolId => "dispatcher";
-
-    public TaskState State
-    {
-        get { lock (_gate) { return _state; } }
-    }
-
-    public Task WhenStopped
-    {
-        get { lock (_gate) { return _stoppedTcs?.Task ?? _idleWhenStopped.Task; } }
-    }
-
-    public event EventHandler<TaskState>? StateChanged;
-
-    public event EventHandler<ToolEvent>? EventRaised;
+    public override string ToolId => "dispatcher";
 
     public void RequestRefreshActivation()
     {
-        lock (_gate) { _dispatcher?.RequestRefreshActivation(); }
+        lock (Gate) { _dispatcher?.RequestRefreshActivation(); }
     }
 
-    public void Start()
+    public override void RequestPause(string source = "manual")
     {
-        CancellationToken token;
-        lock (_gate)
+        lock (Gate)
         {
-            if (_state != TaskState.Idle)
-                throw new InvalidOperationException($"调度器当前态 {_state}，仅 Idle 可启动");
-
-            _cts?.Dispose();
-            _cts = new CancellationTokenSource();
-            _stoppedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            token = _cts.Token;
-            _state = TaskState.Arming;
+            if (CurrentState != TaskState.Running) return;
+            CurrentState = TaskState.Paused;
         }
 
-        RaiseStateChanged(TaskState.Arming);
-        _ = Task.Run(() => RunWorkerAsync(token));
-    }
-
-    public void RequestPause(string source = "manual")
-    {
-        lock (_gate)
-        {
-            if (_state != TaskState.Running) return;
-            _state = TaskState.Paused;
-        }
-
-        _cts?.Cancel();
+        CancelWorker();
         RaiseStateChanged(TaskState.Paused);
     }
 
-    public void RequestResume(string source = "manual")
+    public override void RequestResume(string source = "manual")
     {
-        lock (_gate)
+        lock (Gate)
         {
-            if (_state != TaskState.Paused) return;
-            _state = TaskState.Idle;
+            if (CurrentState != TaskState.Paused) return;
+            CurrentState = TaskState.Idle;
         }
 
         RaiseStateChanged(TaskState.Idle);
         Start();
     }
 
-    public void RequestStop()
-    {
-        lock (_gate)
-        {
-            if (_state is not (TaskState.Arming or TaskState.Running or TaskState.Paused))
-                return;
-            _state = TaskState.Stopping;
-            _cts?.Cancel();
-        }
+    protected override void DisposeCore() => _driver?.Dispose();
 
-        RaiseStateChanged(TaskState.Stopping);
-    }
-
-    public void Dispose()
-    {
-        lock (_gate) { _cts?.Cancel(); }
-
-        try { WhenStopped.Wait(TimeSpan.FromSeconds(3)); }
-        catch (AggregateException) { }
-
-        lock (_gate)
-        {
-            _cts?.Dispose();
-            _cts = null;
-        }
-
-        _driver?.Dispose();
-    }
-
-    private async Task RunWorkerAsync(CancellationToken ct)
+    protected override async Task RunWorkerAsync(CancellationToken ct)
     {
         SceneDispatcher? dispatcher = null;
         var detectors = new List<ISceneDetector>();
@@ -178,16 +111,9 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
                 source!, detectors, handlers, context,
                 _pollIntervalMs, _debounceFrames);
             dispatcher.EventRaised += OnDispatcherEvent;
-            lock (_gate) { _dispatcher = dispatcher; }
+            lock (Gate) { _dispatcher = dispatcher; }
 
-            bool entered;
-            lock (_gate)
-            {
-                entered = _state == TaskState.Arming;
-                if (entered) _state = TaskState.Running;
-            }
-
-            if (!entered) return;
+            if (!TryEnterRunning()) return;
             RaiseStateChanged(TaskState.Running);
 
             await Task.Run(() => dispatcher.Run(ct), ct);
@@ -208,26 +134,14 @@ public sealed class SceneDispatcherRunningTask : IRunningTask, IDisposable
             if (dispatcher is not null)
                 dispatcher.EventRaised -= OnDispatcherEvent;
 
-            lock (_gate) { _dispatcher = null; }
+            lock (Gate) { _dispatcher = null; }
 
             foreach (var d in detectors)
                 (d as IDisposable)?.Dispose();
 
-            lock (_gate) { _state = TaskState.Idle; }
-            RaiseStateChanged(TaskState.Idle);
-            _stoppedTcs?.TrySetResult();
+            FinishStopped();
         }
     }
 
     private void OnDispatcherEvent(object? sender, ToolEvent e) => RaiseEvent(e);
-
-    private void RaiseStateChanged(TaskState state) => StateChanged?.Invoke(this, state);
-
-    private void RaiseEvent(ToolEvent toolEvent) => EventRaised?.Invoke(this, toolEvent);
-
-    private void SafeRaiseEvent(ToolEvent toolEvent)
-    {
-        try { RaiseEvent(toolEvent); }
-        catch { }
-    }
 }
