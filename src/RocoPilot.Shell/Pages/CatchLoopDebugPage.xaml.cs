@@ -16,7 +16,6 @@ namespace RocoPilot.Shell.Pages;
 public partial class CatchLoopDebugPage : Page
 {
     private const int MaxEventLines = 12;
-    private static readonly TimeSpan DiscoverTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan WorkerJoinTimeout = TimeSpan.FromSeconds(3);
 
     private readonly ISettingsStore _store;
@@ -88,8 +87,8 @@ public partial class CatchLoopDebugPage : Page
             });
 
             driver = InputDriverFactory.Create();
-            SetStatus("设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）");
-            await Task.Run(() => driver.Arm(DiscoverTimeout));
+            SetStatus("正在验证 Interception 驱动……");
+            await Task.Run(() => driver.Arm());
 
             if (generation != _generation)
             {
@@ -154,7 +153,7 @@ public partial class CatchLoopDebugPage : Page
         {
             CleanupLocals(source, detector, driver, sink);
             StartButton.IsEnabled = true;
-            SetStatus($"设备发现失败：{ex.Message}");
+            SetStatus($"驱动验证失败：{ex.Message}");
         }
         catch (DetectionException ex)
         {
@@ -297,25 +296,15 @@ public partial class CatchLoopDebugPage : Page
         _generation++;
 
         _cts?.Cancel();
+
         var worker = _worker;
-        if (worker is not null && worker.IsAlive)
-        {
-            worker.Join(WorkerJoinTimeout);
-        }
-
-        if (_engine is { } engine)
-        {
-            engine.Bus.EventRaised -= OnBusEvent;
-            engine.Dispose();
-        }
-
-        _sensor?.Dispose();
-        _source?.Stop();
-        _source?.Dispose();
-        _detector?.Dispose();
-        _driver?.Dispose();
-        _sink?.Dispose();
-        _cts?.Dispose();
+        var engine = _engine;
+        var sensor = _sensor;
+        var source = _source;
+        var detector = _detector;
+        var driver = _driver;
+        var sink = _sink;
+        var cts = _cts;
 
         _engine = null;
         _sensor = null;
@@ -328,6 +317,35 @@ public partial class CatchLoopDebugPage : Page
         StopButton.IsEnabled = false;
         PauseResumeButton.IsEnabled = false;
         BackendText.Text = "捕获后端：未启动";
+
+        if (worker is null && engine is null && sensor is null && source is null && driver is null)
+        {
+            sink?.Dispose();
+            cts?.Dispose();
+            return;
+        }
+
+        Task.Run(() =>
+        {
+            if (worker is not null && worker.IsAlive)
+            {
+                worker.Join(WorkerJoinTimeout);
+            }
+
+            if (engine is not null)
+            {
+                engine.Bus.EventRaised -= OnBusEvent;
+                engine.Dispose();
+            }
+
+            sensor?.Dispose();
+            source?.Stop();
+            source?.Dispose();
+            detector?.Dispose();
+            driver?.Dispose();
+            sink?.Dispose();
+            cts?.Dispose();
+        });
     }
 
     private void CleanupLocals(ICaptureSource? source, OnnxYoloDetector? detector, IInputDriver? driver, JsonlEventSink? sink)

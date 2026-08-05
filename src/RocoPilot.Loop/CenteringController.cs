@@ -350,11 +350,16 @@ public sealed class CenteringController
         }
 
         var chunks = (int)Math.Ceiling(magnitude / _options.ChunkThreshold);
+        var sentX = 0;
+        var sentY = 0;
         for (var i = 0; i < chunks; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var frac = 1.0 / chunks;
-            _driver.MoveRelative((int)Math.Round(dx * frac), (int)Math.Round(dy * frac));
+            var targetX = (int)Math.Round(dx * (i + 1) / (double)chunks);
+            var targetY = (int)Math.Round(dy * (i + 1) / (double)chunks);
+            _driver.MoveRelative(targetX - sentX, targetY - sentY);
+            sentX = targetX;
+            sentY = targetY;
             if (i < chunks - 1 && _options.ChunkDelayMs > 0)
             {
                 _sleep(_options.ChunkDelayMs, cancellationToken);

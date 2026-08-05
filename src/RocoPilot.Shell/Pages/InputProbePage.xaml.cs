@@ -2,14 +2,11 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RocoPilot.Input;
-using RocoPilot.Input.Interception;
 
 namespace RocoPilot.Shell.Pages;
 
 public partial class InputProbePage : Page
 {
-    private static readonly TimeSpan DiscoverTimeout = TimeSpan.FromSeconds(10);
-
     private readonly Brush _defaultStatusBrush;
     private IInputDriver? _driver;
 
@@ -26,16 +23,16 @@ public partial class InputProbePage : Page
     {
         var driver = Driver;
         SetButtonsEnabled(false);
-        SetStatus("设备发现中：10 秒内动一下鼠标……（收得到事件＝驱动真在设备栈）", isError: false);
+        SetStatus("正在验证 Interception 驱动……", isError: false);
 
         try
         {
-            await Task.Run(() => driver.Arm(DiscoverTimeout));
-            SetStatus($"✔ 设备发现成功（{driver.BackendName}）。可以「③ 发送探针」了。", isError: false);
+            await Task.Run(() => driver.Arm());
+            SetStatus($"✔ 驱动可用（{driver.BackendName} context 创建成功）＝已挂进设备栈。可以「③ 发送探针」了。", isError: false);
         }
         catch (Exception ex)
         {
-            SetStatus($"✘ 设备发现失败：{ex.Message}", isError: true);
+            SetStatus($"✘ 驱动验证失败：{ex.Message}", isError: true);
         }
         finally
         {
@@ -79,27 +76,6 @@ public partial class InputProbePage : Page
         catch (Exception ex)
         {
             SetStatus($"✘ 左键点击失败：{ex.Message}", isError: true);
-        }
-        finally
-        {
-            SetButtonsEnabled(true);
-        }
-    }
-
-    private async void OnArmKey(object sender, RoutedEventArgs e)
-    {
-        var interception = (InterceptionDriver)Driver;
-
-        SetButtonsEnabled(false);
-        SetStatus("键盘设备发现中：10 秒内随便按一个键……", isError: false);
-        try
-        {
-            await Task.Run(() => interception.DiscoverKey(DiscoverTimeout));
-            SetStatus("✔ 键盘设备发现成功。可以「测试空格」了。", isError: false);
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"✘ 键盘设备发现失败：{ex.Message}", isError: true);
         }
         finally
         {
@@ -153,7 +129,6 @@ public partial class InputProbePage : Page
         ArmButton.IsEnabled = enabled;
         ProbeButton.IsEnabled = enabled;
         ClickButton.IsEnabled = enabled;
-        ArmKeyButton.IsEnabled = enabled;
         KeyTestButton.IsEnabled = enabled;
     }
 

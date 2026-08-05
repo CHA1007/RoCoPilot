@@ -438,7 +438,7 @@ public partial class RoutePage : System.Windows.Controls.Page
         {
             var recorder = new RouteRecorder(driver, source, _store);
             recorder.StrokeObserved += OnRecordedStroke;
-            recorder.Start(name, TimeSpan.FromSeconds(10));
+            recorder.Start(name);
 
             _recorder = recorder;
             _recordDriver = driver;

@@ -96,7 +96,7 @@ public sealed class CatchPipeline : ICatchPipeline
         {
             try
             {
-                _armTask.Wait(_spec.DeviceDiscoveryTimeout + TimeSpan.FromSeconds(2));
+                _armTask.Wait(TimeSpan.FromSeconds(5));
             }
             catch (Exception ex)
             {
@@ -128,20 +128,19 @@ public sealed class CatchPipeline : ICatchPipeline
         {
             var driver = _factories.Driver();
             _driver = driver;
-            _armTask = Task.Run(() => driver.Arm(_spec.DeviceDiscoveryTimeout));
+            _armTask = Task.Run(() => driver.Arm());
             try
             {
                 await _armTask.WaitAsync(cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                await _armTask.ContinueWith(static _ => { }).WaitAsync(
-                    _spec.DeviceDiscoveryTimeout + TimeSpan.FromSeconds(2));
+                await _armTask.ContinueWith(static _ => { }).WaitAsync(TimeSpan.FromSeconds(5));
                 throw;
             }
         })
     {
-        Remedy = _ => "装好并跑起 Interception 驱动（管理员 sc query interception 应 RUNNING），再于 10 秒内动一下鼠标重试",
+        Remedy = _ => "装好并跑起 Interception 驱动（管理员 sc query interception 应 RUNNING）后重试",
     };
 
     private ArmingStep CaptureStep() => new(

@@ -225,7 +225,7 @@ public partial class SettingsPage : Page
             var ppc = await Task.Run(() =>
             {
                 using var driver = new InterceptionDriver();
-                driver.Arm(TimeSpan.FromSeconds(5));
+                driver.Arm();
                 return AutoCalibrator.Calibrate(source, driver);
             });
 

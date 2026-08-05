@@ -40,7 +40,7 @@ public sealed class RouteRecorder
         }
     }
 
-    public void Start(string name, TimeSpan discoveryTimeout)
+    public void Start(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
@@ -52,7 +52,7 @@ public sealed class RouteRecorder
             }
 
             var session = new RecordingSession(name);
-            _driver.StartStrokeRelay(discoveryTimeout, stroke =>
+            _driver.StartStrokeRelay(stroke =>
             {
                 session.RecordStroke(stroke);
                 StrokeObserved?.Invoke(stroke);
@@ -81,7 +81,7 @@ public sealed class RouteRecorder
             _keyframeTask = null;
         }
 
-        _driver.StopStrokeRelay();
+        await Task.Run(_driver.StopStrokeRelay, cancellationToken).ConfigureAwait(false);
 
         keyframeLoop?.Cancel();
         if (keyframeTask is not null)

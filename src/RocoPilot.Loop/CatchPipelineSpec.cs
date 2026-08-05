@@ -20,8 +20,6 @@ public sealed record CatchPipelineSpec
 
     public int DetectionIntervalMs { get; init; }
 
-    public TimeSpan DeviceDiscoveryTimeout { get; init; } = TimeSpan.FromSeconds(10);
-
     public string? SessionLogDirectory { get; init; }
 
     public ICaptureSource? ExistingSource { get; init; }

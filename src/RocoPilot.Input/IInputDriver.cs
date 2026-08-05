@@ -4,7 +4,7 @@ public interface IInputDriver : IDisposable
 {
     string BackendName { get; }
 
-    void Arm(TimeSpan timeout);
+    void Arm();
 
     void MoveRelative(int dx, int dy);
 
@@ -14,7 +14,7 @@ public interface IInputDriver : IDisposable
 
     void SendRawStroke(ReceivedStroke stroke);
 
-    void StartStrokeRelay(TimeSpan discoveryTimeout, Action<ReceivedStroke> onStroke);
+    void StartStrokeRelay(Action<ReceivedStroke> onStroke);
 
     void StopStrokeRelay();
 }

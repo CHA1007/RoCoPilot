@@ -144,7 +144,7 @@ public partial class RealtimePage : Page
             var ppc = await Task.Run(() =>
             {
                 using var driver = new RocoPilot.Input.Interception.InterceptionDriver();
-                driver.Arm(TimeSpan.FromSeconds(5));
+                driver.Arm();
                 return RocoPilot.Loop.AutoCalibrator.Calibrate(source, driver);
             });
 

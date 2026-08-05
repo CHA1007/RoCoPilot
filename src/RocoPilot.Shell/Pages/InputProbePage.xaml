@@ -10,7 +10,7 @@
                     FontTypography="Body"
                     Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
                     TextWrapping="Wrap"
-                    Text="合成输入真机验证（人执行）。① 设备发现（Interception 收得到事件才算驱动真在设备栈）→ ② 发探针。游戏聚焦下应转镜头（光标与镜头同动）。" />
+                    Text="合成输入真机验证（人执行）。② 验证驱动（context 创建成功＝驱动真在设备栈）→ ③ 发探针。游戏聚焦下应转镜头（光标与镜头同动）。" />
 
       <ui:CardControl Margin="0,0,0,12">
         <ui:CardControl.Header>
@@ -31,7 +31,7 @@
 
       <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
         <ui:Button x:Name="ArmButton"
-                   Content="② 发现鼠标"
+                   Content="② 验证驱动"
                    Appearance="Primary"
                    Width="150"
                    Margin="0,0,8,0"
@@ -48,11 +48,6 @@
       </StackPanel>
 
       <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-        <ui:Button x:Name="ArmKeyButton"
-                   Content="发现键盘"
-                   Width="150"
-                   Margin="0,0,8,0"
-                   Click="OnArmKey" />
         <ui:Button x:Name="KeyTestButton"
                    Content="测试空格"
                    Width="120"
@@ -63,7 +58,7 @@
       <ui:TextBlock x:Name="StatusText"
                     FontTypography="Body"
                     TextWrapping="Wrap"
-                    Text="选好后端，先点「② 设备发现」。" />
+                    Text="选好后端，先点「② 验证驱动」。" />
     </StackPanel>
   </ScrollViewer>
 </Page>

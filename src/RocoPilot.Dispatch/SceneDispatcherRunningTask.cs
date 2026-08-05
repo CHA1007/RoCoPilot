@@ -84,7 +84,7 @@ public sealed class SceneDispatcherRunningTask : RunningTaskBase
                 {
                     var driver = _driverFactory();
                     _driver = driver;
-                    await Task.Run(() => driver.Arm(TimeSpan.FromSeconds(10)), token);
+                    await Task.Run(() => driver.Arm(), token);
                 }) { Remedy = ArmingRemedy },
                 new ArmingStep("capture", "验证截图源可用…", _ =>
                 {

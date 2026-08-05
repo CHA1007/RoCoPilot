@@ -9,7 +9,7 @@ internal sealed class InterceptionNativeApi : IInterceptionApi
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int InterceptionPredicate(int device);
 
-    private readonly List<InterceptionPredicate> _predicates = [];
+    private readonly Dictionary<IntPtr, List<InterceptionPredicate>> _predicatesByContext = [];
 
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr interception_create_context();
@@ -37,12 +37,22 @@ internal sealed class InterceptionNativeApi : IInterceptionApi
 
     public IntPtr CreateContext() => interception_create_context();
 
-    public void DestroyContext(IntPtr context) => interception_destroy_context(context);
+    public void DestroyContext(IntPtr context)
+    {
+        interception_destroy_context(context);
+        _predicatesByContext.Remove(context);
+    }
 
     public void SetFilter(IntPtr context, int device, ushort filterMask)
     {
         InterceptionPredicate predicate = _ => filterMask;
-        _predicates.Add(predicate);
+        if (!_predicatesByContext.TryGetValue(context, out var predicates))
+        {
+            predicates = [];
+            _predicatesByContext[context] = predicates;
+        }
+
+        predicates.Add(predicate);
         interception_set_filter(context, predicate, device);
     }
 

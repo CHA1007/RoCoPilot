@@ -11,6 +11,12 @@ public static class InputDriverExtensions
 
     public static void ClickAt(this IInputDriver driver, int screenX, int screenY, int holdMs = 50)
     {
+        driver.MoveTo(screenX, screenY);
+        driver.KeyPress(InputKey.LeftMouse, holdMs);
+    }
+
+    public static void MoveTo(this IInputDriver driver, int screenX, int screenY)
+    {
         RocoPilot.Input.Native.User32.GetCursorPos(out var pos);
         double invX = 1, invY = 1;
 
@@ -33,7 +39,8 @@ public static class InputDriverExtensions
             if (Math.Abs(ay) >= 4) invY = (double)dy / ay;
             pos = now;
         }
-
-        driver.KeyPress(InputKey.LeftMouse, holdMs);
     }
+
+    public static void Wheel(this IInputDriver driver, int rolling)
+        => driver.SendRawStroke(ReceivedStroke.Mouse(state: 0, flags: 0, (short)rolling, x: 0, y: 0));
 }
