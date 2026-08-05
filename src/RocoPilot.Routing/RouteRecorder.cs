@@ -30,6 +30,8 @@ public sealed class RouteRecorder
         _keyframeInterval = keyframeInterval ?? TimeSpan.FromSeconds(2);
     }
 
+    public event Action<ReceivedStroke>? StrokeObserved;
+
     public bool IsRecording
     {
         get
@@ -50,7 +52,11 @@ public sealed class RouteRecorder
             }
 
             var session = new RecordingSession(name);
-            _driver.StartStrokeRelay(discoveryTimeout, session.RecordStroke);
+            _driver.StartStrokeRelay(discoveryTimeout, stroke =>
+            {
+                session.RecordStroke(stroke);
+                StrokeObserved?.Invoke(stroke);
+            });
             _session = session;
 
             var cancellation = new CancellationTokenSource();

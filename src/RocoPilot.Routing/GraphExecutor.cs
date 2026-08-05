@@ -87,6 +87,13 @@ public sealed class GraphExecutor
 
             var node = chain[index];
 
+            Emit("node_started", new Dictionary<string, object?>
+            {
+                ["node"] = node.Name,
+                ["node_id"] = node.Id.ToString(),
+                ["kind"] = node.Kind.ToString(),
+            });
+
             switch (node.Kind)
             {
                 case RouteNodeKind.Anchor:

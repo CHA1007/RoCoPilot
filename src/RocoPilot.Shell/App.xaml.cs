@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using RocoPilot.Breeding;
+using RocoPilot.Routing;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Overlay;
@@ -73,6 +74,7 @@ public partial class App : Application
         var captureHost = new CaptureHost();
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
+        services.AddSingleton<RouteStore>();
 
         var tools = ToolRegistry.CreateTools(captureHost, settingsStore);
         foreach (var tool in tools)
@@ -88,6 +90,7 @@ public partial class App : Application
         services.AddTransient<LaunchPage>();
         services.AddSingleton<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
+        services.AddSingleton<RoutePage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<InputProbePage>();
         services.AddTransient<CaptureDebugPage>();
