@@ -131,7 +131,8 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             teleportSettings: teleportSettings,
             frameToScreen: GameFrameMapper.Create(source),
             isGameForeground: context.IsGameForeground,
-            emitEvent: context.EmitEvent);
+            emitEvent: context.EmitEvent,
+            anchorListProvider: ct => _store.LoadAnchorsAsync(ct));
 
         _executor = new GraphExecutor(player, guide, _store.LoadAsync, _currentScene, context.EmitEvent, playbackSettings.ToExecutorOptions());
         _builtDriver = context.InputDriver;

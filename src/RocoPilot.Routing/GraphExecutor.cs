@@ -135,7 +135,7 @@ public sealed class GraphExecutor
             {
                 case RouteNodeKind.Anchor:
                 {
-                    var teleportResult = await Task.Run(() => _teleport.Teleport(node.PoiName!, stoppingToken), CancellationToken.None);
+                    var teleportResult = await _teleport.TeleportAsync(node.AnchorName!, stoppingToken);
                     if (stoppingToken.IsCancellationRequested)
                     {
                         _runWatch.Stop();

@@ -1,23 +1,27 @@
 using System.IO;
-using RocoPilot.Core;
 using System.Windows;
 using RocoPilot.Capture;
+using RocoPilot.Core;
 using RocoPilot.Input;
 using RocoPilot.Routing;
+using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
+using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Pages;
 
 public partial class RoutePage : System.Windows.Controls.Page
 {
-    private const string PoiTemplateRoot = "assets/templates/map/poi";
     private const string GraphName = "采集路线图";
+    private const string TeleportTemplatePath = "assets/templates/map/teleport.png";
+    private const string FastTravelToolId = "fast-travel";
     private const ushort EndRecordingScanCode = 0x2D;
     private const ushort KeyUpStateFlag = 0x001;
 
     private readonly RouteStore _store;
     private readonly CaptureHost _capture;
     private readonly DispatcherHost _dispatcher;
+    private readonly ISettingsStore _settings;
 
     private List<RouteNode> _nodes = [];
     private List<RouteEdge> _edges = [];
@@ -27,17 +31,19 @@ public partial class RoutePage : System.Windows.Controls.Page
     private int _retries;
 
     private bool _graphLoaded;
+    private bool _teleporting;
     private RouteRecorder? _recorder;
     private IInputDriver? _recordDriver;
     private TaskCompletionSource<string?>? _recordCompletion;
     private volatile bool _recordStopRequested;
 
-    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher)
+    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher, ISettingsStore settings)
     {
         InitializeComponent();
         _store = store;
         _capture = capture;
         _dispatcher = dispatcher;
+        _settings = settings;
 
         Loaded += OnLoaded;
 
@@ -73,18 +79,14 @@ public partial class RoutePage : System.Windows.Controls.Page
         GraphCanvas.SetGraph(_nodes, _edges);
     }
 
-    private void OnAddAnchorClick(object sender, RoutedEventArgs e)
+    private async void OnAddAnchorClick(object sender, RoutedEventArgs e)
     {
         if (!EnsureEditable()) return;
 
-        var pois = ListPoiTemplates();
-        if (pois.Count == 0)
-        {
-            SetStatus($"无法添加锚点：{PoiTemplateRoot} 下没有 POI 模板（需玩家真机裁切提供）");
-            return;
-        }
+        var anchorName = await PickAnchorAsync(currentName: null);
+        if (anchorName is null) return;
 
-        AddNode(new RouteNode(RouteNodeKind.Anchor, $"锚点·{pois[0]}", NextX(), NextY(), poiName: pois[0]));
+        AddNode(new RouteNode(RouteNodeKind.Anchor, $"锚点·{anchorName}", NextX(), NextY(), anchorName: anchorName));
     }
 
     private async void OnAddPlaybackClick(object sender, RoutedEventArgs e)
@@ -203,20 +205,13 @@ public partial class RoutePage : System.Windows.Controls.Page
         {
             case RouteNodeKind.Anchor:
             {
-                var pois = ListPoiTemplates();
-                if (pois.Count == 0)
-                {
-                    SetStatus($"没有可选 POI：{PoiTemplateRoot} 下无模板");
-                    return;
-                }
-
-                var poi = RouteNodeConfigDialog.Anchor(owner, pois, node.PoiName);
-                if (poi is null || poi == node.PoiName) return;
+                var anchorName = await PickAnchorAsync(node.AnchorName);
+                if (anchorName is null || anchorName == node.AnchorName) return;
 
                 ReplaceNode(new RouteNode(
-                    node.Kind, $"锚点·{poi}", node.CanvasX, node.CanvasY,
-                    poiName: poi, id: node.Id));
-                SetStatus($"锚点「{node.Name}」已改为 POI「{poi}」");
+                    node.Kind, $"锚点·{anchorName}", node.CanvasX, node.CanvasY,
+                    anchorName: anchorName, id: node.Id));
+                SetStatus($"锚点「{node.Name}」已改为「{anchorName}」");
                 break;
             }
 
@@ -284,7 +279,7 @@ public partial class RoutePage : System.Windows.Controls.Page
         node.Name,
         x,
         y,
-        node.PoiName,
+        node.AnchorName,
         node.RouteName,
         node.MaxLaps,
         node.MaxDuration,
@@ -508,11 +503,12 @@ public partial class RoutePage : System.Windows.Controls.Page
     {
         var running = _dispatcher.RoutePlaybackEnabled;
         var recording = _recorder is not null;
-        var busy = running || recording;
+        var busy = running || recording || _teleporting;
 
         AddAnchorButton.IsEnabled = !busy;
         AddPlaybackButton.IsEnabled = !busy;
         AddLoopButton.IsEnabled = !busy;
+        TeleportButton.IsEnabled = !busy;
         RunButton.IsEnabled = !busy;
         StopButton.IsEnabled = running;
     }
@@ -531,6 +527,12 @@ public partial class RoutePage : System.Windows.Controls.Page
             return false;
         }
 
+        if (_teleporting)
+        {
+            SetStatus("传送进行中——请稍候");
+            return false;
+        }
+
         return true;
     }
 
@@ -538,15 +540,133 @@ public partial class RoutePage : System.Windows.Controls.Page
 
     private double NextY() => 32 + (_nodes.Count / 4) * 110;
 
-    private static IReadOnlyList<string> ListPoiTemplates()
+    private async void OnTeleportClick(object sender, RoutedEventArgs e)
     {
-        if (!Directory.Exists(PoiTemplateRoot)) return [];
+        if (!EnsureEditable()) return;
+        if (!_capture.IsRunning)
+        {
+            SetStatus("请先开启截图源（启动页）");
+            return;
+        }
 
-        return Directory.EnumerateFiles(PoiTemplateRoot, "*.png")
-            .Select(path => Path.GetFileNameWithoutExtension(path))
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToList();
+        var anchorName = await PickAnchorAsync(currentName: null);
+        if (anchorName is null) return;
+
+        var anchors = await _store.LoadAnchorsAsync();
+        var entry = anchors.FirstOrDefault(candidate => candidate.Name == anchorName);
+        if (entry is null) return;
+
+        using var transient = TryCreateTransientGuide();
+        if (transient is null) return;
+
+        _teleporting = true;
+        UpdateToolbarState();
+        SetStatus($"正在传送至「{entry.Name}」——请确保游戏内已打开世界地图且窗口处于前台");
+        try
+        {
+            var result = await Task.Run(() => transient.Guide.Teleport(entry), CancellationToken.None);
+            SetStatus(result.Succeeded ? result.Message : $"传送失败：{result.Message}");
+        }
+        finally
+        {
+            _teleporting = false;
+            UpdateToolbarState();
+        }
+    }
+
+    private async Task<string?> PickAnchorAsync(string? currentName)
+    {
+        var anchors = await _store.LoadAnchorsAsync();
+        while (true)
+        {
+            if (anchors.Count == 0)
+            {
+                SetStatus("锚点名单为空——扫描地图添加魔力之源");
+                anchors = await ManageAnchorsAsync(anchors);
+                if (anchors.Count == 0) return null;
+                continue;
+            }
+
+            var choice = RouteNodeConfigDialog.Anchor(Window.GetWindow(this), anchors, currentName);
+            if (choice is null) return null;
+            if (!choice.ManageRoster) return choice.AnchorName;
+            anchors = await ManageAnchorsAsync(anchors);
+        }
+    }
+
+    private async Task<IReadOnlyList<AnchorEntry>> ManageAnchorsAsync(IReadOnlyList<AnchorEntry> anchors)
+    {
+        var updated = AnchorRosterDialog.Manage(Window.GetWindow(this), anchors, ScanAnchorsAsync);
+        if (updated is null) return anchors;
+
+        try
+        {
+            await _store.SaveAnchorsAsync(updated);
+            SetStatus($"锚点名单已保存：{updated.Count} 条");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"锚点名单保存失败：{ex.Message}");
+        }
+
+        return updated;
+    }
+
+    private async Task<IReadOnlyList<AnchorScanHit>> ScanAnchorsAsync(CancellationToken cancellationToken)
+    {
+        using var transient = TryCreateTransientGuide();
+        if (transient is null)
+            throw new InvalidOperationException("截图源未开启或输入驱动初始化失败");
+
+        var result = await Task.Run(() => transient.Guide.ScanAnchors(cancellationToken), CancellationToken.None);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(result.Message);
+
+        return result.Positions;
+    }
+
+    private TransientGuide? TryCreateTransientGuide()
+    {
+        var source = _capture.CurrentSource;
+        if (source is null)
+        {
+            SetStatus("请先开启截图源（启动页）");
+            return null;
+        }
+
+        IInputDriver driver;
+        try
+        {
+            driver = InputDriverFactory.Create();
+            driver.Arm();
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"输入驱动初始化失败：{ex.Message}");
+            return null;
+        }
+
+        var teleportSettings = _settings.GetToolSettings(
+            FastTravelToolId, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                               ?? new FastTravelSettings();
+
+        var sensor = TeleportSensor.TryCreate(TeleportTemplatePath);
+        var guide = new PoiTeleportGuide(
+            grabFrame: () => source.TryGrabLatest(out var frame) ? frame : null,
+            inputDriver: driver,
+            teleportSensor: sensor,
+            teleportSettings: teleportSettings,
+            frameToScreen: GameFrameMapper.Create(source));
+        return new TransientGuide(guide, driver, sensor);
+    }
+
+    private sealed record TransientGuide(PoiTeleportGuide Guide, IInputDriver Driver, TeleportSensor? Sensor) : IDisposable
+    {
+        public void Dispose()
+        {
+            Sensor?.Dispose();
+            Driver.Dispose();
+        }
     }
 
     private void SetStatus(string text) => StatusText.Text = text;

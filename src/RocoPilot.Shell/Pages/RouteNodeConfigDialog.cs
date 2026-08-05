@@ -8,29 +8,46 @@ public sealed record PlaybackConfig(string? RouteName, bool RecordNew);
 
 public sealed record LoopConfig(int? MaxLaps, TimeSpan? MaxDuration);
 
+public sealed record AnchorChoice(string? AnchorName, bool ManageRoster);
+
 internal static class RouteNodeConfigDialog
 {
-    public static string? Anchor(Window? owner, IReadOnlyList<string> poiNames, string? currentPoi)
+    public static AnchorChoice? Anchor(Window? owner, IReadOnlyList<AnchorEntry> anchors, string? currentName)
     {
-        if (poiNames.Count == 0) return null;
+        var combo = new ComboBox { Margin = new Thickness(0, 8, 0, 0), MinWidth = 260 };
+        foreach (var anchor in anchors) combo.Items.Add(anchor.Name);
+        if (anchors.Any(anchor => anchor.Name == (currentName ?? string.Empty)))
+            combo.SelectedItem = currentName;
+        else if (combo.Items.Count > 0)
+            combo.SelectedIndex = 0;
 
-        var combo = new ComboBox { Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var poi in poiNames) combo.Items.Add(poi);
-        combo.SelectedItem = poiNames.Contains(currentPoi ?? string.Empty) ? currentPoi : poiNames[0];
+        var manageButton = new Button
+        {
+            Content = "管理锚点名单…",
+            Margin = new Thickness(0, 12, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
 
         var window = BuildWindow(
             owner,
             "锚点节点配置",
-            Hint("选择该锚点对应的魔力之源 POI（按 assets/templates/map/poi 已有模板列表）。"),
+            Hint("从魔力之源锚点名单中选择；名单通过「管理锚点名单」扫描地图建立。"),
             combo,
-            null,
+            manageButton,
             out var ok,
             out var cancel);
 
-        string? result = null;
+        ok.IsEnabled = combo.Items.Count > 0;
+
+        AnchorChoice? result = null;
         ok.Click += (_, _) =>
         {
-            result = combo.SelectedItem as string;
+            result = new AnchorChoice(combo.SelectedItem as string, ManageRoster: false);
+            window.DialogResult = true;
+        };
+        manageButton.Click += (_, _) =>
+        {
+            result = new AnchorChoice(null, ManageRoster: true);
             window.DialogResult = true;
         };
         cancel.Click += (_, _) => window.DialogResult = false;

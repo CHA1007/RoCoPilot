@@ -168,7 +168,7 @@ public sealed class RouteGraphCanvas : UserControl
             node.Name,
             position.X,
             position.Y,
-            node.PoiName,
+            node.AnchorName,
             node.RouteName,
             node.MaxLaps,
             node.MaxDuration,
@@ -508,7 +508,7 @@ public sealed class RouteGraphCanvas : UserControl
 
     private static string NodeSubtitle(RouteNode node) => node.Kind switch
     {
-        RouteNodeKind.Anchor => node.PoiName ?? "未选择 POI",
+        RouteNodeKind.Anchor => node.AnchorName ?? "未选择锚点",
         RouteNodeKind.Playback => node.RouteName ?? "未关联路线",
         RouteNodeKind.Loop => LoopSubtitle(node),
         _ => string.Empty,

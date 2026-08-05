@@ -21,8 +21,11 @@
                    ToolTip="添加循环节点（整图重复）" Click="OnAddLoopClick" />
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button x:Name="TeleportButton" Icon="{ui:SymbolIcon ArrowSwap24}" Content="传送至魔力之源"
+                   ToolTip="不建图直接传送到名单中的某个魔力之源（需游戏内已打开世界地图）"
+                   Click="OnTeleportClick" />
         <ui:Button x:Name="RunButton" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Content="运行"
-                   Click="OnRunClick" />
+                   Margin="8,0,0,0" Click="OnRunClick" />
         <ui:Button x:Name="StopButton" Icon="{ui:SymbolIcon Stop24}" Content="停止" Margin="8,0,0,0"
                    IsEnabled="False" Click="OnStopClick" />
       </StackPanel>

@@ -14,7 +14,7 @@ public sealed class RouteNode
         string name,
         double canvasX,
         double canvasY,
-        string? poiName = null,
+        string? anchorName = null,
         string? routeName = null,
         int? maxLaps = null,
         TimeSpan? maxDuration = null,
@@ -24,8 +24,8 @@ public sealed class RouteNode
 
         switch (kind)
         {
-            case RouteNodeKind.Anchor when string.IsNullOrWhiteSpace(poiName):
-                throw new ArgumentException("锚点节点必须指定 POI 名。", nameof(poiName));
+            case RouteNodeKind.Anchor when string.IsNullOrWhiteSpace(anchorName):
+                throw new ArgumentException("锚点节点必须指定锚点名。", nameof(anchorName));
             case RouteNodeKind.Playback when string.IsNullOrWhiteSpace(routeName):
                 throw new ArgumentException("回放节点必须指定关联路线。", nameof(routeName));
         }
@@ -40,7 +40,7 @@ public sealed class RouteNode
         Name = name.Trim();
         CanvasX = canvasX;
         CanvasY = canvasY;
-        PoiName = poiName;
+        AnchorName = anchorName;
         RouteName = routeName;
         MaxLaps = maxLaps;
         MaxDuration = maxDuration;
@@ -56,7 +56,7 @@ public sealed class RouteNode
 
     public double CanvasY { get; }
 
-    public string? PoiName { get; }
+    public string? AnchorName { get; }
 
     public string? RouteName { get; }
 

@@ -8,6 +8,7 @@ public sealed class RouteStore
 {
     private const string RouteFileName = "route.json";
     private const string GraphFileName = "graph.json";
+    private const string AnchorsFileName = "anchors.json";
     private const string KeyframesDirectoryName = "keyframes";
 
     private readonly string _routesRoot;
@@ -138,13 +139,42 @@ public sealed class RouteStore
         return graph;
     }
 
+    public async Task SaveAnchorsAsync(IReadOnlyList<AnchorEntry> anchors, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(anchors);
+
+        Directory.CreateDirectory(_routesRoot);
+        var records = anchors.Select(anchor => new AnchorRecord(anchor.Name, anchor.X, anchor.Y)).ToList();
+
+        var jsonPath = Path.Combine(_routesRoot, AnchorsFileName);
+        await using var stream = File.Create(jsonPath);
+        await JsonSerializer.SerializeAsync(stream, records, cancellationToken: cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AnchorEntry>> LoadAnchorsAsync(CancellationToken cancellationToken = default)
+    {
+        var jsonPath = Path.Combine(_routesRoot, AnchorsFileName);
+        if (!File.Exists(jsonPath)) return [];
+
+        List<AnchorRecord>? records;
+        await using (var stream = File.OpenRead(jsonPath))
+        {
+            records = await JsonSerializer.DeserializeAsync<List<AnchorRecord>>(stream, cancellationToken: cancellationToken);
+        }
+
+        if (records is null)
+            throw new InvalidDataException($"锚点名单文件损坏：{jsonPath}");
+
+        return records.Select(record => new AnchorEntry(record.Name, record.X, record.Y)).ToList();
+    }
+
     private static NodeRecord ToNodeRecord(RouteNode node) => new(
         node.Id,
         node.Kind,
         node.Name,
         node.CanvasX,
         node.CanvasY,
-        node.PoiName,
+        node.AnchorName,
         node.RouteName,
         node.MaxLaps,
         node.MaxDuration);
@@ -154,7 +184,7 @@ public sealed class RouteStore
         record.Name,
         record.CanvasX,
         record.CanvasY,
-        record.PoiName,
+        record.AnchorName,
         record.RouteName,
         record.MaxLaps,
         record.MaxDuration,
@@ -186,8 +216,10 @@ public sealed class RouteStore
         string Name,
         double CanvasX,
         double CanvasY,
-        string? PoiName,
+        string? AnchorName,
         string? RouteName,
         int? MaxLaps,
         TimeSpan? MaxDuration);
+
+    private sealed record AnchorRecord(string Name, double X, double Y);
 }
