@@ -1,4 +1,5 @@
 using System.IO;
+using RocoPilot.Core;
 using System.Windows;
 using RocoPilot.Capture;
 using RocoPilot.Input;
