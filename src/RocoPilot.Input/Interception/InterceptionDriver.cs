@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using RocoPilot.Input.Native;
 
 namespace RocoPilot.Input.Interception;
@@ -15,11 +16,20 @@ public sealed class InterceptionDriver : IInputDriver
             "键盘", "随便按一个键", IsMouse: false);
     }
 
+    private const uint RelayWaitMs = 15;
+
     private readonly IInterceptionApi _api;
     private readonly Func<ushort, ushort> _scanCodeMapper;
+    private readonly object _relayGate = new();
+    private readonly ConcurrentQueue<Action> _relaySends = new();
     private IntPtr _context = IntPtr.Zero;
     private int? _mouseDevice;
     private int? _keyDevice;
+    private bool _mouseDiscovered;
+    private bool _keyDiscovered;
+    private Thread? _relayThread;
+    private Action<ReceivedStroke>? _relayObserver;
+    private volatile bool _relayStopping;
     private bool _disposed;
 
     public InterceptionDriver() : this(new InterceptionNativeApi()) { }
@@ -40,15 +50,82 @@ public sealed class InterceptionDriver : IInputDriver
         _keyDevice ??= InterceptionConstants.KeyboardDeviceMin;
     }
 
-    public int DiscoverMouse(TimeSpan timeout) => _mouseDevice ??= Discover(DeviceClass.Mouse, timeout);
+    public int DiscoverMouse(TimeSpan timeout)
+    {
+        if (_mouseDiscovered) return _mouseDevice!.Value;
 
-    public int DiscoverKey(TimeSpan timeout) => _keyDevice ??= Discover(DeviceClass.Keyboard, timeout);
+        var device = Discover(DeviceClass.Mouse, timeout);
+        _mouseDevice = device;
+        _mouseDiscovered = true;
+        return device;
+    }
+
+    public int DiscoverKey(TimeSpan timeout)
+    {
+        if (_keyDiscovered) return _keyDevice!.Value;
+
+        var device = Discover(DeviceClass.Keyboard, timeout);
+        _keyDevice = device;
+        _keyDiscovered = true;
+        return device;
+    }
+
+    public void StartStrokeRelay(TimeSpan discoveryTimeout, Action<ReceivedStroke> onStroke)
+    {
+        ArgumentNullException.ThrowIfNull(onStroke);
+
+        lock (_relayGate)
+        {
+            if (_relayThread is not null)
+            {
+                throw new InputDriverException("接收-转发循环已在运行——先 StopStrokeRelay() 再重开。");
+            }
+
+            DiscoverMouse(discoveryTimeout);
+            DiscoverKey(discoveryTimeout);
+
+            var ctx = Context;
+            _api.SetFilter(ctx, _mouseDevice!.Value, InterceptionConstants.FilterAll);
+            _api.SetFilter(ctx, _keyDevice!.Value, InterceptionConstants.FilterAll);
+
+            _relayObserver = onStroke;
+            _relayStopping = false;
+            var thread = new Thread(() => RelayLoop(ctx)) { IsBackground = true, Name = "interception-relay" };
+            _relayThread = thread;
+            thread.Start();
+        }
+    }
+
+    public void StopStrokeRelay()
+    {
+        Thread? thread;
+        lock (_relayGate)
+        {
+            thread = _relayThread;
+            _relayStopping = true;
+        }
+        if (thread is null) return;
+
+        thread.Join();
+
+        lock (_relayGate)
+        {
+            _relayThread = null;
+            _relayObserver = null;
+
+            while (_relaySends.TryDequeue(out var send)) send();
+
+            ForwardQueuedStrokes(_context);
+
+            if (_mouseDevice is int mouse) _api.SetFilter(_context, mouse, InterceptionConstants.FilterNone);
+            if (_keyDevice is int key) _api.SetFilter(_context, key, InterceptionConstants.FilterNone);
+        }
+    }
 
     public void MoveRelative(int dx, int dy)
     {
         var dev = RequireMouseDevice();
-        var mouseStroke = new InterceptionMouseStroke { X = dx, Y = dy };
-        EnsureSent(_api.SendMouseStroke(Context, dev, in mouseStroke), $"mouse→{dev}");
+        DeliverMouseStroke(dev, new InterceptionMouseStroke { X = dx, Y = dy });
     }
 
     public void KeyDown(InputKey key) => SendKey(key, down: true);
@@ -59,6 +136,7 @@ public sealed class InterceptionDriver : IInputDriver
     {
         if (_disposed) return;
         _disposed = true;
+        StopStrokeRelay();
         if (_context != IntPtr.Zero)
         {
             _api.DestroyContext(_context);
@@ -71,18 +149,77 @@ public sealed class InterceptionDriver : IInputDriver
         if (key.IsMouse)
         {
             var dev = RequireMouseDevice();
-            var mouseStroke = new InterceptionMouseStroke { State = MouseState(key.Mouse, down) };
-            EnsureSent(_api.SendMouseStroke(Context, dev, in mouseStroke), $"mouse→{dev}");
+            DeliverMouseStroke(dev, new InterceptionMouseStroke { State = MouseState(key.Mouse, down) });
             return;
         }
 
         var keyDev = _keyDevice ?? throw new InputDriverException("尚未发现键盘设备——发键盘键前先 DiscoverKey()。");
-        var keyStroke = new InterceptionKeyStroke
+        DeliverKeyStroke(keyDev, new InterceptionKeyStroke
         {
             Code = _scanCodeMapper(key.VirtualKey),
             State = down ? (ushort)0 : InterceptionConstants.KeyUp,
-        };
-        EnsureSent(_api.SendKeyStroke(Context, keyDev, in keyStroke), $"key→{keyDev}");
+        });
+    }
+
+    private void DeliverMouseStroke(int device, InterceptionMouseStroke stroke)
+    {
+        if (TryEnqueueRelaySend(() => EnsureSent(_api.SendMouseStroke(_context, device, in stroke), $"mouse→{device}"))) return;
+        EnsureSent(_api.SendMouseStroke(Context, device, in stroke), $"mouse→{device}");
+    }
+
+    private void DeliverKeyStroke(int device, InterceptionKeyStroke stroke)
+    {
+        if (TryEnqueueRelaySend(() => EnsureSent(_api.SendKeyStroke(_context, device, in stroke), $"key→{device}"))) return;
+        EnsureSent(_api.SendKeyStroke(Context, device, in stroke), $"key→{device}");
+    }
+
+    private bool TryEnqueueRelaySend(Action send)
+    {
+        lock (_relayGate)
+        {
+            if (_relayThread is null || _relayStopping) return false;
+            _relaySends.Enqueue(send);
+            return true;
+        }
+    }
+
+    private void RelayLoop(IntPtr ctx)
+    {
+        while (!_relayStopping)
+        {
+            while (_relaySends.TryDequeue(out var send)) send();
+
+            var dev = _api.WaitWithTimeout(ctx, RelayWaitMs);
+            if (dev <= 0) continue;
+
+            if (dev >= InterceptionConstants.MouseDeviceMin && dev <= InterceptionConstants.MouseDeviceMax)
+            {
+                if (_api.ReceiveMouseStroke(ctx, dev, out var stroke) != 1) continue;
+                _api.SendMouseStroke(ctx, dev, in stroke);
+                _relayObserver?.Invoke(ReceivedStroke.Mouse(stroke.State, stroke.Flags, stroke.Rolling, stroke.X, stroke.Y));
+            }
+            else
+            {
+                if (_api.ReceiveKeyStroke(ctx, dev, out var stroke) != 1) continue;
+                _api.SendKeyStroke(ctx, dev, in stroke);
+                _relayObserver?.Invoke(ReceivedStroke.Key(stroke.Code, stroke.State));
+            }
+        }
+    }
+
+    private void ForwardQueuedStrokes(IntPtr ctx)
+    {
+        while (_api.WaitWithTimeout(ctx, 0) is int dev && dev > 0)
+        {
+            if (dev >= InterceptionConstants.MouseDeviceMin && dev <= InterceptionConstants.MouseDeviceMax)
+            {
+                if (_api.ReceiveMouseStroke(ctx, dev, out var stroke) == 1) _api.SendMouseStroke(ctx, dev, in stroke);
+            }
+            else if (_api.ReceiveKeyStroke(ctx, dev, out var stroke) == 1)
+            {
+                _api.SendKeyStroke(ctx, dev, in stroke);
+            }
+        }
     }
 
     private static void EnsureSent(int sent, string target)

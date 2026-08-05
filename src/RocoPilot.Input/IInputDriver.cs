@@ -11,4 +11,8 @@ public interface IInputDriver : IDisposable
     void KeyDown(InputKey key);
 
     void KeyUp(InputKey key);
+
+    void StartStrokeRelay(TimeSpan discoveryTimeout, Action<ReceivedStroke> onStroke);
+
+    void StopStrokeRelay();
 }
