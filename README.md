@@ -98,6 +98,12 @@ dotnet publish src/RocoPilot.Shell -c Release -r win-x64 --self-contained false 
 4. 在「实时」页打开所需工具的开关，中央调度会按游戏场景自动切换工具
 5. 切出游戏自动暂停一切操作，切回自动续跑
 
+## 数据来源
+
+- 孵蛋查询的精灵蛋组、立绘数据来自 [洛克王国:手游 WIKI](https://wiki.biligame.com/rocom/)（蛋组计算器 / 孵蛋组别查询页），
+  遵循 **CC BY-NC-SA 4.0**（署名-非商业性使用-相同方式共享）协议，仅用于学习与研究。
+  数据文件本身的授权细节见 [assets/data/README.md](assets/data/README.md)。
+
 ## 免责声明
 
 本项目采用 [GPL-3.0](LICENSE) 许可证

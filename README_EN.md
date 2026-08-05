@@ -97,6 +97,13 @@ A **stable** installer will be published later on the Releases page, with in-app
 4. Toggle the tools you want on the Realtime page; the central dispatcher switches tools by game scene automatically
 5. Switching away from the game pauses everything; switching back resumes automatically
 
+## Data Sources
+
+- The egg group and artwork data used by the Egg Query feature comes from the
+  [Roco Kingdom Mobile WIKI](https://wiki.biligame.com/rocom/) (egg group calculator / egg group lookup page),
+  licensed under **CC BY-NC-SA 4.0** (Attribution-NonCommercial-ShareAlike) and used for learning and research only.
+  See [assets/data/README.md](assets/data/README.md) for licensing details of the data files themselves.
+
 ## Disclaimer
 
 This project is licensed under [GPL-3.0](LICENSE)
