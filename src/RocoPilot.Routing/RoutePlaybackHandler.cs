@@ -116,8 +116,14 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             FastTravelToolId, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                                ?? new FastTravelSettings();
 
+        var playbackSettings = _settings.GetToolSettings(
+            RoutePlaybackSettings.ToolId, typeof(RoutePlaybackSettings), () => new RoutePlaybackSettings()) as RoutePlaybackSettings
+                               ?? new RoutePlaybackSettings();
+        playbackSettings.SanitizeInPlace();
+        _settings.SetToolSettings(RoutePlaybackSettings.ToolId, playbackSettings);
+
         _sensor = TeleportSensor.TryCreate(TeleportTemplatePath);
-        var player = new RoutePlayer(context.InputDriver, source);
+        var player = new RoutePlayer(context.InputDriver, source, playbackSettings.ToPlayerOptions());
         var guide = new PoiTeleportGuide(
             grabFrame: () => source.TryGrabLatest(out var frame) ? frame : null,
             inputDriver: context.InputDriver,
@@ -127,7 +133,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             isGameForeground: context.IsGameForeground,
             emitEvent: context.EmitEvent);
 
-        _executor = new GraphExecutor(player, guide, _store.LoadAsync, _currentScene, context.EmitEvent);
+        _executor = new GraphExecutor(player, guide, _store.LoadAsync, _currentScene, context.EmitEvent, playbackSettings.ToExecutorOptions());
         _builtDriver = context.InputDriver;
     }
 

@@ -25,6 +25,10 @@ public sealed class GraphExecutorOptions
     public int MaxNodeRetries { get; init; } = 2;
 
     public TimeSpan ScenePollInterval { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    public TimeSpan SegmentPauseMin { get; init; } = TimeSpan.FromMilliseconds(1500);
+
+    public TimeSpan SegmentPauseMax { get; init; } = TimeSpan.FromMilliseconds(4000);
 }
 
 public sealed class GraphExecutor
@@ -35,6 +39,7 @@ public sealed class GraphExecutor
     private readonly Func<GameScene> _currentScene;
     private readonly Action<ToolEvent>? _emitEvent;
     private readonly GraphExecutorOptions _options;
+    private readonly Random _pauseRandom = new();
     private readonly Stopwatch _runWatch = new();
 
     private RouteGraph? _graph;
@@ -140,6 +145,11 @@ public sealed class GraphExecutor
                     if (teleportResult.Succeeded)
                     {
                         SegmentDone(node);
+                        if (!await SegmentPauseAsync(stoppingToken))
+                        {
+                            _runWatch.Stop();
+                            return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                        }
                         _index++;
                         _attempts = 0;
                         break;
@@ -184,6 +194,11 @@ public sealed class GraphExecutor
                     {
                         case PlaybackOutcome.Completed:
                             SegmentDone(node);
+                            if (!await SegmentPauseAsync(stoppingToken))
+                            {
+                                _runWatch.Stop();
+                                return new GraphExecutionResult(GraphCompletionReason.Stopped, "执行已停止。", _laps, null);
+                            }
                             _index++;
                             _attempts = 0;
                             break;
@@ -228,6 +243,23 @@ public sealed class GraphExecutor
 
             if (_index >= _chain.Count)
                 return FinishCompleted("执行图运行完成。");
+        }
+    }
+
+    private async Task<bool> SegmentPauseAsync(CancellationToken stoppingToken)
+    {
+        var minMs = Math.Max(0, (int)_options.SegmentPauseMin.TotalMilliseconds);
+        var maxMs = Math.Max((int)_options.SegmentPauseMax.TotalMilliseconds, minMs);
+        if (maxMs == 0) return true;
+
+        try
+        {
+            await Task.Delay(_pauseRandom.Next(minMs, maxMs + 1), stoppingToken);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 
