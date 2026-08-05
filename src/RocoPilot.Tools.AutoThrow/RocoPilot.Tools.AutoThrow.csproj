@@ -12,6 +12,7 @@
     <ProjectReference Include="..\RocoPilot.Dispatch\RocoPilot.Dispatch.csproj" />
     <ProjectReference Include="..\RocoPilot.Loop\RocoPilot.Loop.csproj" />
     <ProjectReference Include="..\RocoPilot.Settings\RocoPilot.Settings.csproj" />
+    <ProjectReference Include="..\RocoPilot.ToolUi\RocoPilot.ToolUi.csproj" />
   </ItemGroup>
 
 </Project>

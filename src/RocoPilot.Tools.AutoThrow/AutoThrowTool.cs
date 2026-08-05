@@ -2,11 +2,12 @@ using System.Windows;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Settings;
+using RocoPilot.ToolUi;
 using Wpf.Ui.Controls;
 
 namespace RocoPilot.Tools.AutoThrow;
 
-public sealed class AutoThrowTool : ITool
+public sealed class AutoThrowTool : IToolUi
 {
     public const string ToolId = "auto-throw";
 

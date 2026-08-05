@@ -48,6 +48,7 @@
     <ProjectReference Include="..\RocoPilot.Tools.AutoBattle\RocoPilot.Tools.AutoBattle.csproj" />
     <ProjectReference Include="..\RocoPilot.Tools.AutoThrow\RocoPilot.Tools.AutoThrow.csproj" />
     <ProjectReference Include="..\RocoPilot.Tools.FastTravel\RocoPilot.Tools.FastTravel.csproj" />
+    <ProjectReference Include="..\RocoPilot.ToolUi\RocoPilot.ToolUi.csproj" />
   </ItemGroup>
 
 </Project>
