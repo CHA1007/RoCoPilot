@@ -47,6 +47,7 @@ public sealed class WgcCaptureSource : CaptureSourceCore
 {
     private readonly WgcTarget _target;
     private readonly TaskCompletionSource _firstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly object _pipelineGate = new();
 
     private Vortice.Direct3D11.ID3D11Device? _d3dDevice;
     private Vortice.Direct3D11.ID3D11DeviceContext? _immediateContext;
@@ -136,36 +137,44 @@ public sealed class WgcCaptureSource : CaptureSourceCore
 
     private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
     {
-        try
+        lock (_pipelineGate)
         {
-            using var frame = sender.TryGetNextFrame();
-            if (frame is null)
+            if (_pool is null)
             {
                 return;
             }
 
-            var size = frame.ContentSize;
-            if (size.Width <= 0 || size.Height <= 0)
+            try
             {
-                return;
-            }
+                using var frame = sender.TryGetNextFrame();
+                if (frame is null)
+                {
+                    return;
+                }
 
-            if (size.Width != _poolWidth || size.Height != _poolHeight)
+                var size = frame.ContentSize;
+                if (size.Width <= 0 || size.Height <= 0)
+                {
+                    return;
+                }
+
+                if (size.Width != _poolWidth || size.Height != _poolHeight)
+                {
+                    _pool!.Recreate(_winRtDevice!, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
+                    _poolWidth = size.Width;
+                    _poolHeight = size.Height;
+                    _staging?.Dispose();
+                    _staging = null;
+                }
+
+                var bytes = ReadFrameBytes(frame.Surface, size.Width, size.Height);
+                PublishFrame(bytes, size.Width, size.Height);
+                _firstFrame.TrySetResult();
+            }
+            catch (Exception ex)
             {
-                _pool!.Recreate(_winRtDevice!, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
-                _poolWidth = size.Width;
-                _poolHeight = size.Height;
-                _staging?.Dispose();
-                _staging = null;
+                RaiseStopped("帧处理失败", ex);
             }
-
-            var bytes = ReadFrameBytes(frame.Surface, size.Width, size.Height);
-            PublishFrame(bytes, size.Width, size.Height);
-            _firstFrame.TrySetResult();
-        }
-        catch (Exception ex)
-        {
-            RaiseStopped("帧处理失败", ex);
         }
     }
 
@@ -217,65 +226,75 @@ public sealed class WgcCaptureSource : CaptureSourceCore
 
     private void AbandonPipeline()
     {
-        if (_pool is not null)
+        lock (_pipelineGate)
         {
-            _pool.FrameArrived -= OnFrameArrived;
-            _pool.Dispose();
-        }
+            if (_pool is not null)
+            {
+                _pool.FrameArrived -= OnFrameArrived;
+                _pool.Dispose();
+            }
 
-        if (_session is not null)
-        {
-            _session.Dispose();
-        }
+            if (_session is not null)
+            {
+                _session.Dispose();
+            }
 
-        if (_item is not null)
-        {
-            _item.Closed -= OnItemClosed;
-        }
+            if (_item is not null)
+            {
+                _item.Closed -= OnItemClosed;
+            }
 
-        _session = null;
-        _pool = null;
-        _item = null;
-        _staging?.Dispose();
-        _staging = null;
-        (_winRtDevice as IDisposable)?.Dispose();
-        _winRtDevice = null;
-        _immediateContext?.Dispose();
-        _immediateContext = null;
-        _d3dDevice?.Dispose();
-        _d3dDevice = null;
+            _session = null;
+            _pool = null;
+            _item = null;
+            _staging?.Dispose();
+            _staging = null;
+            (_winRtDevice as IDisposable)?.Dispose();
+            _winRtDevice = null;
+            _immediateContext?.Dispose();
+            _immediateContext = null;
+            _d3dDevice?.Dispose();
+            _d3dDevice = null;
+        }
     }
 
     private void ReleasePipeline()
     {
-        if (_session is not null)
+        lock (_pipelineGate)
         {
-            _session.Dispose();
-            _session = null;
-        }
+            if (_pool is not null)
+            {
+                _pool.FrameArrived -= OnFrameArrived;
+            }
 
-        if (_pool is not null)
-        {
-            _pool.FrameArrived -= OnFrameArrived;
-            _pool.Dispose();
-            _pool = null;
-        }
+            if (_session is not null)
+            {
+                _session.Dispose();
+                _session = null;
+            }
 
-        if (_item is not null)
-        {
-            _item.Closed -= OnItemClosed;
-            _item = null;
-        }
+            if (_pool is not null)
+            {
+                _pool.Dispose();
+                _pool = null;
+            }
 
-        _staging?.Dispose();
-        _staging = null;
-        (_winRtDevice as IDisposable)?.Dispose();
-        _winRtDevice = null;
-        _immediateContext?.Dispose();
-        _immediateContext = null;
-        _d3dDevice?.Dispose();
-        _d3dDevice = null;
-        _firstFrame.TrySetResult();
+            if (_item is not null)
+            {
+                _item.Closed -= OnItemClosed;
+                _item = null;
+            }
+
+            _staging?.Dispose();
+            _staging = null;
+            (_winRtDevice as IDisposable)?.Dispose();
+            _winRtDevice = null;
+            _immediateContext?.Dispose();
+            _immediateContext = null;
+            _d3dDevice?.Dispose();
+            _d3dDevice = null;
+            _firstFrame.TrySetResult();
+        }
     }
 }
 
