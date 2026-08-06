@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
+using RocoPilot.Shell.Hotkeys;
 using RocoPilot.Shell.Overlay;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
@@ -22,6 +23,7 @@ public partial class MainWindow : FluentWindow
     private readonly RunningTaskHost _taskHost;
     private readonly OverlayController _overlay;
     private readonly CaptureHost _capture;
+    private readonly ShellHotkeys _hotkeys;
     private readonly System.Windows.Threading.DispatcherTimer _brandTimer;
     private bool _brandEnglish = true;
 
@@ -47,7 +49,8 @@ public partial class MainWindow : FluentWindow
         ISettingsStore store,
         RunningTaskHost taskHost,
         OverlayController overlay,
-        CaptureHost capture)
+        CaptureHost capture,
+        ShellHotkeys hotkeys)
     {
         InitializeComponent();
 
@@ -59,6 +62,7 @@ public partial class MainWindow : FluentWindow
         _taskHost = taskHost;
         _overlay = overlay;
         _capture = capture;
+        _hotkeys = hotkeys;
         NavigationView.SetPageProviderService(pageProvider);
 
         BuildNavigation();
@@ -86,6 +90,8 @@ public partial class MainWindow : FluentWindow
 
         Closed += (_, _) => _overlay.Shutdown();
 
+        _hotkeys.Start();
+
         _overlay.Start();
     }
 
@@ -95,6 +101,7 @@ public partial class MainWindow : FluentWindow
         NavigationView.MenuItems.Add(new NavigationViewItem("实时", SymbolRegular.TargetArrow24, typeof(RealtimePage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("孵蛋", SymbolRegular.FoodEgg24, typeof(EggQueryPage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("路线", SymbolRegular.Road24, typeof(RoutePage)));
+        NavigationView.MenuItems.Add(new NavigationViewItem("热键", SymbolRegular.Keyboard24, typeof(HotkeysPage)));
 
         if (_store.GetShellSettings().DeveloperMode)
         {

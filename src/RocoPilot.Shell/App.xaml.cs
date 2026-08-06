@@ -6,6 +6,7 @@ using RocoPilot.Breeding;
 using RocoPilot.Routing;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
+using RocoPilot.Shell.Hotkeys;
 using RocoPilot.Shell.Overlay;
 using RocoPilot.Shell.Pages;
 using RocoPilot.Shell.Services;
@@ -74,6 +75,8 @@ public partial class App : Application
         var captureHost = new CaptureHost();
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
+        services.AddSingleton<GlobalHotkeyManager>();
+        services.AddSingleton<ShellHotkeys>();
         var routeStore = new RouteStore();
         services.AddSingleton(routeStore);
 
@@ -89,6 +92,7 @@ public partial class App : Application
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());
 
         services.AddTransient<LaunchPage>();
+        services.AddTransient<HotkeysPage>();
         services.AddSingleton<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
         services.AddSingleton<RoutePage>();

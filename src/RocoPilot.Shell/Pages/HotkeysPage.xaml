@@ -1,0 +1,23 @@
+<Page x:Class="RocoPilot.Shell.Pages.HotkeysPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+  <StackPanel Margin="{StaticResource PagePadding}">
+
+    <ui:CardControl>
+      <ui:CardControl.Header>
+        <ui:TextBlock FontTypography="Body" Text="截图器开启/关闭" />
+      </ui:CardControl.Header>
+      <TextBox x:Name="CaptureToggleBox"
+               Width="160"
+               IsReadOnly="True"
+               IsUndoEnabled="False"
+               TextAlignment="Center"
+               PreviewKeyDown="OnCaptureToggleKeyDown"
+               GotFocus="OnCaptureToggleGotFocus"
+               LostFocus="OnCaptureToggleLostFocus" />
+    </ui:CardControl>
+
+  </StackPanel>
+</Page>

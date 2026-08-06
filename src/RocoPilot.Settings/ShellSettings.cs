@@ -19,6 +19,8 @@ public sealed class ShellSettings
 
     public string CaptureBackend { get; set; } = "wgc";
 
+    public string CaptureToggleHotkey { get; set; } = "F11";
+
     public bool DebugOverlay { get; set; }
 
     public double SensitivityPpcX { get; set; } = 1.35;
