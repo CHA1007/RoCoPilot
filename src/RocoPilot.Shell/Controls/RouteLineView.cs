@@ -5,53 +5,35 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using RocoPilot.Routing;
+using RocoPilot.Shell.Appearance;
+using UiButton = Wpf.Ui.Controls.Button;
+using UiIcon = Wpf.Ui.Controls.SymbolIcon;
+using CtlApp = Wpf.Ui.Controls.ControlAppearance;
+using Sim = Wpf.Ui.Controls.SymbolRegular;
 
 namespace RocoPilot.Shell.Controls;
 
 public sealed class RouteLineView : UserControl
 {
-    private const double StationRadius = 10;
-    private const double StationX = 32;
-    private const double CardLeft = StationX + StationRadius + 12;
-    private const double CardSpacing = 12;
-    private const double StationTitleOffset = 22;
-    private const double BulgeX = 10;
-    private const double GhostGap = 46;
-    private const double DragThreshold = 4;
+    private const double BadgeSize = 26;
+    private const double RowGap = 10;
 
-    private readonly Canvas _wireLayer = new();
-    private readonly StackPanel _rowPanel = new()
-    {
-        Margin = new Thickness(0, 16, 24, 96),
-    };
-    private readonly Canvas _overlayLayer = new();
+    private readonly StackPanel _rows;
+    private readonly List<RowView> _rowsView = [];
+    private readonly Border _addCard;
+    private readonly ScrollViewer _scroll;
+    private readonly FrameworkElement _empty;
 
-    private readonly Border _loopChip;
-    private readonly TextBlock _loopChipText;
-    private readonly Grid _ghostStation;
-    private readonly Ellipse _ghostRing;
-    private readonly Border _emptyCard;
-
-    private readonly List<CardView> _cards = [];
-    private readonly List<Line> _segmentLines = [];
-    private readonly List<(Ellipse Ring, TextBlock Number)> _stations = [];
-    private readonly Path _returnPath = new() { StrokeThickness = 2, IsHitTestVisible = false };
-    private readonly Polygon _returnArrow = new() { IsHitTestVisible = false };
-    private readonly Line _ghostLine = new() { StrokeThickness = 2, IsHitTestVisible = false };
-
-    private Guid? _selectedNode;
-    private CardView? _pressedCard;
+    private Guid? _selectedId;
+    private RowView? _pressedRow;
     private Point _downPoint;
     private bool _dragging;
-    private bool _running;
     private bool _busy;
-    private bool _loopEnabled;
 
-    public event Action<RouteNode>? EditRequested;
+    public event Action<Guid>? SelectRequested;
     public event Action<Guid>? DeleteRequested;
     public event Action<Guid, int>? MoveRequested;
     public event Action<Guid>? RunRequested;
-    public event Action? LoopConfigureRequested;
     public event Action<RouteNodeKind>? AddRequested;
 
     public RouteLineView()
@@ -59,109 +41,50 @@ public sealed class RouteLineView : UserControl
         Focusable = true;
         Background = new SolidColorBrush(Colors.Transparent);
 
-        _returnPath.SetResourceReference(Shape.StrokeProperty, "ControlStrokeColorDefaultBrush");
-        _returnArrow.SetResourceReference(Shape.FillProperty, "ControlStrokeColorDefaultBrush");
-        _ghostLine.SetResourceReference(Shape.StrokeProperty, "ControlStrokeColorDefaultBrush");
-
-        _loopChipText = new TextBlock { FontSize = 11, Padding = new Thickness(8, 3, 8, 3) };
-        _loopChipText.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-        _loopChip = new Border
+        _addCard = BuildAddCard();
+        _rows = new StackPanel();
+        _scroll = new ScrollViewer
         {
-            CornerRadius = new CornerRadius(10),
-            BorderThickness = new Thickness(1),
-            Cursor = Cursors.Hand,
-            Child = _loopChipText,
-            Visibility = Visibility.Collapsed,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Content = _rows,
         };
-        _loopChip.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
-        _loopChip.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
-        _loopChip.MouseLeftButtonUp += (_, e) =>
-        {
-            if (!_busy) LoopConfigureRequested?.Invoke();
-            e.Handled = true;
-        };
-
-        _ghostRing = new Ellipse
-        {
-            Width = StationRadius * 2,
-            Height = StationRadius * 2,
-            StrokeDashArray = [3, 2],
-            StrokeThickness = 1.5,
-        };
-        _ghostRing.SetResourceReference(Shape.StrokeProperty, "ControlStrongStrokeColorDefaultBrush");
-        var ghostPlus = new TextBlock
-        {
-            Text = "+",
-            FontSize = 13,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        ghostPlus.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-        _ghostStation = new Grid
-        {
-            Width = StationRadius * 2,
-            Height = StationRadius * 2,
-            Cursor = Cursors.Hand,
-        };
-        _ghostStation.Children.Add(_ghostRing);
-        _ghostStation.Children.Add(ghostPlus);
-        _ghostStation.MouseLeftButtonUp += (_, e) =>
-        {
-            if (_busy) return;
-            OpenAddMenu(_ghostStation);
-            e.Handled = true;
-        };
-        _ghostStation.MouseEnter += (_, _) => _ghostStation.Opacity = 0.7;
-        _ghostStation.MouseLeave += (_, _) => _ghostStation.Opacity = _busy ? 0.35 : 1.0;
-
-        _emptyCard = BuildEmptyCard();
+        _empty = BuildEmptyState();
 
         var root = new Grid();
-        root.Children.Add(_wireLayer);
-        root.Children.Add(_rowPanel);
-        root.Children.Add(_overlayLayer);
-        _overlayLayer.Children.Add(_loopChip);
-        _overlayLayer.Children.Add(_ghostStation);
+        root.Children.Add(_scroll);
+        root.Children.Add(_empty);
         Content = root;
-
-        LayoutUpdated += (_, _) => UpdateGeometry();
 
         PreviewKeyDown += (_, e) =>
         {
-            if (e.Key != Key.Delete || _selectedNode is not { } nodeId) return;
-            DeleteRequested?.Invoke(nodeId);
+            if (e.Key != Key.Delete || _selectedId is not { } id) return;
+            DeleteRequested?.Invoke(id);
             e.Handled = true;
         };
     }
 
     public void SetSteps(IReadOnlyList<RouteNode> nodes, Guid? activeNodeId = null)
     {
-        _rowPanel.Children.Clear();
-        _cards.Clear();
-        _selectedNode = null;
-        _pressedCard = null;
+        _rows.Children.Clear();
+        _rowsView.Clear();
+        _selectedId = null;
+        _pressedRow = null;
         _dragging = false;
 
-        if (nodes.Count == 0)
+        for (var i = 0; i < nodes.Count; i++)
         {
-            _rowPanel.Children.Add(_emptyCard);
-            _rowPanel.Margin = new Thickness(0, 16, 24, 16);
-            RebuildWires();
-            UpdateGeometry();
-            return;
+            var row = BuildCard(nodes[i], i);
+            _rowsView.Add(row);
+            _rows.Children.Add(row.Root);
         }
 
-        _rowPanel.Margin = new Thickness(0, 16, 24, 96);
+        _rows.Children.Add(_addCard);
 
-        foreach (var node in nodes)
-        {
-            var card = BuildCard(node);
-            _cards.Add(card);
-            _rowPanel.Children.Add(card.Root);
-        }
+        var hasSteps = nodes.Count > 0;
+        _scroll.Visibility = hasSteps ? Visibility.Visible : Visibility.Collapsed;
+        _empty.Visibility = hasSteps ? Visibility.Collapsed : Visibility.Visible;
 
-        RebuildWires();
-        RefreshCardStates();
+        RefreshStates();
 
         if (activeNodeId is { } id)
             SetActive(id);
@@ -169,213 +92,273 @@ public sealed class RouteLineView : UserControl
 
     public void SetLoop(bool enabled, int? maxLaps, TimeSpan? maxDuration)
     {
-        _loopEnabled = enabled;
-        _loopChipText.Text = enabled ? $"↺ {LoopSubtitle(maxLaps, maxDuration)}" : "↺ 已关闭";
-        RefreshLoopChipOpacity();
-        UpdateGeometry();
     }
 
     public void SetActive(Guid? nodeId)
     {
-        foreach (var card in _cards)
-            card.Active = nodeId is { } id && card.Node.Id == id;
-        RefreshCardStates();
-        RebuildWires();
-        UpdateGeometry();
+        foreach (var row in _rowsView)
+            row.Active = nodeId is { } id && row.Node.Id == id;
+        RefreshStates();
+    }
+
+    public void SetSelected(Guid? nodeId)
+    {
+        _selectedId = nodeId;
+        RefreshStates();
     }
 
     public void SetRunning(bool running)
     {
-        _running = running;
-        foreach (var card in _cards)
+        foreach (var row in _rowsView)
         {
-            if (card.RunButton is { } button)
-                button.Content = running ? "■ 停止" : "▶ 从此锚点运行";
+            if (row.RunButton is { } button)
+            {
+                button.Content = running ? "停止" : "运行";
+                button.Icon = new UiIcon
+                {
+                    Symbol = running ? Sim.Stop20 : Sim.Play20,
+                    FontSize = 14,
+                    Width = 14,
+                    Height = 14,
+                };
+            }
         }
     }
 
     public void SetBusy(bool busy)
     {
         _busy = busy;
-        _ghostStation.Opacity = busy ? 0.35 : 1.0;
-        RefreshLoopChipOpacity();
     }
 
-    private void RefreshLoopChipOpacity()
-        => _loopChip.Opacity = _busy ? 0.6 : (_loopEnabled ? 1.0 : 0.75);
-
-    private CardView BuildCard(RouteNode node)
+    private RowView BuildCard(RouteNode node, int index)
     {
-        var accent = KindAccent(node.Kind);
-
-        var kindLabel = new TextBlock
+        // ---- 序号徽章 ----
+        var badge = new Ellipse
         {
-            Text = KindLabel(node.Kind),
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(accent),
+            Width = BadgeSize,
+            Height = BadgeSize,
+            StrokeThickness = 1.5,
+            Fill = RouteVisuals.AccentSoftBrush,
+            Stroke = RouteVisuals.AccentBrush,
+            VerticalAlignment = VerticalAlignment.Center,
         };
 
-        var nameLabel = new TextBlock { Text = node.Name, FontSize = 13, FontWeight = FontWeights.SemiBold };
-        nameLabel.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
-
-        var header = new StackPanel();
-        header.Children.Add(kindLabel);
-        header.Children.Add(nameLabel);
-
-        FrameworkElement contentArea;
-        TextBlock? subtitle = null;
-
-        if (node.Kind == RouteNodeKind.Anchor && string.IsNullOrWhiteSpace(node.AnchorName))
+        var number = new TextBlock
         {
-            var configure = new Button { Content = "选择魔力之源", MinWidth = 110 };
-            configure.SetResourceReference(BackgroundProperty, "AccentFillColorDefaultBrush");
-            configure.SetResourceReference(ForegroundProperty, "TextOnAccentFillColorPrimaryBrush");
-            configure.Click += (_, _) => EditRequested?.Invoke(node);
-            contentArea = configure;
-        }
-        else if (node.Kind == RouteNodeKind.Playback && string.IsNullOrWhiteSpace(node.RouteName))
+            Text = (index + 1).ToString(),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = RouteVisuals.AccentBrush,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var badgeHost = new Grid { Width = BadgeSize, Height = BadgeSize, VerticalAlignment = VerticalAlignment.Center };
+        badgeHost.Children.Add(badge);
+        badgeHost.Children.Add(number);
+
+        // ---- 类型图标 ----
+        var glyph = new UiIcon
         {
-            var configure = new Button { Content = "选择或录制路线", MinWidth = 110 };
-            configure.SetResourceReference(BackgroundProperty, "AccentFillColorDefaultBrush");
-            configure.SetResourceReference(ForegroundProperty, "TextOnAccentFillColorPrimaryBrush");
-            configure.Click += (_, _) => EditRequested?.Invoke(node);
-            contentArea = configure;
-        }
-        else if (node.Kind == RouteNodeKind.Anchor)
+            Symbol = IconFor(node.Kind),
+            FontSize = 16,
+            Width = 16,
+            Height = 16,
+            Foreground = RouteVisuals.AccentBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(12, 0, 0, 0),
+        };
+
+        // ---- 名称 + 元信息 ----
+        var metaText = node.Kind == RouteNodeKind.Anchor ? node.AnchorName : node.RouteName;
+        var configured = !string.IsNullOrWhiteSpace(metaText);
+
+        var name = new TextBlock
         {
-            var run = new Button
+            Text = node.Name,
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            ToolTip = node.Name,
+        };
+        name.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
+
+        var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        info.Children.Add(name);
+
+        if (!configured)
+        {
+            var meta = new TextBlock
             {
-                Content = _running ? "■ 停止" : "▶ 从此锚点运行",
+                Text = "待配置",
                 FontSize = 11,
-                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 3, 0, 0),
             };
-            run.Click += (_, _) => RunRequested?.Invoke(node.Id);
-            contentArea = run;
+            meta.SetResourceReference(ForegroundProperty, "SystemFillColorCautionBrush");
+            info.Children.Add(meta);
+        }
 
-            subtitle = new TextBlock
+        // ---- 操作区 ----
+        var ops = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(14, 0, 0, 0),
+        };
+
+        UiButton runButton;
+        if (configured)
+        {
+            runButton = new UiButton
             {
-                Text = node.AnchorName!,
-                FontSize = 11,
-                Margin = new Thickness(0, 2, 0, 0),
-                TextTrimming = TextTrimming.CharacterEllipsis,
+                Content = "运行",
+                Icon = new UiIcon { Symbol = Sim.Play20, FontSize = 14, Width = 14, Height = 14 },
+                Appearance = CtlApp.Secondary,
+                Background = Brushes.Transparent,
+                Foreground = RouteVisuals.AccentBrush,
+                MouseOverBackground = RouteVisuals.AccentGhostHoverBrush,
+                PressedBackground = RouteVisuals.AccentGhostPressedBrush,
+                BorderBrush = RouteVisuals.AccentBrush,
+                BorderThickness = new Thickness(1),
+                FontSize = 12,
+                Padding = new Thickness(12, 5, 12, 5),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "从此步骤运行",
             };
-            subtitle.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+            runButton.Click += (_, _) => RunRequested?.Invoke(node.Id);
         }
         else
         {
-            contentArea = new Border { Width = 0 };
-
-            subtitle = new TextBlock
+            runButton = new UiButton
             {
-                Text = node.RouteName!,
-                FontSize = 11,
-                Margin = new Thickness(0, 2, 0, 0),
-                TextTrimming = TextTrimming.CharacterEllipsis,
+                Content = KindAction(node.Kind),
+                Icon = new UiIcon
+                {
+                    Symbol = node.Kind == RouteNodeKind.Anchor ? Sim.Location20 : Sim.FolderOpen20,
+                    FontSize = 14,
+                    Width = 14,
+                    Height = 14,
+                },
+                Appearance = CtlApp.Secondary,
+                Background = Brushes.Transparent,
+                Foreground = RouteVisuals.AccentBrush,
+                MouseOverBackground = RouteVisuals.AccentGhostHoverBrush,
+                PressedBackground = RouteVisuals.AccentGhostPressedBrush,
+                BorderBrush = RouteVisuals.AccentBrush,
+                BorderThickness = new Thickness(1),
+                FontSize = 12,
+                Padding = new Thickness(12, 5, 12, 5),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
             };
-            subtitle.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+            runButton.Click += (_, _) => SelectRequested?.Invoke(node.Id);
         }
 
-        if (subtitle is not null) header.Children.Add(subtitle);
-
-        var deleteButton = new Button
+        var deleteButton = new UiButton
         {
-            Content = "✕",
-            FontSize = 10,
-            Padding = new Thickness(4, 1, 4, 1),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
+            Content = string.Empty,
+            Icon = new UiIcon { Symbol = Sim.Dismiss20, FontSize = 14, Width = 14, Height = 14 },
+            Appearance = CtlApp.Transparent,
+            Padding = new Thickness(6, 4, 6, 4),
+            Margin = new Thickness(6, 0, 0, 0),
+            Cursor = Cursors.Hand,
+            ToolTip = "删除步骤",
+            VerticalAlignment = VerticalAlignment.Center,
             Visibility = Visibility.Hidden,
         };
+        deleteButton.SetResourceReference(Control.ForegroundProperty, "SystemFillColorCriticalBrush");
         deleteButton.Click += (_, _) => DeleteRequested?.Invoke(node.Id);
 
-        var layout = new Grid();
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.Margin = new Thickness(14, 10, 8, 10);
-        contentArea.Margin = new Thickness(0, 0, 36, 0);
-        contentArea.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(header, 0);
-        Grid.SetColumn(contentArea, 1);
-        Grid.SetColumn(deleteButton, 1);
-        layout.Children.Add(header);
-        layout.Children.Add(contentArea);
-        layout.Children.Add(deleteButton);
+        ops.Children.Add(runButton);
+        ops.Children.Add(deleteButton);
+
+        // ---- 行布局 ----
+        var content = new Grid { Margin = new Thickness(0, 12, 14, 12) };
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(badgeHost, 0);
+        Grid.SetColumn(glyph, 1);
+        Grid.SetColumn(info, 2);
+        Grid.SetColumn(ops, 3);
+        content.Children.Add(badgeHost);
+        content.Children.Add(glyph);
+        content.Children.Add(info);
+        content.Children.Add(ops);
 
         var root = new Border
         {
             CornerRadius = new CornerRadius(10),
             BorderThickness = new Thickness(1.5),
-            Cursor = Cursors.SizeNS,
-            Child = layout,
-            Margin = new Thickness(CardLeft, 0, 0, CardSpacing),
+            Cursor = Cursors.Hand,
+            Child = content,
+            Margin = new Thickness(0, 0, 0, RowGap),
         };
         root.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
         root.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
 
-        var card = new CardView(node, root) { RunButton = contentArea as Button };
+        var row = new RowView(node, root) { RunButton = configured ? runButton : null };
 
         root.MouseEnter += (_, _) =>
         {
-            card.Hovered = true;
+            row.Hovered = true;
             deleteButton.Visibility = Visibility.Visible;
-            ApplyCardState(card);
+            ApplyRowState(row);
         };
         root.MouseLeave += (_, _) =>
         {
-            card.Hovered = false;
+            row.Hovered = false;
             deleteButton.Visibility = Visibility.Hidden;
-            ApplyCardState(card);
+            ApplyRowState(row);
         };
 
         root.MouseLeftButtonDown += (_, e) =>
         {
+            if (_busy) return;
             Keyboard.Focus(this);
-            _pressedCard = card;
+            _pressedRow = row;
             _dragging = false;
-            _downPoint = e.GetPosition(_rowPanel);
+            _downPoint = e.GetPosition(_rows);
             root.CaptureMouse();
             e.Handled = true;
         };
 
         root.MouseMove += (_, e) =>
         {
-            if (_pressedCard != card || !root.IsMouseCaptured) return;
-            var point = e.GetPosition(_rowPanel);
+            if (_pressedRow != row || !root.IsMouseCaptured) return;
+            var point = e.GetPosition(_rows);
             if (!_dragging)
             {
-                if (Math.Abs(point.Y - _downPoint.Y) < DragThreshold) return;
+                if (Math.Abs(point.Y - _downPoint.Y) < 5) return;
                 _dragging = true;
-                root.Opacity = 0.8;
+                root.Opacity = 0.85;
                 root.Effect = new DropShadowEffect { BlurRadius = 16, ShadowDepth = 2, Opacity = 0.35 };
             }
 
-            ReorderToward(card, point.Y);
+            ReorderToward(row, point.Y);
         };
 
         root.MouseLeftButtonUp += (_, e) =>
         {
-            if (_pressedCard != card) return;
+            if (_pressedRow != row) return;
             root.ReleaseMouseCapture();
-            _pressedCard = null;
+            _pressedRow = null;
             root.Opacity = 1.0;
 
             if (_dragging)
             {
                 _dragging = false;
                 root.Effect = null;
-                MoveRequested?.Invoke(node.Id, _rowPanel.Children.IndexOf(card.Root));
+                MoveRequested?.Invoke(node.Id, _rows.Children.IndexOf(row.Root));
                 return;
             }
 
-            if (e.ClickCount >= 2)
-            {
-                EditRequested?.Invoke(card.Node);
-                return;
-            }
-
-            _selectedNode = node.Id;
-            RefreshCardStates();
+            _selectedId = node.Id;
+            RefreshStates();
+            SelectRequested?.Invoke(node.Id);
         };
 
         root.MouseRightButtonDown += (_, e) =>
@@ -385,17 +368,162 @@ public sealed class RouteLineView : UserControl
                 PlacementTarget = root,
                 Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
             };
-            var editItem = new MenuItem { Header = "配置…" };
-            editItem.Click += (_, _) => EditRequested?.Invoke(card.Node);
+            var configItem = new MenuItem { Header = "在右侧配置…" };
+            configItem.Click += (_, _) => SelectRequested?.Invoke(node.Id);
             var deleteItem = new MenuItem { Header = "删除步骤" };
             deleteItem.Click += (_, _) => DeleteRequested?.Invoke(node.Id);
-            menu.Items.Add(editItem);
+            var upItem = new MenuItem { Header = "上移" };
+            upItem.Click += (_, _) => MoveRequested?.Invoke(node.Id, _rows.Children.IndexOf(row.Root) - 1);
+            var downItem = new MenuItem { Header = "下移" };
+            downItem.Click += (_, _) => MoveRequested?.Invoke(node.Id, _rows.Children.IndexOf(row.Root) + 1);
+            menu.Items.Add(configItem);
             menu.Items.Add(deleteItem);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(upItem);
+            menu.Items.Add(downItem);
             menu.IsOpen = true;
             e.Handled = true;
         };
 
-        return card;
+        return row;
+    }
+
+    private FrameworkElement BuildEmptyState()
+    {
+        var icon = new UiIcon
+        {
+            Symbol = Sim.Add24,
+            FontSize = 34,
+            Width = 34,
+            Height = 34,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        icon.SetResourceReference(Control.ForegroundProperty, "TextFillColorTertiaryBrush");
+
+        var title = new TextBlock
+        {
+            Text = "还没有步骤",
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 14, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        title.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
+
+        var hint = new TextBlock
+        {
+            Text = "从添加一个锚点或回放开始编排你的路线",
+            FontSize = 12,
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        hint.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var add = new UiButton
+        {
+            Content = "添加第一个步骤",
+            Icon = new UiIcon { Symbol = Sim.Add20, FontSize = 14, Width = 14, Height = 14 },
+            Appearance = CtlApp.Secondary,
+            Background = Brushes.Transparent,
+            Foreground = RouteVisuals.AccentBrush,
+            BorderBrush = RouteVisuals.AccentBrush,
+            BorderThickness = new Thickness(1),
+            MouseOverBackground = RouteVisuals.AccentGhostHoverBrush,
+            PressedBackground = RouteVisuals.AccentGhostPressedBrush,
+            FontSize = 12,
+            Padding = new Thickness(14, 6, 14, 6),
+            Margin = new Thickness(0, 18, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Cursor = Cursors.Hand,
+        };
+        add.Click += (_, _) => OpenAddMenu(add);
+
+        var content = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+        content.Children.Add(icon);
+        content.Children.Add(title);
+        content.Children.Add(hint);
+        content.Children.Add(add);
+
+        var host = new Grid { VerticalAlignment = VerticalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch };
+        host.Children.Add(content);
+        return host;
+    }
+
+    private Border BuildAddCard()
+    {
+        var frame = new Rectangle
+        {
+            RadiusX = 10,
+            RadiusY = 10,
+            StrokeThickness = 1.5,
+            StrokeDashArray = new DoubleCollection { 4, 3 },
+            Fill = Brushes.Transparent,
+            Stretch = Stretch.Fill,
+        };
+        frame.SetResourceReference(Shape.StrokeProperty, "ControlStrokeColorDefaultBrush");
+
+        var icon = new UiIcon
+        {
+            Symbol = Sim.Add24,
+            FontSize = 18,
+            Width = 18,
+            Height = 18,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+        };
+        icon.SetResourceReference(Control.ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var text = new TextBlock
+        {
+            Text = "添加步骤",
+            FontSize = 13,
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsHitTestVisible = false,
+        };
+        text.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var inner = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(16, 14, 16, 14),
+        };
+        inner.Children.Add(icon);
+        inner.Children.Add(text);
+
+        var grid = new Grid
+        {
+            Background = Brushes.Transparent,
+            Cursor = Cursors.Hand,
+        };
+        grid.Children.Add(frame);
+        grid.Children.Add(inner);
+
+        grid.MouseLeftButtonUp += (_, e) =>
+        {
+            if (_busy) return;
+            OpenAddMenu(grid);
+            e.Handled = true;
+        };
+        grid.MouseEnter += (_, _) =>
+        {
+            if (_busy) return;
+            frame.Stroke = RouteVisuals.AccentBrush;
+            frame.StrokeThickness = 2;
+        };
+        grid.MouseLeave += (_, _) =>
+        {
+            frame.SetResourceReference(Shape.StrokeProperty, "ControlStrokeColorDefaultBrush");
+            frame.StrokeThickness = 1.5;
+        };
+
+        return new Border
+        {
+            Child = grid,
+            Margin = new Thickness(0, 4, 0, RowGap),
+        };
     }
 
     private void OpenAddMenu(FrameworkElement placementTarget)
@@ -414,350 +542,78 @@ public sealed class RouteLineView : UserControl
         menu.IsOpen = true;
     }
 
-    private Border BuildEmptyCard()
+    private void ReorderToward(RowView row, double y)
     {
-        var ring = new Ellipse
-        {
-            Width = 36,
-            Height = 36,
-            StrokeDashArray = [3, 2],
-            StrokeThickness = 1.5,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        ring.SetResourceReference(Shape.StrokeProperty, "ControlStrongStrokeColorDefaultBrush");
-        var plus = new TextBlock
-        {
-            Text = "+",
-            FontSize = 18,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        plus.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-        var station = new Grid { Width = 36, Height = 36 };
-        station.Children.Add(ring);
-        station.Children.Add(plus);
-
-        var title = new TextBlock { Text = "添加第一个站点", FontSize = 13, FontWeight = FontWeights.SemiBold };
-        title.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
-        var subtitle = new TextBlock
-        {
-            Text = "锚点负责传送定位，回放负责重走录制路线；点击选择站点类型，从这里开始你的路线",
-            FontSize = 11,
-            Margin = new Thickness(0, 2, 0, 0),
-            TextWrapping = TextWrapping.Wrap,
-        };
-        subtitle.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-        var text = new StackPanel { Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        text.Children.Add(title);
-        text.Children.Add(subtitle);
-
-        var body = new Grid { Margin = new Thickness(16, 14, 16, 14) };
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        Grid.SetColumn(station, 0);
-        Grid.SetColumn(text, 1);
-        body.Children.Add(station);
-        body.Children.Add(text);
-
-        var card = new Border
-        {
-            CornerRadius = new CornerRadius(10),
-            BorderThickness = new Thickness(1.5),
-            Cursor = Cursors.Hand,
-            Child = body,
-        };
-        card.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
-        card.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
-        card.MouseEnter += (_, _) => card.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorSecondaryBrush");
-        card.MouseLeave += (_, _) => card.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
-        card.MouseLeftButtonUp += (_, e) =>
-        {
-            if (_busy) return;
-            OpenAddMenu(card);
-            e.Handled = true;
-        };
-        return card;
-    }
-
-    private void ReorderToward(CardView card, double y)
-    {
-        var currentIndex = _rowPanel.Children.IndexOf(card.Root);
+        var currentIndex = _rows.Children.IndexOf(row.Root);
         var targetIndex = 0;
-        foreach (var sibling in _cards)
+        foreach (var sibling in _rowsView)
         {
-            if (sibling == card) continue;
-            var top = sibling.Root.TranslatePoint(new Point(0, 0), _rowPanel).Y;
+            if (sibling == row) continue;
+            var top = sibling.Root.TranslatePoint(new Point(0, 0), _rows).Y;
             if (y > top + sibling.Root.ActualHeight / 2) targetIndex++;
         }
 
         if (targetIndex == currentIndex) return;
 
-        _rowPanel.Children.Remove(card.Root);
-        _rowPanel.Children.Insert(targetIndex, card.Root);
-        UpdateGeometry();
+        _rows.Children.Remove(row.Root);
+        _rows.Children.Insert(targetIndex, row.Root);
     }
 
-    private void RebuildWires()
+    private void RefreshStates()
     {
-        _wireLayer.Children.Clear();
-        _segmentLines.Clear();
-        _stations.Clear();
-
-        for (var i = 0; i < _cards.Count - 1; i++)
-        {
-            var segment = new Line { X1 = StationX, X2 = StationX, StrokeThickness = 2, IsHitTestVisible = false };
-            segment.SetResourceReference(Shape.StrokeProperty, "ControlStrokeColorDefaultBrush");
-            _segmentLines.Add(segment);
-            _wireLayer.Children.Add(segment);
-        }
-
-        _wireLayer.Children.Add(_ghostLine);
-        _wireLayer.Children.Add(_returnPath);
-        _wireLayer.Children.Add(_returnArrow);
-
-        for (var i = 0; i < _cards.Count; i++)
-        {
-            var card = _cards[i];
-            var active = card.Active;
-            var ring = new Ellipse
-            {
-                Width = StationRadius * 2,
-                Height = StationRadius * 2,
-                StrokeThickness = active ? 2.5 : 1.5,
-                IsHitTestVisible = false,
-            };
-            ring.SetResourceReference(Shape.StrokeProperty, "ControlStrongStrokeColorDefaultBrush");
-
-            var number = new TextBlock
-            {
-                Text = (i + 1).ToString(),
-                FontSize = 10,
-                FontWeight = FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                IsHitTestVisible = false,
-            };
-            number.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-
-            if (active)
-            {
-                var accent = KindAccent(card.Node.Kind);
-                ring.Stroke = new SolidColorBrush(accent);
-                ring.Fill = new SolidColorBrush(Color.FromArgb(0x33, accent.R, accent.G, accent.B));
-                number.Foreground = new SolidColorBrush(accent);
-            }
-
-            _wireLayer.Children.Add(ring);
-            _wireLayer.Children.Add(number);
-            _stations.Add((ring, number));
-        }
+        foreach (var row in _rowsView)
+            ApplyRowState(row);
     }
 
-    private void UpdateGeometry()
+    private void ApplyRowState(RowView row)
     {
-        if (_cards.Count != _stations.Count) return;
+        var root = row.Root;
 
-        var centers = new Point[_cards.Count];
-        for (var i = 0; i < _cards.Count; i++)
+        if (row.Active)
         {
-            var top = _cards[i].Root.TranslatePoint(new Point(0, 0), _wireLayer).Y;
-            centers[i] = new Point(StationX, top + StationTitleOffset);
-        }
-
-        for (var i = 0; i < _cards.Count; i++)
-        {
-            var (ring, number) = _stations[i];
-            Canvas.SetLeft(ring, centers[i].X - StationRadius);
-            Canvas.SetTop(ring, centers[i].Y - StationRadius);
-            Canvas.SetLeft(number, centers[i].X - 8);
-            Canvas.SetTop(number, centers[i].Y - 8);
-            number.Width = 16;
-            number.Height = 16;
-        }
-
-        for (var i = 0; i < _segmentLines.Count; i++)
-        {
-            _segmentLines[i].Y1 = centers[i].Y + StationRadius;
-            _segmentLines[i].Y2 = centers[i + 1].Y - StationRadius;
-        }
-
-        if (_cards.Count == 0)
-        {
-            _returnPath.Data = null;
-            _returnArrow.Points = null;
-            _loopChip.Visibility = Visibility.Collapsed;
-            _ghostLine.X1 = _ghostLine.X2 = StationX;
-            _ghostLine.Y1 = _ghostLine.Y2 = 0;
-            _ghostStation.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        _ghostStation.Visibility = _busy ? Visibility.Collapsed : Visibility.Visible;
-        _ghostLine.Visibility = _busy ? Visibility.Collapsed : Visibility.Visible;
-
-        var first = centers[0];
-        var last = centers[^1];
-
-        _ghostLine.X1 = _ghostLine.X2 = StationX;
-        _ghostLine.Y1 = last.Y + StationRadius;
-        _ghostLine.Y2 = last.Y + GhostGap - StationRadius;
-        Canvas.SetLeft(_ghostStation, StationX - StationRadius);
-        Canvas.SetTop(_ghostStation, last.Y + GhostGap - StationRadius);
-
-        double loopCenterY;
-
-        if (_cards.Count == 1)
-        {
-            _returnPath.Data = SingleNodeLoopGeometry(first.Y);
-            _returnArrow.Points = null;
-            loopCenterY = first.Y;
-        }
-        else
-        {
-            _returnPath.Data = ReturnLineGeometry(first.Y, last.Y);
-            _returnArrow.Points =
-            [
-                new Point(StationX - StationRadius - 9, first.Y - 5),
-                new Point(StationX - StationRadius - 9, first.Y + 5),
-                new Point(StationX - StationRadius - 1, first.Y),
-            ];
-            loopCenterY = (first.Y + last.Y) / 2;
-        }
-
-        _returnPath.StrokeDashArray = _loopEnabled ? null : [4, 3];
-        _returnArrow.Visibility = _loopEnabled && _cards.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-
-        _loopChip.Visibility = Visibility.Visible;
-        Canvas.SetLeft(_loopChip, 0);
-        Canvas.SetTop(_loopChip, loopCenterY - _loopChip.ActualHeight / 2);
-    }
-
-    private Geometry ReturnLineGeometry(double firstY, double lastY)
-    {
-        var startX = StationX - StationRadius;
-        return RoundedPolyline(
-        [
-            new Point(startX, lastY),
-            new Point(BulgeX, lastY),
-            new Point(BulgeX, firstY),
-            new Point(startX, firstY),
-        ], 10);
-    }
-
-    private static Geometry SingleNodeLoopGeometry(double y)
-    {
-        var startX = StationX - StationRadius;
-        var figure = new PathFigure { StartPoint = new Point(startX, y - 5) };
-        figure.Segments.Add(new BezierSegment(
-            new Point(BulgeX - 16, y - 22),
-            new Point(BulgeX - 16, y + 22),
-            new Point(startX, y + 5),
-            isStroked: true));
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-        return geometry;
-    }
-
-    private static Geometry RoundedPolyline(IReadOnlyList<Point> points, double radius)
-    {
-        var figure = new PathFigure { StartPoint = points[0] };
-        for (var i = 1; i < points.Count - 1; i++)
-        {
-            var incoming = points[i] - points[i - 1];
-            var outgoing = points[i + 1] - points[i];
-            if (incoming.Length < 1 || outgoing.Length < 1)
-            {
-                figure.Segments.Add(new LineSegment(points[i], true));
-                continue;
-            }
-
-            var cut = Math.Min(radius, Math.Min(incoming.Length, outgoing.Length) / 2);
-            incoming.Normalize();
-            outgoing.Normalize();
-            var cross = incoming.X * outgoing.Y - incoming.Y * outgoing.X;
-            figure.Segments.Add(new LineSegment(points[i] - incoming * cut, true));
-            figure.Segments.Add(new ArcSegment
-            {
-                Point = points[i] + outgoing * cut,
-                Size = new Size(cut, cut),
-                SweepDirection = cross > 0 ? SweepDirection.Clockwise : SweepDirection.Counterclockwise,
-                IsStroked = true,
-            });
-        }
-
-        figure.Segments.Add(new LineSegment(points[^1], true));
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-        return geometry;
-    }
-
-    private void RefreshCardStates()
-    {
-        foreach (var card in _cards)
-            ApplyCardState(card);
-    }
-
-    private void ApplyCardState(CardView card)
-    {
-        var root = card.Root;
-
-        if (card.Active)
-        {
-            var accent = KindAccent(card.Node.Kind);
-            root.BorderBrush = new SolidColorBrush(accent);
+            root.BorderBrush = RouteVisuals.AccentBrush;
             root.BorderThickness = new Thickness(2.5);
             root.Effect = new DropShadowEffect
             {
-                Color = accent,
-                BlurRadius = 20,
+                Color = RouteVisuals.Accent,
+                BlurRadius = 18,
                 ShadowDepth = 0,
-                Opacity = 0.7,
+                Opacity = 0.65,
             };
             return;
         }
 
         root.Effect = null;
-        var selected = card.Node.Id == _selectedNode;
+        var selected = row.Node.Id == _selectedId;
         root.BorderThickness = new Thickness(selected ? 2.5 : 1.5);
         if (selected)
-            root.SetResourceReference(Border.BorderBrushProperty, "AccentFillColorDefaultBrush");
+            root.BorderBrush = RouteVisuals.AccentBrush;
+        else if (row.Hovered)
+            root.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorSecondaryBrush");
         else
             root.SetResourceReference(Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
 
-        if (card.Hovered)
+        if (row.Hovered)
             root.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorSecondaryBrush");
         else
             root.SetResourceReference(BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
     }
 
-    private static Color KindAccent(RouteNodeKind kind) => kind switch
+    private static Sim IconFor(RouteNodeKind kind) => kind switch
     {
-        RouteNodeKind.Anchor => Color.FromRgb(0x4C, 0x8D, 0xF0),
-        RouteNodeKind.Playback => Color.FromRgb(0x57, 0xB0, 0x5C),
-        _ => Color.FromRgb(0x80, 0x80, 0x80),
+        RouteNodeKind.Anchor => Sim.Location20,
+        RouteNodeKind.Playback => Sim.Play20,
+        _ => Sim.QuestionCircle20,
     };
 
-    private static string KindLabel(RouteNodeKind kind) => kind switch
-    {
-        RouteNodeKind.Anchor => "锚点",
-        RouteNodeKind.Playback => "回放",
-        _ => "?",
-    };
+    private static string KindAction(RouteNodeKind kind) =>
+        kind == RouteNodeKind.Anchor ? "选择魔力之源" : "选择或录制路线";
 
-    private static string LoopSubtitle(int? maxLaps, TimeSpan? maxDuration)
-    {
-        if (maxLaps is null && maxDuration is null) return "无限";
-        var parts = new List<string>();
-        if (maxLaps is { } laps) parts.Add($"≤{laps} 圈");
-        if (maxDuration is { } duration) parts.Add($"≤{duration.TotalMinutes:0.#} 分钟");
-        return string.Join(" · ", parts);
-    }
-
-    private sealed class CardView(RouteNode node, Border root)
+    private sealed class RowView(RouteNode node, Border root)
     {
         public RouteNode Node { get; } = node;
         public Border Root { get; } = root;
-        public Button? RunButton { get; init; }
+        public UiButton? RunButton { get; init; }
         public bool Active { get; set; }
         public bool Hovered { get; set; }
     }

@@ -8,6 +8,7 @@
       <ResourceDictionary.MergedDictionaries>
         <ui:ThemesDictionary Theme="Dark" />
         <ui:ControlsDictionary />
+        <ResourceDictionary Source="Appearance/GlassTheme.xaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <Thickness x:Key="PagePadding">32,24,32,40</Thickness>

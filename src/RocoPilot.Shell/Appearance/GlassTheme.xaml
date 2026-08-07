@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- 玻璃拟态：卡片半透明 + 高光描边（深色主题基调，浅色由 ShellTheme 运行时覆盖） -->
+  <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#14FFFFFF" />
+  <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#0DFFFFFF" />
+  <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#30FFFFFF" />
+
+</ResourceDictionary>

@@ -58,19 +58,7 @@ internal static class ShellTheme
 
     private static void ApplyCardContrast()
     {
-        var resources = Application.Current.Resources;
-        if (ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Light)
-        {
-            resources["CardBackgroundFillColorDefaultBrush"] = FrozenBrush(0xFFFFFFFF);
-            resources["CardBackgroundFillColorSecondaryBrush"] = FrozenBrush(0xFFF6F6F6);
-            resources["CardStrokeColorDefaultBrush"] = FrozenBrush(0x26000000);
-        }
-        else
-        {
-            resources.Remove("CardBackgroundFillColorDefaultBrush");
-            resources.Remove("CardBackgroundFillColorSecondaryBrush");
-            resources.Remove("CardStrokeColorDefaultBrush");
-        }
+        // 玻璃拟态的资源覆盖已由 Appearance/GlassTheme.xaml 声明（MergedDictionaries 末尾，优先级最高）。
     }
 
     private static SolidColorBrush FrozenBrush(uint argb)
