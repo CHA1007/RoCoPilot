@@ -4,54 +4,50 @@ using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Input;
 using RocoPilot.Routing;
-using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
-using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Pages;
 
 public partial class RoutePage : System.Windows.Controls.Page
 {
     private const string GraphName = "采集路线图";
-    private const string TeleportTemplatePath = "assets/templates/map/teleport.png";
-    private const string FastTravelToolId = "fast-travel";
     private const ushort EndRecordingScanCode = 0x2D;
     private const ushort KeyUpStateFlag = 0x001;
 
     private readonly RouteStore _store;
     private readonly CaptureHost _capture;
     private readonly DispatcherHost _dispatcher;
-    private readonly ISettingsStore _settings;
 
     private List<RouteNode> _nodes = [];
-    private List<RouteEdge> _edges = [];
 
     private Guid? _activeNodeId;
     private int _laps;
     private int _retries;
+    private bool _loopsToHead;
+    private int? _maxLaps;
+    private TimeSpan? _maxDuration;
 
     private bool _graphLoaded;
-    private bool _teleporting;
     private RouteRecorder? _recorder;
     private IInputDriver? _recordDriver;
     private TaskCompletionSource<string?>? _recordCompletion;
     private volatile bool _recordStopRequested;
 
-    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher, ISettingsStore settings)
+    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher)
     {
         InitializeComponent();
         _store = store;
         _capture = capture;
         _dispatcher = dispatcher;
-        _settings = settings;
 
         Loaded += OnLoaded;
 
-        GraphCanvas.EditRequested += OnNodeEditRequested;
-        GraphCanvas.DeleteRequested += OnNodeDeleteRequested;
-        GraphCanvas.EdgeRequested += OnEdgeRequested;
-        GraphCanvas.EdgeDeleted += OnEdgeDeleted;
-        GraphCanvas.NodeMoved += OnNodeMoved;
+        LineView.EditRequested += OnNodeEditRequested;
+        LineView.DeleteRequested += OnNodeDeleteRequested;
+        LineView.MoveRequested += OnNodeMoveRequested;
+        LineView.RunRequested += OnRunRequested;
+        LineView.LoopConfigureRequested += OnLoopConfigureRequested;
+        LineView.AddRequested += OnAddRequested;
 
         _dispatcher.EventRaised += OnDispatcherEvent;
         _dispatcher.Changed += OnDispatcherChanged;
@@ -66,7 +62,9 @@ public partial class RoutePage : System.Windows.Controls.Page
         {
             var graph = await _store.LoadGraphAsync();
             _nodes = [.. graph.Nodes];
-            _edges = [.. graph.Edges];
+            _loopsToHead = graph.LoopsToHead;
+            _maxLaps = graph.MaxLaps;
+            _maxDuration = graph.MaxDuration;
         }
         catch (FileNotFoundException)
         {
@@ -76,47 +74,19 @@ public partial class RoutePage : System.Windows.Controls.Page
             SetStatus($"执行图加载失败：{ex.Message}");
         }
 
-        GraphCanvas.SetGraph(_nodes, _edges);
+        RefreshList();
     }
 
-    private async void OnAddAnchorClick(object sender, RoutedEventArgs e)
+    private void OnAddRequested(RouteNodeKind kind)
     {
         if (!EnsureEditable()) return;
-
-        var anchorName = await PickAnchorAsync(currentName: null);
-        if (anchorName is null) return;
-
-        AddNode(new RouteNode(RouteNodeKind.Anchor, $"锚点·{anchorName}", NextX(), NextY(), anchorName: anchorName));
-    }
-
-    private async void OnAddPlaybackClick(object sender, RoutedEventArgs e)
-    {
-        if (!EnsureEditable()) return;
-
-        var routes = await _store.ListAsync();
-        if (routes.Count == 0)
-        {
-            SetStatus("尚无已录制的路线——先录制一条");
-            var recorded = await StartRecordingAsync();
-            if (recorded is null) return;
-            AddNode(new RouteNode(RouteNodeKind.Playback, $"回放·{recorded}", NextX(), NextY(), routeName: recorded));
-            return;
-        }
-
-        AddNode(new RouteNode(RouteNodeKind.Playback, $"回放·{routes[0].Name}", NextX(), NextY(), routeName: routes[0].Name));
-    }
-
-    private void OnAddLoopClick(object sender, RoutedEventArgs e)
-    {
-        if (!EnsureEditable()) return;
-        AddNode(new RouteNode(RouteNodeKind.Loop, "循环", NextX(), NextY()));
+        AddNode(new RouteNode(kind, kind == RouteNodeKind.Anchor ? "锚点" : "回放"));
     }
 
     private void AddNode(RouteNode node)
     {
         _nodes.Add(node);
         SaveAndRefresh();
-        SetStatus($"已添加节点「{node.Name}」——拖到合适位置，双击配置参数");
     }
 
     private void OnNodeDeleteRequested(Guid nodeId)
@@ -127,73 +97,45 @@ public partial class RoutePage : System.Windows.Controls.Page
         if (node is null) return;
 
         _nodes.Remove(node);
-        _edges.RemoveAll(edge => edge.FromId == nodeId || edge.ToId == nodeId);
         SaveAndRefresh();
-        SetStatus($"已删除节点「{node.Name}」及其连线");
     }
 
-    private void OnEdgeDeleted(RouteEdge edge)
+    private void OnNodeMoveRequested(Guid nodeId, int newIndex)
+    {
+        if (!EnsureEditable())
+        {
+            RefreshList();
+            return;
+        }
+
+        var currentIndex = _nodes.FindIndex(n => n.Id == nodeId);
+        if (currentIndex < 0) return;
+
+        newIndex = Math.Clamp(newIndex, 0, _nodes.Count - 1);
+        if (newIndex == currentIndex)
+        {
+            RefreshList();
+            return;
+        }
+
+        var node = _nodes[currentIndex];
+        _nodes.RemoveAt(currentIndex);
+        _nodes.Insert(newIndex, node);
+        SaveAndRefresh();
+    }
+
+    private void OnLoopConfigureRequested()
     {
         if (!EnsureEditable()) return;
-        if (_edges.RemoveAll(e => e.FromId == edge.FromId && e.ToId == edge.ToId) > 0)
-        {
-            SaveAndRefresh();
-            SetStatus("已删除连线");
-        }
-    }
 
-    private void OnEdgeRequested(Guid fromId, Guid toId)
-    {
-        if (!EnsureEditable()) return;
+        var owner = Window.GetWindow(this);
+        var config = RouteNodeConfigDialog.LoopSettings(owner, _loopsToHead, _maxLaps, _maxDuration);
+        if (config is null) return;
 
-        var from = _nodes.FirstOrDefault(n => n.Id == fromId);
-        var to = _nodes.FirstOrDefault(n => n.Id == toId);
-        if (from is null || to is null || fromId == toId) return;
-
-        if (_edges.Any(edge => edge.FromId == fromId))
-        {
-            SetStatus($"连线被拒绝：「{from.Name}」已有出边——v1 仅支持线性链（每节点最多一进一出）");
-            return;
-        }
-
-        if (_edges.Any(edge => edge.ToId == toId))
-        {
-            SetStatus($"连线被拒绝：「{to.Name}」已有入边——v1 仅支持线性链（每节点最多一进一出）");
-            return;
-        }
-
-        if (CreatesCycle(fromId, toId))
-        {
-            SetStatus("连线被拒绝：会形成环——循环语义请用循环节点表达");
-            return;
-        }
-
-        _edges.Add(new RouteEdge(fromId, toId));
+        _loopsToHead = config.Enabled;
+        _maxLaps = config.MaxLaps;
+        _maxDuration = config.MaxDuration;
         SaveAndRefresh();
-        SetStatus($"已连接「{from.Name}」→「{to.Name}」");
-    }
-
-    private bool CreatesCycle(Guid fromId, Guid toId)
-    {
-        var next = _edges.ToDictionary(edge => edge.FromId, edge => edge.ToId);
-        var current = toId;
-        while (next.TryGetValue(current, out var nextId))
-        {
-            if (nextId == fromId) return true;
-            current = nextId;
-        }
-
-        return false;
-    }
-
-    private void OnNodeMoved(Guid nodeId, double x, double y)
-    {
-        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node is null) return;
-
-        _nodes.Remove(node);
-        _nodes.Add(Reposition(node, x, y));
-        _ = SaveGraphAsync();
     }
 
     private async void OnNodeEditRequested(RouteNode node)
@@ -205,13 +147,11 @@ public partial class RoutePage : System.Windows.Controls.Page
         {
             case RouteNodeKind.Anchor:
             {
-                var anchorName = await PickAnchorAsync(node.AnchorName);
+                var anchorName = RouteNodeConfigDialog.AnchorName(owner, node.AnchorName);
                 if (anchorName is null || anchorName == node.AnchorName) return;
 
-                ReplaceNode(new RouteNode(
-                    node.Kind, $"锚点·{anchorName}", node.CanvasX, node.CanvasY,
-                    anchorName: anchorName, id: node.Id));
-                SetStatus($"锚点「{node.Name}」已改为「{anchorName}」");
+                ReplaceNode(new RouteNode(node.Kind, $"锚点·{anchorName}", anchorName: anchorName, id: node.Id));
+                SetStatus($"锚点已配置为「{anchorName}」");
                 break;
             }
 
@@ -229,24 +169,10 @@ public partial class RoutePage : System.Windows.Controls.Page
 
                 if (choice.RouteName is { } routeName && routeName != node.RouteName)
                 {
-                    ReplaceNode(new RouteNode(
-                        node.Kind, $"回放·{routeName}", node.CanvasX, node.CanvasY,
-                        routeName: routeName, id: node.Id));
-                    SetStatus($"回放节点已关联路线「{routeName}」");
+                    ReplaceNode(new RouteNode(node.Kind, $"回放·{routeName}", routeName: routeName, id: node.Id));
+                    SetStatus($"回放步骤已关联路线「{routeName}」");
                 }
 
-                break;
-            }
-
-            case RouteNodeKind.Loop:
-            {
-                var config = RouteNodeConfigDialog.Loop(owner, node.MaxLaps, node.MaxDuration);
-                if (config is null) return;
-
-                ReplaceNode(new RouteNode(
-                    node.Kind, node.Name, node.CanvasX, node.CanvasY,
-                    maxLaps: config.MaxLaps, maxDuration: config.MaxDuration, id: node.Id));
-                SetStatus("循环节点参数已更新");
                 break;
             }
         }
@@ -260,10 +186,8 @@ public partial class RoutePage : System.Windows.Controls.Page
         var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
         if (node is null) return;
 
-        ReplaceNode(new RouteNode(
-            node.Kind, $"回放·{recorded}", node.CanvasX, node.CanvasY,
-            routeName: recorded, id: node.Id));
-        SetStatus($"新路线「{recorded}」已关联到节点「{node.Name}」");
+        ReplaceNode(new RouteNode(node.Kind, $"回放·{recorded}", routeName: recorded, id: node.Id));
+        SetStatus($"新路线「{recorded}」已关联到步骤「{node.Name}」");
     }
 
     private void ReplaceNode(RouteNode replacement)
@@ -274,23 +198,20 @@ public partial class RoutePage : System.Windows.Controls.Page
         SaveAndRefresh();
     }
 
-    private static RouteNode Reposition(RouteNode node, double x, double y) => new(
-        node.Kind,
-        node.Name,
-        x,
-        y,
-        node.AnchorName,
-        node.RouteName,
-        node.MaxLaps,
-        node.MaxDuration,
-        node.Id);
-
-    private RouteGraph BuildGraph() => new(GraphName, _nodes, _edges);
+    private RouteGraph BuildGraph() => new(GraphName, _nodes, _loopsToHead, _maxLaps, _maxDuration);
 
     private void SaveAndRefresh()
     {
-        GraphCanvas.SetGraph(_nodes, _edges, _activeNodeId);
+        RefreshList();
         _ = SaveGraphAsync();
+    }
+
+    private void RefreshList()
+    {
+        LineView.SetSteps(_nodes, _activeNodeId);
+        LineView.SetLoop(_loopsToHead, _maxLaps, _maxDuration);
+        LineView.SetRunning(_dispatcher.RoutePlaybackEnabled);
+        LineView.SetBusy(_dispatcher.RoutePlaybackEnabled || _recorder is not null);
     }
 
     private async Task SaveGraphAsync()
@@ -305,8 +226,16 @@ public partial class RoutePage : System.Windows.Controls.Page
         }
     }
 
-    private void OnRunClick(object sender, RoutedEventArgs e)
+    private void OnRunRequested(Guid nodeId)
     {
+        if (_dispatcher.RoutePlaybackEnabled)
+        {
+            _dispatcher.RoutePlaybackEnabled = false;
+            _dispatcher.SyncEnables();
+            UpdateToolbarState();
+            return;
+        }
+
         if (_recorder is not null)
         {
             SetStatus("录制中——按 X 结束录制后再运行");
@@ -321,17 +250,10 @@ public partial class RoutePage : System.Windows.Controls.Page
 
         _laps = 0;
         _retries = 0;
-        _dispatcher.RoutePlaybackEnabled = true;
-        _dispatcher.SyncEnables();
+        _dispatcher.StartRoutePlayback(nodeId);
+        WindowFinder.ActivateGameWindow();
         UpdateToolbarState();
-        UpdateStatusLine("已开启路线回放（开放世界场景生效，与自动丢球互斥）");
-    }
-
-    private void OnStopClick(object sender, RoutedEventArgs e)
-    {
-        _dispatcher.RoutePlaybackEnabled = false;
-        _dispatcher.SyncEnables();
-        UpdateToolbarState();
+        UpdateStatusLine("已开启路线回放（与自动丢球互斥，地图快传临时停用，停止后恢复）");
     }
 
     private void OnDispatcherChanged() => Dispatcher.BeginInvoke(() =>
@@ -349,10 +271,13 @@ public partial class RoutePage : System.Windows.Controls.Page
                     && Guid.TryParse(nodeIdText, out var nodeId))
                 {
                     _activeNodeId = nodeId;
-                    GraphCanvas.SetActive(nodeId);
+                    LineView.SetActive(nodeId);
                 }
 
-                UpdateStatusLine();
+                if (toolEvent.Data?["kind"] as string == nameof(RouteNodeKind.Anchor))
+                    UpdateStatusLine("锚点传送：自动开图并传送中");
+                else
+                    UpdateStatusLine();
                 break;
 
             case "loop_lap":
@@ -394,7 +319,7 @@ public partial class RoutePage : System.Windows.Controls.Page
     private void ClearActiveNode()
     {
         _activeNodeId = null;
-        GraphCanvas.SetActive(null);
+        LineView.SetActive(null);
     }
 
     private void UpdateStatusLine(string? transient = null)
@@ -501,172 +426,25 @@ public partial class RoutePage : System.Windows.Controls.Page
 
     private void UpdateToolbarState()
     {
-        var running = _dispatcher.RoutePlaybackEnabled;
-        var recording = _recorder is not null;
-        var busy = running || recording || _teleporting;
-
-        AddAnchorButton.IsEnabled = !busy;
-        AddPlaybackButton.IsEnabled = !busy;
-        AddLoopButton.IsEnabled = !busy;
-        TeleportButton.IsEnabled = !busy;
-        RunButton.IsEnabled = !busy;
-        StopButton.IsEnabled = running;
+        LineView.SetRunning(_dispatcher.RoutePlaybackEnabled);
+        LineView.SetBusy(_dispatcher.RoutePlaybackEnabled || _recorder is not null);
     }
 
     private bool EnsureEditable()
     {
         if (_dispatcher.RoutePlaybackEnabled)
         {
-            SetStatus("执行中——先停止再编辑图");
+            SetStatus("执行中——先停止再编辑步骤");
             return false;
         }
 
         if (_recorder is not null)
         {
-            SetStatus("录制中——按 X 结束录制后再编辑图");
-            return false;
-        }
-
-        if (_teleporting)
-        {
-            SetStatus("传送进行中——请稍候");
+            SetStatus("录制中——按 X 结束录制后再编辑步骤");
             return false;
         }
 
         return true;
-    }
-
-    private double NextX() => 32 + (_nodes.Count % 4) * 210;
-
-    private double NextY() => 32 + (_nodes.Count / 4) * 110;
-
-    private async void OnTeleportClick(object sender, RoutedEventArgs e)
-    {
-        if (!EnsureEditable()) return;
-        if (!_capture.IsRunning)
-        {
-            SetStatus("请先开启截图源（启动页）");
-            return;
-        }
-
-        var anchorName = await PickAnchorAsync(currentName: null);
-        if (anchorName is null) return;
-
-        var anchors = await _store.LoadAnchorsAsync();
-        var entry = anchors.FirstOrDefault(candidate => candidate.Name == anchorName);
-        if (entry is null) return;
-
-        using var transient = TryCreateTransientGuide();
-        if (transient is null) return;
-
-        _teleporting = true;
-        UpdateToolbarState();
-        SetStatus($"正在传送至「{entry.Name}」——请确保游戏内已打开世界地图且窗口处于前台");
-        try
-        {
-            var result = await Task.Run(() => transient.Guide.Teleport(entry), CancellationToken.None);
-            SetStatus(result.Succeeded ? result.Message : $"传送失败：{result.Message}");
-        }
-        finally
-        {
-            _teleporting = false;
-            UpdateToolbarState();
-        }
-    }
-
-    private async Task<string?> PickAnchorAsync(string? currentName)
-    {
-        var anchors = await _store.LoadAnchorsAsync();
-        while (true)
-        {
-            if (anchors.Count == 0)
-            {
-                SetStatus("锚点名单为空——扫描地图添加魔力之源");
-                anchors = await ManageAnchorsAsync(anchors);
-                if (anchors.Count == 0) return null;
-                continue;
-            }
-
-            var choice = RouteNodeConfigDialog.Anchor(Window.GetWindow(this), anchors, currentName);
-            if (choice is null) return null;
-            if (!choice.ManageRoster) return choice.AnchorName;
-            anchors = await ManageAnchorsAsync(anchors);
-        }
-    }
-
-    private async Task<IReadOnlyList<AnchorEntry>> ManageAnchorsAsync(IReadOnlyList<AnchorEntry> anchors)
-    {
-        var updated = AnchorRosterDialog.Manage(Window.GetWindow(this), anchors, ScanAnchorsAsync);
-        if (updated is null) return anchors;
-
-        try
-        {
-            await _store.SaveAnchorsAsync(updated);
-            SetStatus($"锚点名单已保存：{updated.Count} 条");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"锚点名单保存失败：{ex.Message}");
-        }
-
-        return updated;
-    }
-
-    private async Task<IReadOnlyList<AnchorScanHit>> ScanAnchorsAsync(CancellationToken cancellationToken)
-    {
-        using var transient = TryCreateTransientGuide();
-        if (transient is null)
-            throw new InvalidOperationException("截图源未开启或输入驱动初始化失败");
-
-        var result = await Task.Run(() => transient.Guide.ScanAnchors(cancellationToken), CancellationToken.None);
-        if (!result.Succeeded)
-            throw new InvalidOperationException(result.Message);
-
-        return result.Positions;
-    }
-
-    private TransientGuide? TryCreateTransientGuide()
-    {
-        var source = _capture.CurrentSource;
-        if (source is null)
-        {
-            SetStatus("请先开启截图源（启动页）");
-            return null;
-        }
-
-        IInputDriver driver;
-        try
-        {
-            driver = InputDriverFactory.Create();
-            driver.Arm();
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"输入驱动初始化失败：{ex.Message}");
-            return null;
-        }
-
-        var teleportSettings = _settings.GetToolSettings(
-            FastTravelToolId, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
-                               ?? new FastTravelSettings();
-
-        var sensor = TeleportSensor.TryCreate(TeleportTemplatePath);
-        var guide = new PoiTeleportGuide(
-            grabFrame: () => source.TryGrabLatest(out var frame) ? frame : null,
-            inputDriver: driver,
-            teleportSensor: sensor,
-            teleportSettings: teleportSettings,
-            frameToScreen: GameFrameMapper.Create(source));
-        return new TransientGuide(guide, driver, sensor);
-    }
-
-    private sealed record TransientGuide(PoiTeleportGuide Guide, IInputDriver Driver, TeleportSensor? Sensor) : IDisposable
-    {
-        public void Dispose()
-        {
-            Sensor?.Dispose();
-            Driver.Dispose();
-        }
     }
 
     private void SetStatus(string text) => StatusText.Text = text;

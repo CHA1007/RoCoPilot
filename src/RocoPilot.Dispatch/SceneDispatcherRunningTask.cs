@@ -37,6 +37,11 @@ public sealed class SceneDispatcherRunningTask : RunningTaskBase
 
     public override string ToolId => "dispatcher";
 
+    public IReadOnlyDictionary<GameScene, float> SceneScores
+    {
+        get { lock (Gate) { return _dispatcher?.LatestScores ?? new Dictionary<GameScene, float>(); } }
+    }
+
     public void RequestRefreshActivation()
     {
         lock (Gate) { _dispatcher?.RequestRefreshActivation(); }

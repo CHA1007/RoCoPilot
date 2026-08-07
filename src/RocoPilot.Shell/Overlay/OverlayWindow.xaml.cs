@@ -12,6 +12,7 @@ public partial class OverlayWindow : Window
 
     private const double CompactWidth = 200, CompactHeight = 36, CompactRadius = 18;
     private const double ExpandedWidth = 300, ExpandedHeight = 72, ExpandedRadius = 36;
+    private const double MaxCompactWidth = 420;
 
     private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(420);
     private static readonly TimeSpan SceneExpandWindow = TimeSpan.FromMilliseconds(2200);
@@ -40,6 +41,7 @@ public partial class OverlayWindow : Window
     private string? _expandScene;
     private bool _expandLeaving;
     private int _lastThrows;
+    private double _compactWidth = CompactWidth;
 
     public OverlayWindow()
     {
@@ -95,6 +97,8 @@ public partial class OverlayWindow : Window
             AnimatePhaseIn();
         }
 
+        UpdateCompactWidth();
+
         if (snapshot.Throws != _lastThrows)
         {
             _lastThrows = snapshot.Throws;
@@ -113,6 +117,29 @@ public partial class OverlayWindow : Window
 
         MorphTo(stalled || _sceneExpandActive);
         Island.BorderBrush = stalled ? s_borderStall : s_borderIdle;
+    }
+
+    private void UpdateCompactWidth()
+    {
+        PhaseText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        SceneText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+
+        var needed = 14 + 8 + 9 + PhaseText.DesiredSize.Width + 12 + SceneText.DesiredSize.Width + 14;
+        var target = Math.Clamp(needed, CompactWidth, MaxCompactWidth);
+        if (Math.Abs(target - _compactWidth) < 0.5) return;
+
+        _compactWidth = target;
+        var windowWidth = target + 48;
+        if (Width < windowWidth) Width = windowWidth;
+
+        if (!_expanded)
+        {
+            Island.BeginAnimation(WidthProperty,
+                new DoubleAnimation(target, TimeSpan.FromMilliseconds(180))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                });
+        }
     }
 
     private void FillStall(int minutes)
@@ -162,7 +189,7 @@ public partial class OverlayWindow : Window
 
         var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
         Island.BeginAnimation(WidthProperty,
-            new DoubleAnimation(expanded ? ExpandedWidth : CompactWidth, MorphDuration) { EasingFunction = ease });
+            new DoubleAnimation(expanded ? ExpandedWidth : _compactWidth, MorphDuration) { EasingFunction = ease });
         Island.BeginAnimation(HeightProperty,
             new DoubleAnimation(expanded ? ExpandedHeight : CompactHeight, MorphDuration) { EasingFunction = ease });
 

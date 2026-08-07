@@ -109,7 +109,33 @@ public sealed class OverlayProjection
 
                 case "anchor_teleport":
                     _phase = RoutePhase(
-                        toolEvent.Data?.GetValueOrDefault("phase") as string == "landed" ? "已落地" : "传送中");
+                        toolEvent.Data?.GetValueOrDefault("phase") as string == "landed" ? "传送·已落地" : "传送·开始");
+                    break;
+
+                case "map_open":
+                    _phase = RoutePhase("传送·开图");
+                    break;
+
+                case "map_calibrate":
+                    _phase = RoutePhase(toolEvent.Data?.GetValueOrDefault("phase") as string == "zoom_out"
+                        ? "传送·缩到最小"
+                        : "传送·地图校准");
+                    break;
+
+                case "anchor_alignment":
+                    _phase = RoutePhase($"传送·定位锚点（内点 {toolEvent.Data?.GetValueOrDefault("inliers") ?? 0}）");
+                    break;
+
+                case "poi_click":
+                    _phase = RoutePhase("传送·点击锚点");
+                    break;
+
+                case "teleport_clicked":
+                    _phase = RoutePhase("传送·等待落地");
+                    break;
+
+                case "anchor_failed":
+                    _phase = RoutePhase("传送·失败");
                     break;
 
                 case "stuck_retry":
@@ -137,8 +163,10 @@ public sealed class OverlayProjection
 
     private string RoutePhase(string? detail)
     {
-        var lap = _routeLap > 0 ? $"第{_routeLap}圈" : "路线";
-        return string.IsNullOrEmpty(detail) ? lap : $"{lap}｜{detail}";
+        if (_routeLap <= 0)
+            return string.IsNullOrEmpty(detail) ? "路线" : detail!;
+
+        return string.IsNullOrEmpty(detail) ? $"第{_routeLap}圈" : $"第{_routeLap}圈｜{detail}";
     }
 
     public OverlaySnapshot Snapshot()

@@ -20,6 +20,8 @@ public sealed class SceneDispatcher
     private int _pendingCount;
     private volatile bool _refreshActivation;
     private bool _suspendedByFocusLoss;
+    private bool _sensingSuspended;
+    private volatile IReadOnlyDictionary<GameScene, float> _latestScores = new Dictionary<GameScene, float>();
 
     public SceneDispatcher(
         ICaptureSource captureSource,
@@ -38,6 +40,8 @@ public sealed class SceneDispatcher
     }
 
     public GameScene CurrentScene => _currentScene;
+
+    public IReadOnlyDictionary<GameScene, float> LatestScores => _latestScores;
 
     public event EventHandler<ToolEvent>? EventRaised;
 
@@ -99,10 +103,15 @@ public sealed class SceneDispatcher
     {
         var bestScene = GameScene.Unknown;
         var bestScore = 0f;
+        var scores = new Dictionary<GameScene, float>();
 
         foreach (var detector in _detectors)
         {
             var score = detector.Detect(pixels, width, height);
+            var raw = detector is TemplateSceneDetector template ? template.LastRawScore : score;
+            if (!scores.TryGetValue(detector.Scene, out var known) || raw > known)
+                scores[detector.Scene] = raw;
+
             if (score > bestScore)
             {
                 bestScore = score;
@@ -110,6 +119,7 @@ public sealed class SceneDispatcher
             }
         }
 
+        _latestScores = scores;
         return bestScene;
     }
 
@@ -121,6 +131,17 @@ public sealed class SceneDispatcher
             _pendingScene = GameScene.Unknown;
             _pendingCount = 0;
 
+            if (_sensingSuspended)
+            {
+                _sensingSuspended = false;
+                _activeHandler?.ResumeSensing();
+
+                Emit("sensing_resumed", new Dictionary<string, object?>
+                {
+                    ["scene"] = detected.ToString(),
+                });
+            }
+
             if (_activeHandler is null && _suspendedByFocusLoss)
             {
                 _suspendedByFocusLoss = false;
@@ -129,6 +150,18 @@ public sealed class SceneDispatcher
 
             _activeHandler?.Handle(pixels, width, height);
             return;
+        }
+
+        if (_activeHandler is not null && !_sensingSuspended)
+        {
+            _sensingSuspended = true;
+            _activeHandler.SuspendSensing();
+
+            Emit("sensing_suspended", new Dictionary<string, object?>
+            {
+                ["from"] = _currentScene.ToString(),
+                ["detected"] = detected.ToString(),
+            });
         }
 
         if (detected == _pendingScene)
@@ -146,7 +179,7 @@ public sealed class SceneDispatcher
 
         var previous = _currentScene;
         _suspendedByFocusLoss = false;
-        DeactivateCurrent();
+        _sensingSuspended = false;
         _currentScene = detected;
         _pendingScene = GameScene.Unknown;
         _pendingCount = 0;
@@ -157,6 +190,13 @@ public sealed class SceneDispatcher
             ["to"] = detected.ToString(),
         });
 
+        if (_activeHandler is not null && _activeHandler.HoldActivation(detected))
+        {
+            _activeHandler.Handle(pixels, width, height);
+            return;
+        }
+
+        DeactivateCurrent();
         ActivateHandler(detected);
 
         _activeHandler?.Handle(pixels, width, height);
@@ -196,6 +236,7 @@ public sealed class SceneDispatcher
 
     private void DeactivateCurrent()
     {
+        _sensingSuspended = false;
         if (_activeHandler is null)
             return;
 

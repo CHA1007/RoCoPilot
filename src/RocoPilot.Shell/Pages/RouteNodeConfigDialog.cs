@@ -6,48 +6,52 @@ namespace RocoPilot.Shell.Pages;
 
 public sealed record PlaybackConfig(string? RouteName, bool RecordNew);
 
-public sealed record LoopConfig(int? MaxLaps, TimeSpan? MaxDuration);
-
-public sealed record AnchorChoice(string? AnchorName, bool ManageRoster);
+public sealed record LoopSettingsConfig(bool Enabled, int? MaxLaps, TimeSpan? MaxDuration);
 
 internal static class RouteNodeConfigDialog
 {
-    public static AnchorChoice? Anchor(Window? owner, IReadOnlyList<AnchorEntry> anchors, string? currentName)
+    public static string? AnchorName(Window? owner, string? currentName)
     {
-        var combo = new ComboBox { Margin = new Thickness(0, 8, 0, 0), MinWidth = 260 };
-        foreach (var anchor in anchors) combo.Items.Add(anchor.Name);
-        if (anchors.Any(anchor => anchor.Name == (currentName ?? string.Empty)))
-            combo.SelectedItem = currentName;
-        else if (combo.Items.Count > 0)
-            combo.SelectedIndex = 0;
-
-        var manageButton = new Button
+        var combo = new ComboBox
         {
-            Content = "管理锚点名单…",
-            Margin = new Thickness(0, 12, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Left,
+            IsEditable = true,
+            Margin = new Thickness(0, 8, 0, 0),
+            MinWidth = 260,
+            Text = currentName ?? string.Empty,
         };
+        foreach (var entry in AnchorCatalog.GroundEntries) combo.Items.Add(entry.Name);
 
         var window = BuildWindow(
             owner,
             "锚点节点配置",
-            Hint("从魔力之源锚点名单中选择；名单通过「管理锚点名单」扫描地图建立。"),
+            Hint("选择内置目录中的官方魔力之源名（地面层，共 39 个；地下一层暂不支持）。传送时会自动在地图上对齐定位，无需录入坐标。"),
             combo,
-            manageButton,
+            null,
             out var ok,
             out var cancel);
 
-        ok.IsEnabled = combo.Items.Count > 0;
-
-        AnchorChoice? result = null;
+        string? result = null;
         ok.Click += (_, _) =>
         {
-            result = new AnchorChoice(combo.SelectedItem as string, ManageRoster: false);
-            window.DialogResult = true;
-        };
-        manageButton.Click += (_, _) =>
-        {
-            result = new AnchorChoice(null, ManageRoster: true);
+            var name = combo.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                MessageBox.Show(owner, "请选择魔力之源。", "RocoPilot", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (AnchorCatalog.GroundEntries.All(entry => entry.Name != name))
+            {
+                MessageBox.Show(
+                    owner,
+                    $"「{name}」不在内置魔力之源目录中——请从下拉列表选择官方名称。",
+                    "RocoPilot",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            result = name;
             window.DialogResult = true;
         };
         cancel.Click += (_, _) => window.DialogResult = false;
@@ -112,8 +116,14 @@ internal static class RouteNodeConfigDialog
         return window.ShowDialog() == true ? result : null;
     }
 
-    public static LoopConfig? Loop(Window? owner, int? currentLaps, TimeSpan? currentDuration)
+    public static LoopSettingsConfig? LoopSettings(Window? owner, bool enabled, int? currentLaps, TimeSpan? currentDuration)
     {
+        var enableBox = new CheckBox
+        {
+            Content = "启用整图循环",
+            IsChecked = enabled,
+            Margin = new Thickness(0, 12, 0, 0),
+        };
         var lapsBox = new TextBox
         {
             Text = currentLaps?.ToString() ?? string.Empty,
@@ -125,18 +135,19 @@ internal static class RouteNodeConfigDialog
             Margin = new Thickness(0, 4, 0, 12),
         };
 
-        var window = BuildWindow(
+        var window = BuildWindowCore(
             owner,
-            "循环节点配置",
-            Hint("两个上限留空即为无限循环；任一上限满足即结束整图。"),
-            Label("圈数上限"),
-            lapsBox,
-            Label("时长上限（分钟）"),
-            minutesBox,
+            "循环配置",
+            [Hint("开启后步骤列表跑完从头再跑；两个上限留空即为无限循环，任一上限满足即结束。"),
+             enableBox,
+             Label("圈数上限"),
+             lapsBox,
+             Label("时长上限（分钟）"),
+             minutesBox],
             out var ok,
             out var cancel);
 
-        LoopConfig? result = null;
+        LoopSettingsConfig? result = null;
         ok.Click += (_, _) =>
         {
             if (!TryParseLaps(lapsBox.Text, out var laps, out var lapsError))
@@ -163,7 +174,10 @@ internal static class RouteNodeConfigDialog
                 return;
             }
 
-            result = new LoopConfig(laps, minutes is { } value ? TimeSpan.FromMinutes(value) : null);
+            result = new LoopSettingsConfig(
+                enableBox.IsChecked == true,
+                laps,
+                minutes is { } value ? TimeSpan.FromMinutes(value) : null);
             window.DialogResult = true;
         };
         cancel.Click += (_, _) => window.DialogResult = false;

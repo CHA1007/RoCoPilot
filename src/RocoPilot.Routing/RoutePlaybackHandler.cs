@@ -26,6 +26,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
     private TeleportSensor? _sensor;
     private CancellationTokenSource? _cts;
     private Task? _runTask;
+    private volatile bool _teleportInProgress;
 
     public RoutePlaybackHandler(
         RouteStore store,
@@ -40,6 +41,8 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
     }
 
     public GameScene Scene => GameScene.OpenWorld;
+
+    public Guid? StartNodeId { get; set; }
 
     public bool IsEnabled { get; set; }
 
@@ -69,6 +72,8 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
     public bool Handle(ReadOnlySpan<byte> bgraPixels, int width, int height)
         => _runTask is not null && !_runTask.IsCompleted;
 
+    public bool HoldActivation(GameScene nextScene) => _teleportInProgress;
+
     public void Deactivate()
     {
         CancellationTokenSource? cts;
@@ -81,6 +86,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             _cts = null;
             _runTask = null;
             _context = null;
+            _graph = null;
         }
 
         cts?.Cancel();
@@ -89,6 +95,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
         catch (AggregateException) { }
 
         cts?.Dispose();
+        _teleportInProgress = false;
     }
 
     public void Dispose()
@@ -131,11 +138,28 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             teleportSettings: teleportSettings,
             frameToScreen: GameFrameMapper.Create(source),
             isGameForeground: context.IsGameForeground,
-            emitEvent: context.EmitEvent,
-            anchorListProvider: ct => _store.LoadAnchorsAsync(ct));
+            emitEvent: toolEvent =>
+            {
+                TrackTeleportPhase(toolEvent);
+                context.EmitEvent(toolEvent);
+            });
 
         _executor = new GraphExecutor(player, guide, _store.LoadAsync, _currentScene, context.EmitEvent, playbackSettings.ToExecutorOptions());
         _builtDriver = context.InputDriver;
+    }
+
+    private void TrackTeleportPhase(ToolEvent toolEvent)
+    {
+        switch (toolEvent.Name)
+        {
+            case "anchor_teleport":
+                _teleportInProgress = toolEvent.Data?.GetValueOrDefault("phase") as string == "started";
+                break;
+
+            case "anchor_failed":
+                _teleportInProgress = false;
+                break;
+        }
     }
 
     private async Task RunAsync(CancellationToken ct)
@@ -161,7 +185,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
                 {
                     emit(new ToolEvent("route_playback_fault", new Dictionary<string, object?>
                     {
-                        ["error"] = "尚未配置执行图——到「路线」页添加节点并连线后再运行。",
+                        ["error"] = "尚未配置路线——到「路线」页添加步骤后再运行。",
                     }));
                     return;
                 }
@@ -177,7 +201,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
                 _graph = graph;
             }
 
-            var result = await executor.RunAsync(_graph, ct);
+            var result = await executor.RunAsync(_graph, StartNodeId, ct);
 
             if (result.Reason == GraphCompletionReason.Stopped)
             {
@@ -210,6 +234,10 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             }));
             _executor?.Reset();
             _graph = null;
+        }
+        finally
+        {
+            _teleportInProgress = false;
         }
     }
 }

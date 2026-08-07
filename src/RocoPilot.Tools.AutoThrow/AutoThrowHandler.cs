@@ -54,6 +54,37 @@ public sealed class AutoThrowHandler : ISceneHandler
         return _runTask is not null && !_runTask.IsCompleted;
     }
 
+    public void SuspendSensing()
+    {
+        ICatchPipeline? pipeline;
+        lock (_gate) { pipeline = _pipeline; }
+
+        if (pipeline is null)
+            return;
+
+        if (pipeline.Pause("scene_doubt"))
+        {
+            pipeline.SetSensing(false);
+        }
+    }
+
+    public void ResumeSensing()
+    {
+        ICatchPipeline? pipeline;
+        lock (_gate) { pipeline = _pipeline; }
+
+        if (pipeline is null)
+            return;
+
+        if (!pipeline.Resume("scene_doubt"))
+            return;
+
+        if (pipeline.InputGate())
+        {
+            pipeline.SetSensing(true);
+        }
+    }
+
     public void Deactivate()
     {
         CancellationTokenSource? cts;

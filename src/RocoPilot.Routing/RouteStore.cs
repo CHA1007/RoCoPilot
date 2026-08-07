@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using RocoPilot.Settings;
 
 namespace RocoPilot.Routing;
@@ -8,7 +9,6 @@ public sealed class RouteStore
 {
     private const string RouteFileName = "route.json";
     private const string GraphFileName = "graph.json";
-    private const string AnchorsFileName = "anchors.json";
     private const string KeyframesDirectoryName = "keyframes";
 
     private readonly string _routesRoot;
@@ -105,7 +105,10 @@ public sealed class RouteStore
         var file = new GraphFile(
             graph.Name,
             [.. graph.Nodes.Select(ToNodeRecord)],
-            [.. graph.Edges]);
+            null,
+            graph.LoopsToHead,
+            graph.MaxLaps,
+            graph.MaxDuration);
 
         var jsonPath = Path.Combine(_routesRoot, GraphFileName);
         await using var stream = File.Create(jsonPath);
@@ -122,10 +125,29 @@ public sealed class RouteStore
         var file = await JsonSerializer.DeserializeAsync<GraphFile>(stream, cancellationToken: cancellationToken)
             ?? throw new InvalidDataException($"执行图文件损坏：{jsonPath}");
 
+        var nodes = new List<NodeRecord>(file.Nodes);
+        var loopsToHead = file.LoopsToHead;
+        var maxLaps = file.MaxLaps;
+        var maxDuration = file.MaxDuration;
+
+        for (var i = nodes.Count - 1; i >= 0; i--)
+        {
+            if (nodes[i].Kind != LegacyLoopKind) continue;
+            maxLaps ??= nodes[i].MaxLaps;
+            maxDuration ??= nodes[i].MaxDuration;
+            nodes.RemoveAt(i);
+            loopsToHead = true;
+        }
+
+        if (file.Edges is { Count: > 0 })
+            nodes = OrderByLegacyEdges(nodes, file.Edges, ref loopsToHead);
+
         var graph = new RouteGraph(
             file.Name,
-            [.. file.Nodes.Select(FromNodeRecord)],
-            [.. file.Edges]);
+            [.. nodes.Select(FromNodeRecord)],
+            loopsToHead,
+            maxLaps,
+            maxDuration);
 
         try
         {
@@ -139,55 +161,89 @@ public sealed class RouteStore
         return graph;
     }
 
-    public async Task SaveAnchorsAsync(IReadOnlyList<AnchorEntry> anchors, CancellationToken cancellationToken = default)
+    private static List<NodeRecord> OrderByLegacyEdges(List<NodeRecord> nodes, List<EdgeRecord> edges, ref bool loopsToHead)
     {
-        ArgumentNullException.ThrowIfNull(anchors);
+        var byId = nodes.ToDictionary(node => node.Id);
+        var next = new Dictionary<Guid, Guid>();
+        var incoming = new Dictionary<Guid, int>();
 
-        Directory.CreateDirectory(_routesRoot);
-        var records = anchors.Select(anchor => new AnchorRecord(anchor.Name, anchor.X, anchor.Y)).ToList();
-
-        var jsonPath = Path.Combine(_routesRoot, AnchorsFileName);
-        await using var stream = File.Create(jsonPath);
-        await JsonSerializer.SerializeAsync(stream, records, cancellationToken: cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<AnchorEntry>> LoadAnchorsAsync(CancellationToken cancellationToken = default)
-    {
-        var jsonPath = Path.Combine(_routesRoot, AnchorsFileName);
-        if (!File.Exists(jsonPath)) return [];
-
-        List<AnchorRecord>? records;
-        await using (var stream = File.OpenRead(jsonPath))
+        foreach (var edge in edges)
         {
-            records = await JsonSerializer.DeserializeAsync<List<AnchorRecord>>(stream, cancellationToken: cancellationToken);
+            if (edge.FromId == edge.ToId)
+                throw new InvalidDataException("执行图无效：不允许自连线。");
+            if (!byId.ContainsKey(edge.FromId) || !byId.ContainsKey(edge.ToId))
+                throw new InvalidDataException("执行图无效：连线端点不存在。");
+            if (!next.TryAdd(edge.FromId, edge.ToId))
+                throw new InvalidDataException($"执行图无效：节点「{byId[edge.FromId].Name}」有多条出边。");
+            incoming.TryGetValue(edge.ToId, out var count);
+            incoming[edge.ToId] = count + 1;
         }
 
-        if (records is null)
-            throw new InvalidDataException($"锚点名单文件损坏：{jsonPath}");
+        foreach (var (toId, count) in incoming)
+        {
+            if (count > 1)
+                throw new InvalidDataException($"执行图无效：节点「{byId[toId].Name}」有多条入边。");
+        }
 
-        return records.Select(record => new AnchorEntry(record.Name, record.X, record.Y)).ToList();
+        if (!loopsToHead && nodes.Count > 1)
+        {
+            for (var i = edges.Count - 1; i >= 0; i--)
+            {
+                if (LegacyCycleSize(next, edges[i]) != nodes.Count) continue;
+                next.Remove(edges[i].FromId);
+                incoming.Remove(edges[i].ToId);
+                loopsToHead = true;
+                break;
+            }
+        }
+
+        var starts = nodes.Where(node => !incoming.ContainsKey(node.Id)).ToList();
+        if (starts.Count != 1)
+            throw new InvalidDataException($"执行图无效：检测到 {starts.Count} 个起点。");
+
+        var ordered = new List<NodeRecord>(nodes.Count);
+        var current = starts[0].Id;
+        while (true)
+        {
+            ordered.Add(byId[current]);
+            if (!next.TryGetValue(current, out var nextId)) break;
+            current = nextId;
+        }
+
+        if (ordered.Count != nodes.Count)
+            throw new InvalidDataException("执行图无效：存在未连入主链的孤立节点。");
+
+        return ordered;
+    }
+
+    private static int LegacyCycleSize(IReadOnlyDictionary<Guid, Guid> next, EdgeRecord edge)
+    {
+        var size = 1;
+        var current = edge.ToId;
+        while (current != edge.FromId)
+        {
+            if (!next.TryGetValue(current, out var nextId)) return 0;
+            current = nextId;
+            size++;
+        }
+
+        return size;
     }
 
     private static NodeRecord ToNodeRecord(RouteNode node) => new(
         node.Id,
-        node.Kind,
+        node.Kind.ToString(),
         node.Name,
-        node.CanvasX,
-        node.CanvasY,
         node.AnchorName,
         node.RouteName,
-        node.MaxLaps,
-        node.MaxDuration);
+        null,
+        null);
 
     private static RouteNode FromNodeRecord(NodeRecord record) => new(
-        record.Kind,
+        Enum.Parse<RouteNodeKind>(record.Kind),
         record.Name,
-        record.CanvasX,
-        record.CanvasY,
         record.AnchorName,
         record.RouteName,
-        record.MaxLaps,
-        record.MaxDuration,
         record.Id);
 
     private string RouteDirectory(string name) => Path.Combine(_routesRoot, SanitizeFolderName(name));
@@ -208,18 +264,41 @@ public sealed class RouteStore
 
     private sealed record KeyframeEntry(double OffsetMs, string File, int Width, int Height);
 
-    private sealed record GraphFile(string Name, List<NodeRecord> Nodes, List<RouteEdge> Edges);
+    private const string LegacyLoopKind = "Loop";
+
+    private sealed record GraphFile(
+        string Name,
+        List<NodeRecord> Nodes,
+        List<EdgeRecord>? Edges,
+        bool LoopsToHead = false,
+        int? MaxLaps = null,
+        TimeSpan? MaxDuration = null);
+
+    private sealed record EdgeRecord(Guid FromId, Guid ToId);
 
     private sealed record NodeRecord(
         Guid Id,
-        RouteNodeKind Kind,
+        [property: JsonConverter(typeof(NodeKindJsonConverter))] string Kind,
         string Name,
-        double CanvasX,
-        double CanvasY,
         string? AnchorName,
         string? RouteName,
         int? MaxLaps,
         TimeSpan? MaxDuration);
 
-    private sealed record AnchorRecord(string Name, double X, double Y);
+    private sealed class NodeKindJsonConverter : JsonConverter<string>
+    {
+        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => reader.TokenType == JsonTokenType.Number ? LegacyKindName(reader.GetInt32()) : reader.GetString() ?? string.Empty;
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value);
+
+        private static string LegacyKindName(int value) => value switch
+        {
+            0 => "Anchor",
+            1 => "Playback",
+            2 => LegacyLoopKind,
+            _ => throw new InvalidDataException($"未知节点类型：{value}"),
+        };
+    }
 }

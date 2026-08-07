@@ -44,6 +44,9 @@ public sealed class GraphExecutor
 
     private RouteGraph? _graph;
     private IReadOnlyList<RouteNode> _chain = [];
+    private bool _loopsToHead;
+    private int? _maxLaps;
+    private TimeSpan? _maxDuration;
     private int _index;
     private int _laps;
     private int _attempts;
@@ -70,31 +73,59 @@ public sealed class GraphExecutor
     {
         _graph = null;
         _chain = [];
+        _loopsToHead = false;
+        _maxLaps = null;
+        _maxDuration = null;
         _index = 0;
         _laps = 0;
         _attempts = 0;
         _runWatch.Reset();
     }
 
-    public async Task<GraphExecutionResult> RunAsync(RouteGraph graph, CancellationToken stoppingToken = default)
+    public async Task<GraphExecutionResult> RunAsync(
+        RouteGraph graph,
+        Guid? startNodeId = null,
+        CancellationToken stoppingToken = default)
     {
         ArgumentNullException.ThrowIfNull(graph);
 
         if (!ReferenceEquals(graph, _graph))
         {
-            IReadOnlyList<RouteNode> chain;
+            OrderedRouteChain ordered;
             try
             {
-                chain = graph.OrderedChain();
+                ordered = graph.OrderedChain();
             }
             catch (InvalidOperationException ex)
             {
                 return new GraphExecutionResult(GraphCompletionReason.Faulted, ex.Message, 0, null);
             }
 
+            var chain = ordered.Nodes;
+            _loopsToHead = ordered.LoopsToHead;
+            _maxLaps = graph.MaxLaps;
+            _maxDuration = graph.MaxDuration;
+
+            var startIndex = 0;
+            if (startNodeId is { } startId)
+            {
+                var index = IndexOfNode(chain, startId);
+                if (index < 0)
+                {
+                    var name = graph.Nodes.FirstOrDefault(node => node.Id == startId)?.Name ?? startId.ToString();
+                    return new GraphExecutionResult(
+                        GraphCompletionReason.Faulted,
+                        $"节点「{name}」不在步骤列表中。",
+                        0,
+                        null);
+                }
+
+                startIndex = index;
+            }
+
             _graph = graph;
             _chain = chain;
-            _index = 0;
+            _index = startIndex;
             _laps = 0;
             _attempts = 0;
             _runWatch.Restart();
@@ -135,7 +166,10 @@ public sealed class GraphExecutor
             {
                 case RouteNodeKind.Anchor:
                 {
-                    var teleportResult = await _teleport.TeleportAsync(node.AnchorName!, stoppingToken);
+                    if (string.IsNullOrWhiteSpace(node.AnchorName))
+                        return FinishWithFault($"节点「{node.Name}」未配置锚点——双击步骤选择魔力之源。", node);
+
+                    var teleportResult = await _teleport.TeleportAsync(node.AnchorName, stoppingToken);
                     if (stoppingToken.IsCancellationRequested)
                     {
                         _runWatch.Stop();
@@ -167,10 +201,13 @@ public sealed class GraphExecutor
 
                 case RouteNodeKind.Playback:
                 {
+                    if (string.IsNullOrWhiteSpace(node.RouteName))
+                        return FinishWithFault($"节点「{node.Name}」未关联路线——双击步骤选择或录制路线。", node);
+
                     Route route;
                     try
                     {
-                        route = await _loadRoute(node.RouteName!, stoppingToken);
+                        route = await _loadRoute(node.RouteName, stoppingToken);
                     }
                     catch (OperationCanceledException)
                     {
@@ -221,28 +258,28 @@ public sealed class GraphExecutor
                     break;
                 }
 
-                case RouteNodeKind.Loop:
-                {
-                    _laps++;
-                    Emit("loop_lap", new Dictionary<string, object?>
-                    {
-                        ["lap"] = _laps,
-                        ["elapsed_ms"] = _runWatch.Elapsed.TotalMilliseconds,
-                    });
-
-                    if (node.MaxLaps is { } maxLaps && _laps >= maxLaps)
-                        return FinishCompleted($"达到圈数上限（{maxLaps} 圈）。");
-                    if (node.MaxDuration is { } maxDuration && _runWatch.Elapsed >= maxDuration)
-                        return FinishCompleted($"达到时长上限（{maxDuration}）。");
-
-                    _index = 0;
-                    _attempts = 0;
-                    break;
-                }
             }
 
             if (_index >= _chain.Count)
-                return FinishCompleted("执行图运行完成。");
+            {
+                if (!_loopsToHead)
+                    return FinishCompleted("执行链运行完成。");
+
+                _laps++;
+                Emit("loop_lap", new Dictionary<string, object?>
+                {
+                    ["lap"] = _laps,
+                    ["elapsed_ms"] = _runWatch.Elapsed.TotalMilliseconds,
+                });
+
+                if (_maxLaps is { } maxLaps && _laps >= maxLaps)
+                    return FinishCompleted($"达到圈数上限（{maxLaps} 圈）。");
+                if (_maxDuration is { } maxDuration && _runWatch.Elapsed >= maxDuration)
+                    return FinishCompleted($"达到时长上限（{maxDuration}）。");
+
+                _index = 0;
+                _attempts = 0;
+            }
         }
     }
 
@@ -359,6 +396,16 @@ public sealed class GraphExecutor
         _index = fallbackIndex;
         _attempts = 0;
         return null;
+    }
+
+    private static int IndexOfNode(IReadOnlyList<RouteNode> chain, Guid nodeId)
+    {
+        for (var i = 0; i < chain.Count; i++)
+        {
+            if (chain[i].Id == nodeId) return i;
+        }
+
+        return -1;
     }
 
     private static int NearestUpstreamAnchor(IReadOnlyList<RouteNode> chain, int index)

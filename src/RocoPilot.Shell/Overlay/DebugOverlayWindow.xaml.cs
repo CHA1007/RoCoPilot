@@ -3,7 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using RocoPilot.Core;
 using RocoPilot.Detection;
+using RocoPilot.Dispatch;
 
 namespace RocoPilot.Shell.Overlay;
 public partial class DebugOverlayWindow : Window
@@ -16,15 +18,37 @@ public partial class DebugOverlayWindow : Window
 
     private readonly List<Rectangle> _boxes = new();
     private readonly List<TextBlock> _labels = new();
+    private readonly TextBlock _scorePanel;
 
     public DebugOverlayWindow()
     {
         InitializeComponent();
+
+        _scorePanel = new TextBlock
+        {
+            FontSize = 13,
+            Background = s_labelBg,
+            Foreground = Brushes.White,
+            Padding = new Thickness(6, 3, 6, 3),
+            Visibility = Visibility.Collapsed,
+        };
+        DebugCanvas.Children.Add(_scorePanel);
+        Canvas.SetLeft(_scorePanel, 12);
+        Canvas.SetTop(_scorePanel, 12);
+
         SourceInitialized += (_, _) => MakeClickThrough();
     }
 
-    internal void Render(IReadOnlyList<StableTarget> targets, int frameWidth, int frameHeight, int activeTrackId = -1)
+    internal void Render(
+        IReadOnlyList<StableTarget> targets,
+        int frameWidth,
+        int frameHeight,
+        int activeTrackId,
+        IReadOnlyDictionary<GameScene, float> sceneScores,
+        GameScene currentScene)
     {
+        RenderScorePanel(sceneScores, currentScene);
+
         if (frameWidth <= 0 || frameHeight <= 0 || ActualWidth <= 0 || ActualHeight <= 0)
         {
             CollapseFrom(0);
@@ -64,6 +88,34 @@ public partial class DebugOverlayWindow : Window
 
         CollapseFrom(targets.Count);
     }
+
+    private void RenderScorePanel(IReadOnlyDictionary<GameScene, float> sceneScores, GameScene currentScene)
+    {
+        if (sceneScores.Count == 0)
+        {
+            _scorePanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var parts = new List<string>();
+        foreach (var scene in new[] { GameScene.OpenWorld, GameScene.Battle, GameScene.WorldMap, GameScene.Unknown })
+        {
+            if (!sceneScores.TryGetValue(scene, out var score)) continue;
+            var marker = scene == currentScene ? "● " : string.Empty;
+            parts.Add($"{marker}{SceneLabel(scene)} {score:F2}");
+        }
+
+        _scorePanel.Text = "场景识别｜" + string.Join("  ·  ", parts);
+        _scorePanel.Visibility = Visibility.Visible;
+    }
+
+    private static string SceneLabel(GameScene scene) => scene switch
+    {
+        GameScene.OpenWorld => "大世界",
+        GameScene.Battle => "战斗",
+        GameScene.WorldMap => "地图",
+        _ => "未知",
+    };
 
     private void EnsurePool(int count)
     {

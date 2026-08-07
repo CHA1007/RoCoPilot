@@ -33,8 +33,6 @@ public sealed class ShellSettings
 
     public bool AutoThrowEnabled { get; set; }
 
-    public bool RoutePlaybackEnabled { get; set; }
-
     public bool AutoBattleEnabled { get; set; }
 
     public bool FastTravelEnabled { get; set; }

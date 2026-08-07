@@ -29,6 +29,8 @@ public sealed class OverlayController
     private DispatcherTimer? _debugTimer;
     private OverlayProjection _projection = new();
     private IRunningTask? _observed;
+    private IntPtr _gameWindow;
+    private long _lastGameSearchTicks;
 
     public OverlayController(RunningTaskHost host, CaptureHost capture, ISettingsStore store, DispatcherHost dispatcherHost)
     {
@@ -199,8 +201,8 @@ public sealed class OverlayController
         var snapshot = TakeSnapshot();
 
         var hasBusiness = snapshot.CaptureRunning;
-        var game = hasBusiness ? WindowFinder.FindByProcessName(WindowFinder.GameProcessName) : IntPtr.Zero;
-        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName))
+        var game = hasBusiness ? ResolveGameWindow() : IntPtr.Zero;
+        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !IsForegroundWindow(game))
         {
             if (_window?.IsVisible == true)
             {
@@ -226,6 +228,38 @@ public sealed class OverlayController
             _window.Show();
             _window.Apply(snapshot);
         }
+    }
+
+    private IntPtr ResolveGameWindow()
+    {
+        var cached = _gameWindow;
+        if (cached != IntPtr.Zero && OverlayNative.IsWindow(cached))
+        {
+            return cached;
+        }
+
+        var now = Environment.TickCount64;
+        if (cached != IntPtr.Zero && now - _lastGameSearchTicks < 3000)
+        {
+            return IntPtr.Zero;
+        }
+
+        _lastGameSearchTicks = now;
+        _gameWindow = WindowFinder.FindByProcessName(WindowFinder.GameProcessName);
+        return _gameWindow;
+    }
+
+    private static bool IsForegroundWindow(IntPtr window)
+    {
+        var foreground = OverlayNative.GetForegroundWindow();
+        if (foreground == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        OverlayNative.GetWindowThreadProcessId(foreground, out var foregroundPid);
+        OverlayNative.GetWindowThreadProcessId(window, out var windowPid);
+        return foregroundPid != 0 && foregroundPid == windowPid;
     }
 
     private OverlaySnapshot TakeSnapshot()
@@ -282,14 +316,15 @@ public sealed class OverlayController
         }
 
         var pipeline = _dispatcherHost.DiagnosticsContext as ICatchPipeline;
-        if (pipeline is null)
+        var sceneScores = _dispatcherHost.SceneScores;
+        if (pipeline is null && sceneScores.Count == 0)
         {
             if (_debugWindow?.IsVisible == true) _debugWindow.Hide();
             return;
         }
 
-        var game = pipeline.GameWindow;
-        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName))
+        var game = ResolveGameWindow();
+        if (game == IntPtr.Zero || OverlayNative.IsIconic(game) || !IsForegroundWindow(game))
         {
             if (_debugWindow?.IsVisible == true) _debugWindow.Hide();
             return;
@@ -303,10 +338,10 @@ public sealed class OverlayController
         EnsureDebugWindow();
         PlaceDebugOver(rect);
 
-        var targets = pipeline.ObserveDetections();
-        var frameSize = pipeline.SensorFrameSize;
-        var activeTrack = pipeline.ActiveTrackId;
-        _debugWindow!.Render(targets, frameSize.Width, frameSize.Height, activeTrack);
+        var targets = pipeline?.ObserveDetections() ?? [];
+        var frameSize = pipeline?.SensorFrameSize ?? default;
+        var activeTrack = pipeline?.ActiveTrackId ?? -1;
+        _debugWindow!.Render(targets, frameSize.Width, frameSize.Height, activeTrack, sceneScores, _dispatcherHost.CurrentScene);
 
         if (!_debugWindow.IsVisible)
         {

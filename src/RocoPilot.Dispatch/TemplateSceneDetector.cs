@@ -19,6 +19,8 @@ public class TemplateSceneDetector : ISceneDetector, IDisposable
 
     public GameScene Scene { get; }
 
+    public float LastRawScore { get; private set; }
+
     public (double X, double Y, double W, double H) SearchRegion => _matcher.SearchRegion;
 
     public float Detect(ReadOnlySpan<byte> bgraPixels, int width, int height)
@@ -26,6 +28,7 @@ public class TemplateSceneDetector : ISceneDetector, IDisposable
         try
         {
             var maxVal = _matcher.BestScore(bgraPixels, width, height);
+            LastRawScore = (float)maxVal;
 
             var (rx, ry, rw, rh) = _matcher.SearchRegion;
             var roiX = (int)(rx * width);

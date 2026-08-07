@@ -30,6 +30,7 @@ public sealed class DispatcherHost : IDisposable
     private bool _routePlaybackEnabled;
     private bool _autoBattleEnabled;
     private bool _fastTravelEnabled;
+    private Guid? _pendingStartNode;
 
     public DispatcherHost(CaptureHost capture, ISettingsStore store, ITool throwTool, RouteStore routeStore)
     {
@@ -40,7 +41,6 @@ public sealed class DispatcherHost : IDisposable
 
         var shell = store.GetShellSettings();
         _autoThrowEnabled = shell.AutoThrowEnabled;
-        _routePlaybackEnabled = shell.RoutePlaybackEnabled;
         _autoBattleEnabled = shell.AutoBattleEnabled;
         _fastTravelEnabled = shell.FastTravelEnabled;
 
@@ -48,6 +48,23 @@ public sealed class DispatcherHost : IDisposable
     }
 
     public GameScene CurrentScene { get; private set; } = GameScene.Unknown;
+
+    public IReadOnlyDictionary<GameScene, float> SceneScores
+    {
+        get { lock (_gate) { return _task?.SceneScores ?? new Dictionary<GameScene, float>(); } }
+    }
+
+    public void StartRoutePlayback(Guid startNodeId)
+    {
+        lock (_gate)
+        {
+            _pendingStartNode = startNodeId;
+            if (_playbackHandler is not null) _playbackHandler.StartNodeId = startNodeId;
+        }
+
+        RoutePlaybackEnabled = true;
+        SyncEnables();
+    }
 
     public object? DiagnosticsContext
     {
@@ -115,11 +132,12 @@ public sealed class DispatcherHost : IDisposable
         }
     }
 
+    private bool EffectiveFastTravelEnabled => _fastTravelEnabled && !_routePlaybackEnabled;
+
     private void PersistEnables()
     {
         var shell = _store.GetShellSettings();
         shell.AutoThrowEnabled = _autoThrowEnabled;
-        shell.RoutePlaybackEnabled = _routePlaybackEnabled;
         shell.AutoBattleEnabled = _autoBattleEnabled;
         shell.FastTravelEnabled = _fastTravelEnabled;
         _store.SetShellSettings(shell);
@@ -172,6 +190,7 @@ public sealed class DispatcherHost : IDisposable
                 () => CurrentScene)
             {
                 IsEnabled = RoutePlaybackEnabled,
+                StartNodeId = _pendingStartNode,
             };
 
             _openWorld = new OpenWorldModeSelector(_playbackHandler, _throwHandler);
@@ -190,7 +209,7 @@ public sealed class DispatcherHost : IDisposable
                 TeleportSensor.TryCreate("assets/templates/map/teleport.png"),
                 GameFrameMapper.Create(source))
             {
-                IsEnabled = FastTravelEnabled,
+                IsEnabled = EffectiveFastTravelEnabled,
             };
 
             var shell = _store.GetShellSettings();
@@ -259,7 +278,7 @@ public sealed class DispatcherHost : IDisposable
             if (_throwHandler is not null) _throwHandler.IsEnabled = AutoThrowEnabled;
             if (_playbackHandler is not null) _playbackHandler.IsEnabled = RoutePlaybackEnabled;
             if (_battleHandler is not null) _battleHandler.IsEnabled = AutoBattleEnabled;
-            if (_fastTravelHandler is not null) _fastTravelHandler.IsEnabled = FastTravelEnabled;
+            if (_fastTravelHandler is not null) _fastTravelHandler.IsEnabled = EffectiveFastTravelEnabled;
             _openWorld?.ApplySelection();
             task = _task;
         }
@@ -331,6 +350,12 @@ public sealed class DispatcherHost : IDisposable
             _active = null;
             _context = null;
         }
+
+        public void SuspendSensing() => _active?.SuspendSensing();
+
+        public void ResumeSensing() => _active?.ResumeSensing();
+
+        public bool HoldActivation(GameScene nextScene) => _active?.HoldActivation(nextScene) ?? false;
 
         public void ApplySelection()
         {
