@@ -1,47 +1,99 @@
+using System.Text.Json.Serialization;
+
 namespace RocoPilot.Routing;
 
-public enum RouteNodeKind
+public enum ActionKind
 {
-    Anchor,
-    Playback,
+    Teleport,
+    Delay,
+    ScriptReplay,
 }
 
-public sealed class RouteNode
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(TeleportNode), "teleport")]
+[JsonDerivedType(typeof(DelayNode), "delay")]
+[JsonDerivedType(typeof(ScriptReplayNode), "script")]
+public abstract class ActionNode
 {
-    public RouteNode(
-        RouteNodeKind kind,
-        string name,
-        string? anchorName = null,
-        string? routeName = null,
-        Guid? id = null)
+    protected ActionNode(string name, Guid? id = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         Id = id ?? Guid.NewGuid();
-        Kind = kind;
         Name = name.Trim();
-        AnchorName = anchorName;
-        RouteName = routeName;
     }
 
-    public Guid Id { get; }
+    protected ActionNode() { }
 
-    public RouteNodeKind Kind { get; }
+    [JsonInclude]
+    public Guid Id { get; private set; }
 
-    public string Name { get; }
+    [JsonInclude]
+    public string Name { get; private set; }
 
-    public string? AnchorName { get; }
-
-    public string? RouteName { get; }
+    public abstract ActionKind Kind { get; }
 }
 
-public sealed record OrderedRouteChain(IReadOnlyList<RouteNode> Nodes, bool LoopsToHead);
+public sealed class TeleportNode : ActionNode
+{
+    public TeleportNode(string name, string anchorName, Guid? id = null) : base(name, id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(anchorName);
+        AnchorName = anchorName.Trim();
+    }
+
+    [JsonConstructor]
+    private TeleportNode() { }
+
+    [JsonInclude]
+    public string AnchorName { get; private set; }
+
+    public override ActionKind Kind => ActionKind.Teleport;
+}
+
+public sealed class DelayNode : ActionNode
+{
+    public DelayNode(string name, TimeSpan duration, Guid? id = null) : base(name, id)
+    {
+        if (duration <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(duration), "延时必须为正。");
+
+        Duration = duration;
+    }
+
+    [JsonConstructor]
+    private DelayNode() { }
+
+    [JsonInclude]
+    public TimeSpan Duration { get; private set; }
+
+    public override ActionKind Kind => ActionKind.Delay;
+}
+
+public sealed class ScriptReplayNode : ActionNode
+{
+    public ScriptReplayNode(string name, string scriptName, Guid? id = null) : base(name, id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(scriptName);
+        ScriptName = scriptName.Trim();
+    }
+
+    [JsonConstructor]
+    private ScriptReplayNode() { }
+
+    [JsonInclude]
+    public string ScriptName { get; private set; }
+
+    public override ActionKind Kind => ActionKind.ScriptReplay;
+}
+
+public sealed record OrderedRouteChain(IReadOnlyList<ActionNode> Nodes, bool LoopsToHead);
 
 public sealed class RouteGraph
 {
     public RouteGraph(
         string name,
-        IReadOnlyList<RouteNode> nodes,
+        IReadOnlyList<ActionNode> nodes,
         bool loopsToHead = false,
         int? maxLaps = null,
         TimeSpan? maxDuration = null)
@@ -62,7 +114,7 @@ public sealed class RouteGraph
 
     public string Name { get; }
 
-    public IReadOnlyList<RouteNode> Nodes { get; }
+    public IReadOnlyList<ActionNode> Nodes { get; }
 
     public bool LoopsToHead { get; }
 

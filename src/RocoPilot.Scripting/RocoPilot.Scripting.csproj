@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RocoPilot.Input\RocoPilot.Input.csproj" />
+    <ProjectReference Include="..\RocoPilot.Settings\RocoPilot.Settings.csproj" />
+  </ItemGroup>
+
+</Project>

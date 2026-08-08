@@ -17,4 +17,8 @@ public interface ISceneHandler
     public virtual void ResumeSensing() { }
 
     public virtual bool HoldActivation(GameScene nextScene) => false;
+
+    public virtual bool PauseOnFocusLost() => false;
+
+    public virtual void ResumeAfterFocusRestored() { }
 }

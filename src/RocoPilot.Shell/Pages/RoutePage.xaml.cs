@@ -1,74 +1,113 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
-using UiButton = Wpf.Ui.Controls.Button;
-using UiIcon = Wpf.Ui.Controls.SymbolIcon;
-using CtlApp = Wpf.Ui.Controls.ControlAppearance;
-using Sim = Wpf.Ui.Controls.SymbolRegular;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using RocoPilot.Capture;
 using RocoPilot.Core;
-using RocoPilot.Input;
 using RocoPilot.Routing;
+using RocoPilot.Scripting;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Services;
+using UiButton = Wpf.Ui.Controls.Button;
+using UiToggleSwitch = Wpf.Ui.Controls.ToggleSwitch;
+using Brushes = System.Windows.Media.Brushes;
+using Button = System.Windows.Controls.Button;
+using Page = System.Windows.Controls.Page;
+using TextBlock = System.Windows.Controls.TextBlock;
 
 namespace RocoPilot.Shell.Pages;
 
-public partial class RoutePage : System.Windows.Controls.Page
+public partial class RoutePage : Page
 {
-    private const string GraphName = "采集路线图";
-    private const ushort EndRecordingScanCode = 0x2D;
-    private const ushort KeyUpStateFlag = 0x001;
+    private const string DefaultGraphName = "新流程";
+
+    // 公交式竖向站点：左列宽度 = 圆点直径 + 2 * 圆点水平边距，竖线在圆心
+    private const double RailColumnWidth = 44;
+    private const double StationDotSize = 22;
+    private const double RailThickness = 2;
+    private static readonly Thickness SectionGap = new(0, 0, 0, 14);
+
+    private static readonly SolidColorBrush AccentBrush = RouteVisuals.AccentBrush;
+    private static readonly SolidColorBrush StartBrush = RouteVisuals.StartBrush;
+    private static readonly SolidColorBrush EndBrush = RouteVisuals.EndBrush;
+
+    private static SolidColorBrush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
 
     private readonly RouteStore _store;
+    private readonly ScriptStore _scriptStore;
     private readonly CaptureHost _capture;
     private readonly DispatcherHost _dispatcher;
 
-    private List<RouteNode> _nodes = [];
+    private readonly HookStrokeRecorder _recorder = new();
+    private bool _recording;
+    private RecordedScript? _pendingRecord;
+    private UiButton? _recordButton;
+    private Grid? _saveRow;
+    private TextBox? _nameBox;
 
-    private Guid? _activeNodeId;
-    private Guid? _selectedNodeId;
-    private bool _showGlobalInspector;
-    private int _laps;
-    private int _retries;
+    private readonly StackPanel _timeline = new();
+    private readonly Dictionary<Guid, FrameworkElement> _stepCards = new();
+
+    private string _name = DefaultGraphName;
+    private List<ActionNode> _nodes = [];
     private bool _loopsToHead;
     private int? _maxLaps;
     private TimeSpan? _maxDuration;
 
-    private bool _graphLoaded;
-    private RouteRecorder? _recorder;
-    private IInputDriver? _recordDriver;
-    private TaskCompletionSource<string?>? _recordCompletion;
-    private volatile bool _recordStopRequested;
+    private bool _loaded;
+    private bool _suppressEvents;
+    private Guid? _expandedId;
+    private Guid? _activeId;
+    private int? _pickerInsertIndex;
+    private DispatcherTimer? _undoTimer;
+    private Guid? _dragNodeId;
+    private Point _dragStart;
 
-    public RoutePage(RouteStore store, CaptureHost capture, DispatcherHost dispatcher)
+    public RoutePage(RouteStore store, ScriptStore scriptStore, CaptureHost capture, DispatcherHost dispatcher)
     {
         InitializeComponent();
         _store = store;
+        _scriptStore = scriptStore;
         _capture = capture;
         _dispatcher = dispatcher;
 
+        TimelineHost.Children.Add(_timeline);
         Loaded += OnLoaded;
-
-        LineView.SelectRequested += OnNodeSelectRequested;
-        LineView.DeleteRequested += OnNodeDeleteRequested;
-        LineView.MoveRequested += OnNodeMoveRequested;
-        LineView.RunRequested += OnRunRequested;
-        LineView.AddRequested += OnAddRequested;
 
         _dispatcher.EventRaised += OnDispatcherEvent;
         _dispatcher.Changed += OnDispatcherChanged;
+
+        Unloaded += (_, _) =>
+        {
+            if (_recording)
+            {
+                try { _recorder.Stop("未命名"); } catch { }
+                _recording = false;
+            }
+        };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        UpdateToolbarState();
-        if (_graphLoaded) return;
-        _graphLoaded = true;
+        if (_loaded)
+        {
+            UpdateRunPill();
+            return;
+        }
+        _loaded = true;
+
         try
         {
             var graph = await _store.LoadGraphAsync();
+            _name = graph.Name;
             _nodes = [.. graph.Nodes];
             _loopsToHead = graph.LoopsToHead;
             _maxLaps = graph.MaxLaps;
@@ -77,516 +116,938 @@ public partial class RoutePage : System.Windows.Controls.Page
         catch (FileNotFoundException)
         {
         }
-        catch (InvalidDataException ex)
+        catch (InvalidDataException)
         {
-            if (!ex.Message.Contains("执行链为空", StringComparison.OrdinalIgnoreCase))
-                SetError($"路线加载失败：{ex.Message}");
+            // 执行图损坏/无法解析时，降级为新建流程，避免页面崩溃
         }
 
-        RefreshList();
-        RebuildInspector();
+        Rebuild();
     }
 
-    private void OnAddRequested(RouteNodeKind kind)
+    private void Rebuild()
+    {
+        _timeline.Children.Clear();
+        _stepCards.Clear();
+
+        _timeline.Children.Add(WithGap(BuildHero()));
+
+        for (var i = 0; i < _nodes.Count; i++)
+        {
+            _timeline.Children.Add(WithGap(StationRow(_nodes[i], i)));
+        }
+
+        if (_pickerInsertIndex is { } insertIndex)
+        {
+            _timeline.Children.Add(WithGap(PickerRow(insertIndex)));
+        }
+
+        _timeline.Children.Add(WithGap(BuildAddRow()));
+        _timeline.Children.Add(BuildLoopSection());
+
+        if (_nodes.Count == 0 && _pickerInsertIndex is null)
+        {
+            var hint = new TextBlock
+            {
+                Text = "添加后，拖拽站点可调整顺序",
+                FontSize = 12,
+                Margin = new Thickness(44, 6, 0, 0),
+            };
+            hint.SetResourceReference(ForegroundProperty, "TextFillColorTertiaryBrush");
+            _timeline.Children.Add(hint);
+        }
+
+        ApplyActiveStroke();
+        UpdateRunPill();
+    }
+
+    private FrameworkElement BuildHero()
+    {
+        // 工具箱里的一个功能页：不放大标题，仅一行小号流程名（可重命名）+ 运行按钮
+        var nameText = new TextBlock
+        {
+            Text = _name,
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.IBeam,
+            ToolTip = "点击重命名",
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        nameText.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        nameText.MouseLeftButtonUp += (_, _) => BeginRenameRow(nameText);
+
+        var record = new UiButton
+        {
+            Content = "录制",
+            FontSize = 12,
+            Padding = new Thickness(12, 5, 12, 5),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0),
+            Appearance = Wpf.Ui.Controls.ControlAppearance.Secondary,
+        };
+        record.Click += (_, _) => OnRecordToggle();
+        if (_recording)
+        {
+            record.Content = "● 停止";
+            record.Appearance = Wpf.Ui.Controls.ControlAppearance.Danger;
+        }
+        _recordButton = record;
+
+        var run = new UiButton
+        {
+            Content = "运行",
+            FontSize = 12,
+            Padding = new Thickness(14, 5, 14, 5),
+            VerticalAlignment = VerticalAlignment.Center,
+            Appearance = Wpf.Ui.Controls.ControlAppearance.Primary,
+        };
+        run.Click += (_, _) => RunRoute(null, singleNode: false);
+        run.Tag = "run-pill";
+
+        var toolbar = new Grid();
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition());
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(nameText, 0);
+        Grid.SetColumn(record, 2);
+        Grid.SetColumn(run, 3);
+        toolbar.Children.Add(nameText);
+        toolbar.Children.Add(record);
+        toolbar.Children.Add(run);
+
+        var nameBox = new TextBox
+        {
+            Width = 240,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        nameBox.SetResourceReference(Control.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+        _nameBox = nameBox;
+
+        var save = new UiButton
+        {
+            Content = "保存",
+            FontSize = 12,
+            Padding = new Thickness(12, 4, 12, 4),
+            Margin = new Thickness(8, 0, 0, 0),
+            Appearance = Wpf.Ui.Controls.ControlAppearance.Primary,
+        };
+        save.Click += async (_, _) => await SaveRecordAsync();
+
+        var discard = new UiButton
+        {
+            Content = "放弃",
+            FontSize = 12,
+            Padding = new Thickness(12, 4, 12, 4),
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        discard.Click += (_, _) => DiscardRecord();
+
+        var saveRow = new Grid
+        {
+            Margin = new Thickness(0, 10, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+        saveRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        saveRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        saveRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(nameBox, 0);
+        Grid.SetColumn(save, 1);
+        Grid.SetColumn(discard, 2);
+        saveRow.Children.Add(nameBox);
+        saveRow.Children.Add(save);
+        saveRow.Children.Add(discard);
+        _saveRow = saveRow;
+
+        var hero = new StackPanel { Orientation = Orientation.Vertical };
+        hero.Children.Add(toolbar);
+        hero.Children.Add(saveRow);
+        return hero;
+    }
+
+    private void OnRecordToggle()
+    {
+        if (_recording) StopRecording();
+        else StartRecording();
+    }
+
+    private void StartRecording()
+    {
+        try
+        {
+            _recorder.Start(BuildGameFocusedCheck());
+            _recording = true;
+            HideSaveRow();
+            _recordButton!.Content = "● 停止";
+            _recordButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Danger;
+        }
+        catch (Exception ex)
+        {
+            _recording = false;
+            ShowToast($"录制启动失败：{ex.Message}");
+        }
+    }
+
+    private void StopRecording()
+    {
+        try
+        {
+            _pendingRecord = _recorder.Stop("未录制");
+            _recording = false;
+            RestoreRecordButton();
+            _nameBox!.Text = "未命名";
+            _saveRow!.Visibility = Visibility.Visible;
+            _nameBox.Focus();
+            _nameBox.SelectAll();
+        }
+        catch (Exception ex)
+        {
+            _recording = false;
+            RestoreRecordButton();
+            ShowToast($"停止录制失败：{ex.Message}");
+        }
+    }
+
+    private async Task SaveRecordAsync()
+    {
+        if (_pendingRecord is null) return;
+
+        var name = _nameBox!.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _nameBox.Focus();
+            return;
+        }
+
+        try
+        {
+            var script = new RecordedScript(name, _pendingRecord.Strokes, _pendingRecord.CreatedAt);
+            await _scriptStore.SaveAsync(script);
+            _pendingRecord = null;
+            HideSaveRow();
+            ShowToast($"已保存「{script.Name}」，可在下方添加「脚本回放」步骤。");
+            Rebuild();
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"保存失败：{ex.Message}");
+        }
+    }
+
+    private void DiscardRecord()
+    {
+        _pendingRecord = null;
+        HideSaveRow();
+        ShowToast("已放弃本次录制。");
+    }
+
+    private void HideSaveRow()
+    {
+        if (_saveRow is not null) _saveRow.Visibility = Visibility.Collapsed;
+    }
+
+    private void RestoreRecordButton()
+    {
+        if (_recordButton is null) return;
+        _recordButton.Content = "录制";
+        _recordButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Secondary;
+    }
+
+    private Func<bool> BuildGameFocusedCheck()
+    {
+        var gameProcessId = WindowFinder.FindProcessId(WindowFinder.GameProcessName);
+        return () => WindowFinder.IsForegroundProcess(gameProcessId);
+    }
+
+    private void BeginRenameRow(TextBlock nameText)
     {
         if (!EnsureEditable()) return;
-        AddNode(new RouteNode(kind, kind == RouteNodeKind.Anchor ? "锚点" : "回放"));
+
+        if (nameText.Parent is not Grid grid) return;
+
+        var box = new TextBox
+        {
+            Text = _name == DefaultGraphName ? string.Empty : _name,
+            FontSize = 14,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        box.SetResourceReference(Control.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+
+        grid.Children.Remove(nameText);
+        grid.Children.Insert(0, box);
+        box.Focus();
+        box.SelectAll();
+
+        var commit = () =>
+        {
+            var next = box.Text.Trim();
+            _name = next.Length > 0 ? next : DefaultGraphName;
+            grid.Children.Remove(box);
+            grid.Children.Insert(0, nameText);
+            nameText.Text = _name;
+            SaveAndRebuild();
+        };
+
+        box.KeyDown += (_, args) =>
+        {
+            if (args.Key == Key.Enter) commit();
+            else if (args.Key == Key.Escape)
+            {
+                grid.Children.Remove(box);
+                grid.Children.Insert(0, nameText);
+            }
+        };
+        box.LostFocus += (_, _) =>
+        {
+            if (grid.Children.Contains(box)) commit();
+        };
     }
 
-    private void AddNode(RouteNode node)
+    private FrameworkElement StationRow(ActionNode node, int index)
     {
-        _nodes.Add(node);
-        SaveAndRefresh();
+        var isFirst = index == 0;
+        var isLast = index == _nodes.Count - 1;
+        var accent = isFirst ? StartBrush : isLast ? EndBrush : AccentBrush;
+
+        // —— 左列：竖线贯穿、轨道穿过圆点中心 ——
+        // 圆点固定于左列顶部：外环描边 + 实心内核
+        var dotRing = new System.Windows.Shapes.Ellipse
+        {
+            Width = StationDotSize,
+            Height = StationDotSize,
+            Stroke = accent,
+            StrokeThickness = 2,
+            Fill = null,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            ToolTip = isFirst ? "起点" : isLast ? "终点" : "锚点可用",
+        };
+
+        var dotCore = new System.Windows.Shapes.Ellipse
+        {
+            Width = 8,
+            Height = 8,
+            Fill = accent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, (StationDotSize - 8) / 2.0, 0, 0),
+            IsHitTestVisible = false,
+        };
+
+        // 竖线：水平居中于左列（与圆点同轴），圆点水平居中于左列，
+        // 故竖线轴心 = 圆点中心。顶部从圆点中心开始，向下延伸到卡片内容底部。
+        var rail = new System.Windows.Shapes.Rectangle
+        {
+            Width = RailThickness,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Margin = new Thickness(0, StationDotSize / 2.0, 0, 0),
+            RadiusX = 1,
+            RadiusY = 1,
+            IsHitTestVisible = false,
+        };
+        rail.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlStrokeColorDefaultBrush");
+        rail.Visibility = isLast ? Visibility.Collapsed : Visibility.Visible;
+
+        var railColumn = new Grid { Width = RailColumnWidth };
+        railColumn.Children.Add(rail);
+        railColumn.Children.Add(dotRing);
+        railColumn.Children.Add(dotCore);
+
+        var title = new TextBlock
+        {
+            Text = node.Name,
+            FontSize = 15,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        title.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
+
+        var sub = new TextBlock
+        {
+            Text = isFirst ? "起点 · 从这里出发"
+                 : isLast ? "终点 · 流程在这里收尾"
+                 : NodeSubtitle(node),
+            FontSize = 12,
+            Margin = new Thickness(0, 2, 0, 0),
+        };
+        sub.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        textStack.Children.Add(title);
+        textStack.Children.Add(sub);
+
+        var badge = new TextBlock
+        {
+            Text = isFirst ? "起点" : isLast ? "终点" : string.Empty,
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(8, 2, 8, 2),
+            Margin = new Thickness(0, 0, 4, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = isFirst || isLast ? Visibility.Visible : Visibility.Collapsed,
+        };
+        if (isFirst)
+        {
+            badge.Foreground = RouteVisuals.StartBrush;
+            badge.Background = RouteVisuals.StartSoftBrush;
+        }
+        else if (isLast)
+        {
+            badge.Foreground = RouteVisuals.EndBrush;
+            badge.Background = RouteVisuals.EndSoftBrush;
+        }
+
+        var chevron = ChevronGlyph();
+
+        var front = new Grid();
+        front.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        front.ColumnDefinitions.Add(new ColumnDefinition());
+        front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(railColumn, 0);
+        Grid.SetColumn(textStack, 1);
+        Grid.SetColumn(badge, 2);
+        Grid.SetColumn(chevron, 3);
+        front.Children.Add(railColumn);
+        front.Children.Add(textStack);
+        front.Children.Add(badge);
+        front.Children.Add(chevron);
+
+        var cardContent = new StackPanel();
+        cardContent.Children.Add(front);
+
+        var card = CardShell(cardContent);
+        _stepCards[node.Id] = card;
+
+        if (_expandedId == node.Id)
+        {
+            cardContent.Children.Add(BuildStepExpander(node));
+        }
+
+        card.MouseLeftButtonUp += (_, _) => ToggleExpanded(node.Id);
+        card.ContextMenu = StepContextMenu(node);
+        card.AllowDrop = true;
+        card.DragOver += (_, args) =>
+        {
+            args.Effects = _dragNodeId is null ? DragDropEffects.None : DragDropEffects.Move;
+            args.Handled = true;
+        };
+        card.Drop += (_, args) => OnDropOnCard(node.Id, args);
+
+        card.MouseMove += (_, args) =>
+        {
+            if (_dragNodeId != node.Id || args.LeftButton != MouseButtonState.Pressed) return;
+            if (Distance(args.GetPosition(null), _dragStart) < 4) return;
+            DragDrop.DoDragDrop(card, node.Id.ToString(), DragDropEffects.Move);
+            _dragNodeId = null;
+        };
+        card.MouseLeftButtonDown += (_, args) =>
+        {
+            _dragNodeId = node.Id;
+            _dragStart = args.GetPosition(null);
+        };
+        card.MouseLeftButtonUp += (_, _) => _dragNodeId = null;
+
+        return card;
     }
 
-    private void OnNodeDeleteRequested(Guid nodeId)
+    private void OnDropOnCard(Guid targetId, DragEventArgs args)
     {
+        if (_dragNodeId is not { } sourceId || sourceId == targetId) return;
         if (!EnsureEditable()) return;
 
-        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node is null) return;
+        var from = _nodes.FindIndex(n => n.Id == sourceId);
+        var to = _nodes.FindIndex(n => n.Id == targetId);
+        if (from < 0 || to < 0) return;
 
-        _nodes.Remove(node);
-        SaveAndRefresh();
+        var node = _nodes[from];
+        _nodes.RemoveAt(from);
+        _nodes.Insert(to, node);
+        SaveAndRebuild();
     }
 
-    private void OnNodeMoveRequested(Guid nodeId, int newIndex)
+    private ContextMenu StepContextMenu(ActionNode node)
     {
-        if (!EnsureEditable())
+        var menu = new ContextMenu();
+
+        var insert = new MenuItem { Header = "在其后插入" };
+        insert.Click += (_, _) =>
         {
-            RefreshList();
-            return;
-        }
+            if (!EnsureEditable()) return;
+            _pickerInsertIndex = _nodes.FindIndex(n => n.Id == node.Id) + 1;
+            _expandedId = null;
+            Rebuild();
+        };
 
-        var currentIndex = _nodes.FindIndex(n => n.Id == nodeId);
-        if (currentIndex < 0) return;
+        var remove = new MenuItem { Header = "删除" };
+        remove.Click += (_, _) => DeleteNode(node.Id);
 
-        newIndex = Math.Clamp(newIndex, 0, _nodes.Count - 1);
-        if (newIndex == currentIndex)
-        {
-            RefreshList();
-            return;
-        }
-
-        var node = _nodes[currentIndex];
-        _nodes.RemoveAt(currentIndex);
-        _nodes.Insert(newIndex, node);
-        SaveAndRefresh();
+        menu.Items.Add(insert);
+        menu.Items.Add(remove);
+        return menu;
     }
 
-    private void OnLoopClick(object sender, RoutedEventArgs e)
+    private FrameworkElement BuildStepExpander(ActionNode node)
     {
-        if (!EnsureEditable()) return;
-        _selectedNodeId = null;
-        _showGlobalInspector = true;
-        LineView.SetSelected(null);
-        RebuildInspector();
-    }
-
-    private void OnRunAllClick(object sender, RoutedEventArgs e)
-    {
-        if (_nodes.Count == 0)
+        var panel = new StackPanel
         {
-            SetStatus("还没有步骤——先添加锚点或回放");
-            return;
-        }
+            Margin = new Thickness(RailColumnWidth, 12, 0, 2),
+        };
 
-        OnRunRequested(_nodes[0].Id);
-    }
-
-    private void OnNodeSelectRequested(Guid nodeId)
-    {
-        if (!EnsureEditable())
-        {
-            RefreshList();
-            return;
-        }
-
-        _selectedNodeId = nodeId;
-        _showGlobalInspector = false;
-        LineView.SetSelected(nodeId);
-        RebuildInspector();
-    }
-
-    private void RebuildInspector()
-    {
-        InspectorHost.Children.Clear();
-        var node = _selectedNodeId is { } id ? _nodes.FirstOrDefault(n => n.Id == id) : null;
-        if (node is null)
-        {
-            if (_showGlobalInspector)
-                AddToInspector(BuildGlobalInspector());
-            else if (_nodes.Count == 0)
-                AddToInspector(BuildEmptyInspector());
-            else
-                AddToInspector(BuildPlaceholderInspector());
-            return;
-        }
-
-        _showGlobalInspector = false;
         switch (node.Kind)
         {
-            case RouteNodeKind.Anchor:
-                AddToInspector(BuildAnchorInspector(node));
+            case ActionKind.Teleport:
+                BuildTeleportEditor(panel, (TeleportNode)node);
                 break;
-            case RouteNodeKind.Playback:
-                AddToInspector(BuildPlaybackInspector(node));
+            case ActionKind.Delay:
+                BuildDelayEditor(panel, (DelayNode)node);
+                break;
+            case ActionKind.ScriptReplay:
+                BuildScriptEditor(panel, (ScriptReplayNode)node);
                 break;
         }
-    }
 
-    private void AddToInspector(FrameworkElement content) => InspectorHost.Children.Add(content);
-
-    private static FrameworkElement BuildEmptyInspector()
-    {
-        var icon = new UiIcon
+        var trial = new UiButton
         {
-            Symbol = Sim.Info24,
-            FontSize = 24,
-            Width = 24,
-            Height = 24,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        icon.SetResourceReference(Control.ForegroundProperty, "TextFillColorTertiaryBrush");
-
-        var text = new TextBlock
-        {
-            Text = "配置步骤后在此查看详情",
+            Content = "试运行此步",
             FontSize = 12,
+            Padding = new Thickness(12, 4, 12, 4),
             Margin = new Thickness(0, 10, 0, 0),
-            TextWrapping = TextWrapping.Wrap,
-            TextAlignment = TextAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left,
         };
-        text.SetResourceReference(ForegroundProperty, "TextFillColorTertiaryBrush");
-
-        var content = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        content.Children.Add(icon);
-        content.Children.Add(text);
-
-        var host = new Grid { VerticalAlignment = VerticalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch };
-        host.Children.Add(content);
-        return host;
+        trial.Click += (_, _) => RunRoute(node.Id, singleNode: true);
+        panel.Children.Add(trial);
+        return panel;
     }
 
-    private static FrameworkElement BuildPlaceholderInspector()
+    private void BuildTeleportEditor(StackPanel panel, TeleportNode node)
     {
-        var icon = new UiIcon
-        {
-            Symbol = Sim.Info24,
-            FontSize = 28,
-            Width = 28,
-            Height = 28,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        icon.SetResourceReference(Control.ForegroundProperty, "TextFillColorTertiaryBrush");
-
-        var text = new TextBlock
-        {
-            Text = "选择左侧步骤查看详情",
-            FontSize = 13,
-            Margin = new Thickness(0, 12, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        text.SetResourceReference(ForegroundProperty, "TextFillColorTertiaryBrush");
-
-        var content = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        content.Children.Add(icon);
-        content.Children.Add(text);
-
-        var host = new Grid { VerticalAlignment = VerticalAlignment.Stretch, HorizontalAlignment = HorizontalAlignment.Stretch };
-        host.Children.Add(content);
-        return host;
-    }
-
-    private StackPanel BuildGlobalInspector()
-    {
-        var s = new StackPanel { Margin = new Thickness(16) };
-        s.Children.Add(InspectorTitle("整条路线"));
-
-        var enable = new CheckBox { Content = "循环回到开头", IsChecked = _loopsToHead, Margin = new Thickness(0, 14, 0, 0) };
-        var laps = new TextBox { Text = _maxLaps?.ToString() ?? string.Empty, Margin = new Thickness(0, 6, 0, 0) };
-        var minutes = new TextBox
-        {
-            Text = _maxDuration is { } d ? d.TotalMinutes.ToString("0.#") : string.Empty,
-            Margin = new Thickness(0, 6, 0, 0),
-        };
-
-        var apply = GhostButton("应用到路线", Sim.Checkmark24);
-        apply.Margin = new Thickness(0, 20, 0, 0);
-        apply.HorizontalAlignment = HorizontalAlignment.Left;
-        apply.Click += (_, _) => ApplyGlobalSettings(enable, laps, minutes);
-
-        s.Children.Add(InspectorLabel("圈数上限"));
-        s.Children.Add(laps);
-        s.Children.Add(InspectorLabel("时长上限（分钟）"));
-        s.Children.Add(minutes);
-        s.Children.Add(enable);
-        s.Children.Add(apply);
-        return s;
-    }
-
-    private void ApplyGlobalSettings(CheckBox enable, TextBox lapsBox, TextBox minutesBox)
-    {
-        if (!TryParseLaps(lapsBox.Text, out var laps, out var lapsError))
-        {
-            SetError(lapsError);
-            return;
-        }
-
-        if (!TryParseMinutes(minutesBox.Text, out var minutes, out var minutesError))
-        {
-            SetError(minutesError);
-            return;
-        }
-
-        if (laps is { } l && l < 1)
-        {
-            SetError("圈数上限至少为 1。");
-            return;
-        }
-
-        if (minutes is { } m && m <= 0)
-        {
-            SetError("时长上限必须为正。");
-            return;
-        }
-
-        _loopsToHead = enable.IsChecked == true;
-        _maxLaps = laps;
-        _maxDuration = minutes is { } value ? TimeSpan.FromMinutes(value) : null;
-        SaveAndRefresh();
-        RebuildInspector();
-    }
-
-    private StackPanel BuildAnchorInspector(RouteNode node)
-    {
-        var s = new StackPanel { Margin = new Thickness(16) };
-        s.Children.Add(InspectorTitle("魔力之源"));
+        panel.Children.Add(ExpanderLabel("传送锚点"));
 
         var combo = new ComboBox
         {
             IsEditable = true,
-            Text = node.AnchorName ?? string.Empty,
-            Margin = new Thickness(0, 14, 0, 0),
+            Text = node.AnchorName,
+            Margin = new Thickness(0, 6, 0, 0),
         };
         foreach (var entry in AnchorCatalog.GroundEntries) combo.Items.Add(entry.Name);
         combo.SelectionChanged += (_, _) => ApplyAnchor(node, combo);
-
-        s.Children.Add(combo);
-        s.Children.Add(InspectorDanger(node));
-        return s;
+        panel.Children.Add(combo);
     }
 
-    private void ApplyAnchor(RouteNode node, ComboBox combo)
+    private void BuildDelayEditor(StackPanel panel, DelayNode node)
+    {
+        panel.Children.Add(ExpanderLabel("延时·秒"));
+
+        var box = new TextBox
+        {
+            Text = node.Duration.TotalSeconds.ToString("0.#"),
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        box.LostFocus += (_, _) => ApplyDelay(node, box);
+        panel.Children.Add(box);
+    }
+
+    private void BuildScriptEditor(StackPanel panel, ScriptReplayNode node)
+    {
+        panel.Children.Add(ExpanderLabel("回放脚本"));
+
+        var combo = new ComboBox
+        {
+            IsEditable = true,
+            Text = node.ScriptName,
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        foreach (var summary in _scriptStore.List()) combo.Items.Add(summary.Name);
+        combo.SelectionChanged += (_, _) => ApplyScript(node, combo);
+        panel.Children.Add(combo);
+    }
+
+    private void ApplyScript(ScriptReplayNode node, ComboBox combo)
+    {
+        var name = (combo.SelectedItem as string) ?? combo.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(name) || name == node.ScriptName) return;
+        if (_scriptStore.List().All(summary => summary.Name != name))
+        {
+            combo.Text = node.ScriptName;
+            return;
+        }
+        if (!EnsureEditable()) return;
+
+        ReplaceNode(new ScriptReplayNode($"回放·{name}", name, node.Id));
+    }
+
+    private void ApplyAnchor(TeleportNode node, ComboBox combo)
     {
         var name = (combo.SelectedItem as string) ?? combo.Text?.Trim();
         if (string.IsNullOrWhiteSpace(name) || name == node.AnchorName) return;
         if (AnchorCatalog.GroundEntries.All(entry => entry.Name != name))
         {
-            SetError($"「{name}」不在内置魔力之源目录中——请从下拉列表选择官方名称。");
+            combo.Text = node.AnchorName;
+            return;
+        }
+        if (!EnsureEditable()) return;
+
+        ReplaceNode(new TeleportNode($"传送·{name}", name, node.Id));
+    }
+
+    private void ApplyDelay(DelayNode node, TextBox box)
+    {
+        if (!EnsureEditable()) return;
+
+        if (!double.TryParse(box.Text.Trim(), out var seconds) || seconds <= 0)
+        {
+            box.Text = node.Duration.TotalSeconds.ToString("0.#");
             return;
         }
 
-        ReplaceNode(new RouteNode(node.Kind, $"锚点·{name}", anchorName: name, id: node.Id));
+        ReplaceNode(new DelayNode($"延时 {seconds:0.#} 秒", TimeSpan.FromSeconds(seconds), node.Id));
     }
 
-    private StackPanel BuildPlaybackInspector(RouteNode node)
+    private FrameworkElement BuildAddRow()
     {
-        var s = new StackPanel { Margin = new Thickness(16) };
-        s.Children.Add(InspectorTitle("关联路线"));
-
-        var combo = new ComboBox { Margin = new Thickness(0, 14, 0, 0) };
-        var record = GhostButton("录制新路线…", Sim.Record24);
-        record.Margin = new Thickness(0, 14, 0, 0);
-        record.HorizontalAlignment = HorizontalAlignment.Left;
-        record.Click += (_, _) => _ = RecordForNodeAsync(node.Id);
-
-        s.Children.Add(combo);
-        s.Children.Add(record);
-        s.Children.Add(InspectorDanger(node));
-
-        _ = PopulateRoutesAsync(combo, node);
-        return s;
-    }
-
-    private async Task PopulateRoutesAsync(ComboBox combo, RouteNode node)
-    {
-        try
+        var text = new TextBlock
         {
-            var routes = await _store.ListAsync();
-            foreach (var route in routes)
-            {
-                combo.Items.Add(new ComboBoxItem
-                {
-                    Content = $"{route.Name}（{route.Duration:mm\\:ss} · {route.RecordedAt:MM-dd HH:mm}）",
-                    Tag = route.Name,
-                });
-            }
+            Text = "添加步骤",
+            FontSize = 13,
+            FontWeight = FontWeights.Medium,
+        };
+        text.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
 
-            foreach (ComboBoxItem item in combo.Items)
+        var plus = new TextBlock
+        {
+            Text = "＋",
+            FontSize = 18,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = StationDotSize,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 0),
+        };
+        plus.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        Grid.SetColumn(plus, 0);
+        Grid.SetColumn(text, 1);
+        row.Children.Add(plus);
+        row.Children.Add(text);
+
+        row.MouseLeftButtonUp += (_, _) =>
+        {
+            if (!EnsureEditable()) return;
+            _pickerInsertIndex = _nodes.Count;
+            Rebuild();
+        };
+        row.Cursor = Cursors.Hand;
+        return row;
+    }
+
+    private FrameworkElement PickerRow(int insertIndex)
+    {
+        var kindCombo = new ComboBox
+        {
+            FontSize = 13,
+        };
+        kindCombo.Items.Add("传送步骤");
+        kindCombo.Items.Add("延时");
+        kindCombo.Items.Add("脚本回放");
+        kindCombo.SelectedIndex = 0;
+
+        var search = new TextBox { FontSize = 13, Margin = new Thickness(0, 8, 0, 0) };
+        search.SetResourceReference(Control.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+
+        var delayBox = new TextBox
+        {
+            FontSize = 13,
+            Margin = new Thickness(0, 8, 0, 0),
+            Visibility = Visibility.Collapsed,
+        };
+        delayBox.SetResourceReference(Control.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+        delayBox.Text = "5";
+
+        var list = new ListBox
+        {
+            Height = 180,
+            Margin = new Thickness(0, 8, 0, 0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+        };
+
+        var scriptList = new ListBox
+        {
+            Height = 180,
+            Margin = new Thickness(0, 8, 0, 0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Visibility = Visibility.Collapsed,
+        };
+        foreach (var summary in _scriptStore.List()) scriptList.Items.Add(summary.Name);
+
+        void RefreshFields()
+        {
+            var kind = kindCombo.SelectedIndex;
+            var isDelay = kind == 1;
+            var isScript = kind == 2;
+            search.Visibility = isDelay || isScript ? Visibility.Collapsed : Visibility.Visible;
+            list.Visibility = isDelay || isScript ? Visibility.Collapsed : Visibility.Visible;
+            delayBox.Visibility = isDelay ? Visibility.Visible : Visibility.Collapsed;
+            scriptList.Visibility = isScript ? Visibility.Visible : Visibility.Collapsed;
+        }
+        kindCombo.SelectionChanged += (_, _) => RefreshFields();
+
+        void Populate(string? filter)
+        {
+            list.Items.Clear();
+            foreach (var entry in AnchorCatalog.GroundEntries)
             {
-                if ((string?)item.Tag == node.RouteName)
+                if (string.IsNullOrWhiteSpace(filter)
+                    || entry.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 {
-                    combo.SelectedItem = item;
-                    break;
+                    list.Items.Add(entry.Name);
                 }
             }
-
-            if (combo.SelectedIndex < 0 && combo.Items.Count > 0) combo.SelectedIndex = 0;
-            combo.SelectionChanged += (_, _) => ApplyPlayback(node, combo);
         }
-        catch (Exception ex)
+        Populate(null);
+        search.TextChanged += (_, _) => Populate(search.Text.Trim());
+
+        list.SelectionChanged += (_, _) =>
         {
-            SetStatus($"路线列表加载失败：{ex.Message}");
-        }
-    }
+            if (list.SelectedItem is not string anchor) return;
+            if (!EnsureEditable()) return;
 
-    private void ApplyPlayback(RouteNode node, ComboBox combo)
-    {
-        var routeName = (combo.SelectedItem as ComboBoxItem)?.Tag as string;
-        if (routeName is null || routeName == node.RouteName) return;
-
-        ReplaceNode(new RouteNode(node.Kind, $"回放·{routeName}", routeName: routeName, id: node.Id));
-    }
-
-    private static UiButton GhostButton(string content, Sim symbol)
-    {
-        return new UiButton
-        {
-            Content = content,
-            Icon = new UiIcon { Symbol = symbol, FontSize = 14, Width = 14, Height = 14 },
-            Appearance = CtlApp.Secondary,
-            Background = Brushes.Transparent,
-            Foreground = RouteVisuals.AccentBrush,
-            BorderBrush = RouteVisuals.AccentBrush,
-            BorderThickness = new Thickness(1),
-            MouseOverBackground = RouteVisuals.AccentGhostHoverBrush,
-            PressedBackground = RouteVisuals.AccentGhostPressedBrush,
-            FontSize = 12,
-            Padding = new Thickness(12, 5, 12, 5),
+            var node = new TeleportNode($"传送·{anchor}", anchor);
+            InsertNode(node, insertIndex);
         };
+
+        scriptList.SelectionChanged += (_, _) =>
+        {
+            if (scriptList.SelectedItem is not string scriptName) return;
+            if (!EnsureEditable()) return;
+
+            var node = new ScriptReplayNode($"回放·{scriptName}", scriptName);
+            InsertNode(node, insertIndex);
+        };
+
+        delayBox.KeyDown += (_, args) =>
+        {
+            if (args.Key != Key.Enter) return;
+            if (!EnsureEditable()) return;
+
+            if (!double.TryParse(delayBox.Text.Trim(), out var seconds) || seconds <= 0)
+                return;
+
+            var node = new DelayNode($"延时 {seconds:0.#} 秒", TimeSpan.FromSeconds(seconds));
+            InsertNode(node, insertIndex);
+        };
+
+        void InsertNode(ActionNode node, int index)
+        {
+            _nodes.Insert(Math.Clamp(index, 0, _nodes.Count), node);
+            _pickerInsertIndex = null;
+            _expandedId = node.Id;
+            SaveAndRebuild();
+        }
+
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(RailColumnWidth, 12, 0, 12),
+        };
+        panel.Children.Add(kindCombo);
+        panel.Children.Add(search);
+        panel.Children.Add(delayBox);
+        panel.Children.Add(scriptList);
+        panel.Children.Add(list);
+
+        var card = CardShell(panel);
+        card.Loaded += (_, _) => search.Focus();
+        return card;
     }
 
-    private static TextBlock InspectorTitle(string title)
+    private FrameworkElement BuildLoopSection()
     {
-        var heading = new TextBlock
+        var icon = new TextBlock
         {
-            Text = title,
+            Text = "⟳",
             FontSize = 15,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Width = StationDotSize,
+        };
+        icon.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var summary = new TextBlock
+        {
+            Text = LoopSummary(),
+            FontSize = 14,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 4, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
         };
-        heading.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
-        return heading;
-    }
+        summary.SetResourceReference(ForegroundProperty, "TextFillColorPrimaryBrush");
 
-    private static TextBlock InspectorLabel(string text)
-    {
-        var label = new TextBlock
-        {
-            Text = text,
-            FontSize = 12,
-            Margin = new Thickness(0, 14, 0, 0),
-        };
-        label.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
-        return label;
-    }
+        var toggle = new UiToggleSwitch { VerticalAlignment = VerticalAlignment.Center };
+        _suppressEvents = true;
+        toggle.IsChecked = _loopsToHead;
+        _suppressEvents = false;
+        toggle.Checked += (_, _) => SetLoop(true, summary);
+        toggle.Unchecked += (_, _) => SetLoop(false, summary);
 
-    private UiButton InspectorDanger(RouteNode node)
-    {
-        var button = new UiButton
-        {
-            Content = "删除此步骤",
-            Appearance = CtlApp.Danger,
-            Icon = new UiIcon { Symbol = Sim.Dismiss24, FontSize = 14, Width = 14, Height = 14 },
-            Margin = new Thickness(0, 22, 0, 14),
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
-        button.Click += (_, _) =>
-        {
-            _nodes.Remove(node);
-            _selectedNodeId = null;
-            SaveAndRefresh();
-            RebuildInspector();
-        };
-        return button;
-    }
+        var front = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        front.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        front.ColumnDefinitions.Add(new ColumnDefinition());
+        front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(icon, 0);
+        Grid.SetColumn(summary, 1);
+        Grid.SetColumn(toggle, 2);
+        front.Children.Add(icon);
+        front.Children.Add(summary);
+        front.Children.Add(toggle);
 
-    private static bool TryParseLaps(string text, out int? laps, out string error)
-    {
-        laps = null;
-        error = string.Empty;
-        if (string.IsNullOrWhiteSpace(text)) return true;
-        if (!int.TryParse(text.Trim(), out var parsed))
+        var cardContent = new StackPanel();
+        cardContent.Children.Add(front);
+
+        if (_endExpanded)
         {
-            error = "圈数必须是整数（留空表示不限）。";
-            return false;
+            cardContent.Children.Add(BuildLoopExpander(summary));
         }
 
-        laps = parsed;
-        return true;
+        var card = CardShell(cardContent);
+        card.MouseLeftButtonUp += (_, args) =>
+        {
+            if (IsInsideToggleSwitch(args.OriginalSource as DependencyObject)) return;
+            if (!EnsureEditable()) return;
+            _endExpanded = !_endExpanded;
+            SaveAndRebuild();
+        };
+        return card;
     }
 
-    private static bool TryParseMinutes(string text, out double? minutes, out string error)
+    private bool _endExpanded;
+
+    private FrameworkElement BuildLoopExpander(TextBlock summary)
     {
-        minutes = null;
-        error = string.Empty;
-        if (string.IsNullOrWhiteSpace(text)) return true;
-        if (!double.TryParse(text.Trim(), out var parsed))
+        var lapsBox = new TextBox
         {
-            error = "时长必须是数字（留空表示不限）。";
-            return false;
+            Text = _maxLaps?.ToString() ?? string.Empty,
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        lapsBox.LostFocus += (_, _) => ApplyLoopLimits(lapsBox, minutesBox: null, summary);
+
+        var minutesBox = new TextBox
+        {
+            Text = _maxDuration is { } d ? d.TotalMinutes.ToString("0.#") : string.Empty,
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+
+        var panel = new StackPanel { Margin = new Thickness(0, 12, 0, 2) };
+        panel.Children.Add(ExpanderLabel("圈数上限（留空不限）"));
+        panel.Children.Add(lapsBox);
+        panel.Children.Add(ExpanderLabel("时长上限·分钟（留空不限）"));
+        panel.Children.Add(minutesBox);
+
+        minutesBox.LostFocus += (_, _) => ApplyLoopLimits(null, minutesBox, summary);
+        return panel;
+    }
+
+    private void ApplyLoopLimits(TextBox? lapsBox, TextBox? minutesBox, TextBlock summary)
+    {
+        if (lapsBox is not null && lapsBox.Text.Trim().Length > 0
+            && (!int.TryParse(lapsBox.Text.Trim(), out var laps) || laps < 1))
+        {
+            lapsBox.Text = _maxLaps?.ToString() ?? string.Empty;
+            return;
         }
 
-        minutes = parsed;
-        return true;
+        if (minutesBox is not null && minutesBox.Text.Trim().Length > 0
+            && (!double.TryParse(minutesBox.Text.Trim(), out var minutes) || minutes <= 0))
+        {
+            minutesBox.Text = _maxDuration is { } d ? d.TotalMinutes.ToString("0.#") : string.Empty;
+            return;
+        }
+
+        if (lapsBox is not null)
+            _maxLaps = int.TryParse(lapsBox.Text.Trim(), out var parsedLaps) ? parsedLaps : null;
+        if (minutesBox is not null)
+            _maxDuration = double.TryParse(minutesBox.Text.Trim(), out var parsedMinutes)
+                ? TimeSpan.FromMinutes(parsedMinutes)
+                : null;
+
+        summary.Text = LoopSummary();
+        SaveAndRebuild();
     }
 
-    private async Task RecordForNodeAsync(Guid nodeId)
+    private void SetLoop(bool enabled, TextBlock summary)
     {
-        var recorded = await StartRecordingAsync();
-        if (recorded is null) return;
+        if (_suppressEvents) return;
+        if (!EnsureEditable()) return;
 
-        var node = _nodes.FirstOrDefault(n => n.Id == nodeId);
-        if (node is null) return;
-
-        ReplaceNode(new RouteNode(node.Kind, $"回放·{recorded}", routeName: recorded, id: node.Id));
+        _loopsToHead = enabled;
+        if (enabled && _maxLaps is null && _maxDuration is null) _maxLaps = 3;
+        summary.Text = LoopSummary();
+        SaveAndRebuild();
     }
 
-    private void ReplaceNode(RouteNode replacement)
+    private void ToggleExpanded(Guid nodeId)
     {
-        var index = _nodes.FindIndex(n => n.Id == replacement.Id);
+        if (!EnsureEditable()) return;
+        _expandedId = _expandedId == nodeId ? null : nodeId;
+        _endExpanded = false;
+        Rebuild();
+    }
+
+    private void DeleteNode(Guid nodeId)
+    {
+        if (!EnsureEditable()) return;
+
+        var index = _nodes.FindIndex(n => n.Id == nodeId);
         if (index < 0) return;
-        _nodes[index] = replacement;
-        SaveAndRefresh();
+
+        var node = _nodes[index];
+        _nodes.RemoveAt(index);
+        if (_expandedId == nodeId) _expandedId = null;
+        SaveAndRebuild();
+        ShowToast($"已删除「{node.Name}」");
     }
 
-    private RouteGraph BuildGraph() => new(GraphName, _nodes, _loopsToHead, _maxLaps, _maxDuration);
-
-    private void SaveAndRefresh()
+    private void ShowToast(string message)
     {
-        RefreshList();
-        _ = SaveGraphAsync();
+        ToastText.Text = message;
+        Toast.Visibility = Visibility.Visible;
+
+        _undoTimer?.Stop();
+        _undoTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _undoTimer.Tick += (_, _) => HideToast();
+        _undoTimer.Start();
     }
 
-    private void RefreshList()
+    private void HideToast()
     {
-        LineView.SetSteps(_nodes, _activeNodeId);
-        LineView.SetSelected(_selectedNodeId);
-        LineView.SetLoop(_loopsToHead, _maxLaps, _maxDuration);
-        LineView.SetRunning(_dispatcher.RoutePlaybackEnabled);
-        LineView.SetBusy(_dispatcher.RoutePlaybackEnabled || _recorder is not null);
-        UpdateToolbarState();
+        _undoTimer?.Stop();
+        _undoTimer = null;
+        Toast.Visibility = Visibility.Collapsed;
     }
 
-    private async Task SaveGraphAsync()
+    private void RunRoute(Guid? startNodeId, bool singleNode)
     {
-        try
+        if (_dispatcher.RouteExecutionEnabled)
         {
-            await _store.SaveGraphAsync(BuildGraph());
-        }
-        catch (Exception ex)
-        {
-            SetError($"执行图保存失败：{ex.Message}");
-        }
-    }
-
-    private void OnRunRequested(Guid nodeId)
-    {
-        if (_dispatcher.RoutePlaybackEnabled)
-        {
-            _dispatcher.RoutePlaybackEnabled = false;
+            _dispatcher.RouteExecutionEnabled = false;
             _dispatcher.SyncEnables();
-            UpdateToolbarState();
+            UpdateRunPill();
             return;
         }
 
-        if (_recorder is not null)
-        {
-            SetError("录制中——按 X 结束录制后再运行");
-            return;
-        }
+        if (_nodes.Count == 0 || !_capture.IsRunning) return;
 
-        if (!_capture.IsRunning)
-        {
-            SetError("请先开启截图源（启动页）——回放由调度器在截图器运行时驱动");
-            return;
-        }
-
-        _laps = 0;
-        _retries = 0;
-        _dispatcher.StartRoutePlayback(nodeId);
+        _ = SaveGraphAsync();
+        _dispatcher.StartRouteExecution(startNodeId, singleNode);
         WindowFinder.ActivateGameWindow();
-        UpdateToolbarState();
-        UpdateStatusLine("已开启路线回放（与自动丢球互斥，地图快传临时停用，停止后恢复）");
+        UpdateRunPill();
     }
 
-    private void OnDispatcherChanged() => Dispatcher.BeginInvoke(() =>
-    {
-        UpdateToolbarState();
-        UpdateStatusLine();
-    });
+    private void OnDispatcherChanged() => Dispatcher.BeginInvoke(UpdateRunPill);
 
     private void OnDispatcherEvent(object? sender, ToolEvent toolEvent) => Dispatcher.BeginInvoke(() =>
     {
@@ -596,220 +1057,176 @@ public partial class RoutePage : System.Windows.Controls.Page
                 if (toolEvent.Data?["node_id"] is string nodeIdText
                     && Guid.TryParse(nodeIdText, out var nodeId))
                 {
-                    _activeNodeId = nodeId;
-                    LineView.SetActive(nodeId);
+                    _activeId = nodeId;
+                    ApplyActiveStroke();
                 }
-
-                if (toolEvent.Data?["kind"] as string == nameof(RouteNodeKind.Anchor))
-                    UpdateStatusLine("锚点传送：自动开图并传送中");
-                else
-                    UpdateStatusLine();
                 break;
 
-            case "loop_lap":
-                if (toolEvent.Data?["lap"] is int lap) _laps = lap;
-                UpdateStatusLine();
-                break;
-
-            case "stuck_retry":
-                _retries++;
-                UpdateStatusLine($"节点重试（{_retries} 次）：{toolEvent.Data?["reason"]}");
-                break;
-
-            case "anchor_fallback":
-                UpdateStatusLine($"回退到锚点「{toolEvent.Data?["anchor"]}」重跑");
+            case "execution_faulted":
+                if (toolEvent.Data?["reason"] is string replayReason)
+                    ShowToast(replayReason);
                 break;
 
             case "route_suspended":
-                ClearActiveNode();
-                SetStatus(_dispatcher.RoutePlaybackEnabled
-                    ? "回放挂起（战斗或失焦），恢复后自动续跑"
-                    : "已停止路线回放");
-                break;
-
             case "graph_finished":
-                ClearActiveNode();
-                SetStatus($"运行结束：{toolEvent.Data?["message"]}·失败重试 {_retries} 次");
-                _laps = 0;
-                _retries = 0;
-                UpdateToolbarState();
-                break;
-
-            case "route_playback_fault":
-                ClearActiveNode();
-                SetError($"回放未运行：{toolEvent.Data?["error"]}");
+            case "route_fault":
+                _dispatcher.RouteExecutionEnabled = false;
+                _dispatcher.SyncEnables();
+                _activeId = null;
+                ApplyActiveStroke();
+                UpdateRunPill();
                 break;
         }
     });
 
-    private void ClearActiveNode()
+    private void ApplyActiveStroke()
     {
-        _activeNodeId = null;
-        LineView.SetActive(null);
-    }
-
-    private void UpdateStatusLine(string? transient = null)
-    {
-        if (!_dispatcher.RoutePlaybackEnabled)
+        foreach (var (nodeId, element) in _stepCards)
         {
-            if (transient is not null) SetStatus(transient);
-            return;
-        }
-
-        var current = _nodes.FirstOrDefault(n => n.Id == _activeNodeId)?.Name ?? "—";
-        var detail = transient is null ? string.Empty : $"｜{transient}";
-        SetStatus($"当前节点：{current}｜已跑圈数：{_laps}｜失败重试：{_retries}{detail}");
-    }
-
-    private async Task<string?> StartRecordingAsync()
-    {
-        if (_recorder is not null || _dispatcher.RoutePlaybackEnabled)
-        {
-            SetError("已有录制或执行在进行");
-            return null;
-        }
-
-        var source = _capture.CurrentSource;
-        if (source is null)
-        {
-            SetError("请先开启截图源（录制时要同步抓取小地图关键帧）");
-            return null;
-        }
-
-        var name = $"路线-{DateTime.Now:yyyyMMdd-HHmmss}";
-        var driver = InputDriverFactory.Create();
-        var completion = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        try
-        {
-            var recorder = new RouteRecorder(driver, source, _store);
-            recorder.StrokeObserved += OnRecordedStroke;
-            recorder.Start(name);
-
-            _recorder = recorder;
-            _recordDriver = driver;
-            _recordCompletion = completion;
-            _recordStopRequested = false;
-            SetRecordingUi(true);
-            SetStatus($"录制「{name}」中——切到游戏真实操作，按 X 结束");
-            return await completion.Task;
-        }
-        catch (Exception ex)
-        {
-            driver.Dispose();
-            SetRecordingUi(false);
-            SetError($"录制启动失败：{ex.Message}");
-            completion.TrySetResult(null);
-            return null;
+            if (nodeId == _activeId)
+            {
+                if (element is System.Windows.Controls.Border border)
+                {
+                    border.BorderBrush = RouteVisuals.AccentBrush;
+                    border.BorderThickness = new Thickness(1.5);
+                }
+            }
+            else if (element is System.Windows.Controls.Border idle)
+            {
+                idle.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, "ControlStrokeColorDefaultBrush");
+                idle.BorderThickness = new Thickness(1);
+            }
         }
     }
 
-    private void OnRecordedStroke(ReceivedStroke stroke)
+    private void UpdateRunPill()
     {
-        if (_recordStopRequested) return;
-        if (stroke.Kind != ReceivedDeviceKind.Keyboard) return;
-        if (stroke.Code != EndRecordingScanCode || (stroke.State & KeyUpStateFlag) != 0) return;
+        if (TimelineHost is null) return;
+        var pill = FindRunPill(_timeline);
+        if (pill is null) return;
 
-        _recordStopRequested = true;
-        Dispatcher.BeginInvoke(EndRecording);
+        var running = _dispatcher.RouteExecutionEnabled;
+        pill.Content = running ? "停止" : "运行";
+        pill.Appearance = running
+            ? Wpf.Ui.Controls.ControlAppearance.Danger
+            : Wpf.Ui.Controls.ControlAppearance.Primary;
     }
 
-    private async void EndRecording()
+    private static UiButton? FindRunPill(DependencyObject root)
     {
-        var recorder = _recorder;
-        var completion = _recordCompletion;
-        if (recorder is null || completion is null) return;
-
-        try
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
-            var route = await recorder.StopAsync();
-            CleanupRecording();
-            SetStatus($"路线「{route.Name}」已录制：{route.Events.Count} 个事件 · {route.Duration.TotalSeconds:0.#} 秒");
-            completion.TrySetResult(route.Name);
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is UiButton { Tag: "run-pill" } pill) return pill;
+            if (FindRunPill(child) is { } found) return found;
         }
-        catch (Exception ex)
-        {
-            CleanupRecording();
-            SetError($"录制结束失败：{ex.Message}");
-            completion.TrySetResult(null);
-        }
+
+        return null;
     }
 
-    private void CleanupRecording()
+    private string LoopSummary()
     {
-        _recorder = null;
-        _recordDriver?.Dispose();
-        _recordDriver = null;
-        _recordCompletion = null;
-        SetRecordingUi(false);
-    }
-
-    private void SetRecordingUi(bool recording)
-    {
-        RecordingBanner.Visibility = recording ? Visibility.Visible : Visibility.Collapsed;
-        UpdateToolbarState();
-    }
-
-    private void UpdateToolbarState()
-    {
-        var running = _dispatcher.RoutePlaybackEnabled;
-        var busy = running || _recorder is not null;
-
-        LineView.SetRunning(running);
-        LineView.SetBusy(busy);
-
-        RunAllButton.Content = running ? "停止" : "运行整条路线";
-        RunAllButton.Icon = new UiIcon { Symbol = running ? Sim.Stop24 : Sim.Play24, FontSize = 16, Width = 16, Height = 16 };
-        RunAllButton.IsEnabled = _nodes.Count > 0;
-        RunAllButton.Opacity = _nodes.Count > 0 ? 1.0 : 0.4;
-        LoopButton.IsEnabled = !busy;
-        UpdateLoopChip();
-    }
-
-    private void UpdateLoopChip()
-    {
-        LoopButton.Content = _loopsToHead
-            ? $"循环：{LoopChipDetail(_maxLaps, _maxDuration)}"
-            : "循环：关闭";
-    }
-
-    private static string LoopChipDetail(int? maxLaps, TimeSpan? maxDuration)
-    {
-        if (maxLaps is null && maxDuration is null) return "无限";
+        if (!_loopsToHead) return "循环：关闭";
 
         var parts = new List<string>();
-        if (maxLaps is { } laps) parts.Add($"≤{laps} 圈");
-        if (maxDuration is { } duration) parts.Add($"≤{duration.TotalMinutes:0.#} 分钟");
-        return string.Join(" · ", parts);
+        if (_maxLaps is { } laps) parts.Add($"{laps} 圈");
+        if (_maxDuration is { } duration) parts.Add($"上限 {duration.TotalMinutes:0.#} 分钟");
+        return parts.Count == 0 ? "循环 · 不限" : $"循环 {string.Join(" · ", parts)}";
     }
 
-    private bool EnsureEditable()
+    private void ReplaceNode(ActionNode replacement)
     {
-        if (_dispatcher.RoutePlaybackEnabled)
+        var index = _nodes.FindIndex(n => n.Id == replacement.Id);
+        if (index < 0) return;
+        _nodes[index] = replacement;
+        SaveAndRebuild();
+    }
+
+    private RouteGraph BuildGraph() => new(_name, _nodes, _loopsToHead, _maxLaps, _maxDuration);
+
+    private void SaveAndRebuild()
+    {
+        Rebuild();
+        _ = SaveGraphAsync();
+    }
+
+    private async Task SaveGraphAsync()
+    {
+        try
         {
-            SetError("执行中——先停止再编辑步骤");
-            return false;
+            await _store.SaveGraphAsync(BuildGraph());
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private bool EnsureEditable() => !_dispatcher.RouteExecutionEnabled;
+
+    private static TextBlock ExpanderLabel(string text)
+    {
+        var label = new TextBlock { Text = text, FontSize = 12 };
+        label.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+        return label;
+    }
+
+    private static string NodeSubtitle(ActionNode node) => node.Kind switch
+    {
+        ActionKind.Teleport => $"传送 · {((TeleportNode)node).AnchorName}",
+        ActionKind.Delay => $"延时 · {((DelayNode)node).Duration.TotalSeconds:0.#} 秒",
+        ActionKind.ScriptReplay => $"脚本 · {((ScriptReplayNode)node).ScriptName}",
+        _ => string.Empty,
+    };
+
+    private static TextBlock ChevronGlyph()
+    {
+        var chevron = new TextBlock
+        {
+            Text = "›",
+            FontSize = 16,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        chevron.SetResourceReference(ForegroundProperty, "TextFillColorTertiaryBrush");
+        return chevron;
+    }
+
+    private static FrameworkElement WithGap(FrameworkElement element)
+    {
+        element.Margin = MergeMargin(element.Margin, SectionGap);
+        return element;
+    }
+
+    private static Thickness MergeMargin(Thickness current, Thickness extra) => new(
+        current.Left + extra.Left,
+        current.Top + extra.Top,
+        current.Right + extra.Right,
+        current.Bottom + extra.Bottom);
+
+    private static System.Windows.Controls.Border CardShell(FrameworkElement content) =>
+        new()
+        {
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16, 14, 16, 14),
+            BorderThickness = new Thickness(1),
+            Background = Res("SolidBackgroundFillColorSecondaryBrush"),
+            BorderBrush = Res("ControlStrokeColorDefaultBrush"),
+            Child = content,
+        };
+
+    private static bool IsInsideToggleSwitch(DependencyObject? element)
+    {
+        while (element is not null)
+        {
+            if (element is UiToggleSwitch) return true;
+            element = VisualTreeHelper.GetParent(element);
         }
 
-        if (_recorder is not null)
-        {
-            SetError("录制中——按 X 结束录制后再编辑步骤");
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
-    private void SetError(string text)
-    {
-        ErrorText.Text = text;
-        ErrorBanner.Visibility = Visibility.Visible;
-        StatusText.Text = string.Empty;
-    }
+    private static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 
-    private void SetStatus(string text)
-    {
-        ErrorBanner.Visibility = Visibility.Collapsed;
-        StatusText.Text = text;
-    }
+    private static Brush Res(string key) =>
+        Application.Current.TryFindResource(key) as Brush
+        ?? throw new InvalidOperationException($"missing theme resource {key}");
 }

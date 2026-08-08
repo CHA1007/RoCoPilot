@@ -152,7 +152,7 @@ public sealed class OverlayProjection
                     break;
 
                 case "graph_finished":
-                case "route_playback_fault":
+                case "route_fault":
                     _routeLap = 0;
                     _phase = null;
                     break;

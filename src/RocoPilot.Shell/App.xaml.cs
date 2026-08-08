@@ -4,6 +4,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using RocoPilot.Breeding;
 using RocoPilot.Routing;
+using RocoPilot.Scripting;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Hotkeys;
@@ -79,6 +80,8 @@ public partial class App : Application
         services.AddSingleton<ShellHotkeys>();
         var routeStore = new RouteStore();
         services.AddSingleton(routeStore);
+        var scriptStore = new ScriptStore();
+        services.AddSingleton(scriptStore);
 
         var tools = ToolRegistry.CreateTools(captureHost, settingsStore);
         foreach (var tool in tools)
@@ -87,7 +90,7 @@ public partial class App : Application
         }
 
         var throwTool = tools.Single(t => t.Id == RocoPilot.Tools.AutoThrow.AutoThrowTool.ToolId);
-        services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool, routeStore));
+        services.AddSingleton(new DispatcherHost(captureHost, settingsStore, throwTool, routeStore, scriptStore));
 
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());
 

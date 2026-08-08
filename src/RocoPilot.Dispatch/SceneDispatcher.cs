@@ -20,6 +20,7 @@ public sealed class SceneDispatcher
     private int _pendingCount;
     private volatile bool _refreshActivation;
     private bool _suspendedByFocusLoss;
+    private bool _pausedByFocusLoss;
     private bool _sensingSuspended;
     private volatile IReadOnlyDictionary<GameScene, float> _latestScores = new Dictionary<GameScene, float>();
 
@@ -54,14 +55,27 @@ public sealed class SceneDispatcher
 
             if (!_context.IsGameForeground())
             {
-                if (_activeHandler is not null)
+                if (_activeHandler is not null && !_pausedByFocusLoss)
                 {
-                    DeactivateCurrent();
-                    _suspendedByFocusLoss = true;
+                    if (_activeHandler.PauseOnFocusLost())
+                    {
+                        _pausedByFocusLoss = true;
+                    }
+                    else
+                    {
+                        DeactivateCurrent();
+                        _suspendedByFocusLoss = true;
+                    }
                 }
 
                 SleepInterruptible(_pollIntervalMs, cancellationToken);
                 continue;
+            }
+
+            if (_pausedByFocusLoss)
+            {
+                _pausedByFocusLoss = false;
+                _activeHandler?.ResumeAfterFocusRestored();
             }
 
             if (!_captureSource.TryGrabLatest(out var frame) || frame is null)

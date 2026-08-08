@@ -3,20 +3,21 @@ using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Dispatch;
 using RocoPilot.Input;
+using RocoPilot.Scripting;
 using RocoPilot.Settings;
 using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Routing;
 
-public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
+public sealed class RouteExecutionHandler : ISceneHandler, IDisposable
 {
     private const string TeleportTemplatePath = "assets/templates/map/teleport.png";
     private const string FastTravelToolId = "fast-travel";
 
     private readonly RouteStore _store;
+    private readonly ScriptStore _scriptStore;
     private readonly ISettingsStore _settings;
     private readonly Func<ICaptureSource?> _captureSourceProvider;
-    private readonly Func<GameScene> _currentScene;
 
     private readonly object _gate = new();
     private SceneContext? _context;
@@ -26,23 +27,24 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
     private TeleportSensor? _sensor;
     private CancellationTokenSource? _cts;
     private Task? _runTask;
-    private volatile bool _teleportInProgress;
 
-    public RoutePlaybackHandler(
+    public RouteExecutionHandler(
         RouteStore store,
+        ScriptStore scriptStore,
         ISettingsStore settings,
-        Func<ICaptureSource?> captureSourceProvider,
-        Func<GameScene> currentScene)
+        Func<ICaptureSource?> captureSourceProvider)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _scriptStore = scriptStore ?? throw new ArgumentNullException(nameof(scriptStore));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _captureSourceProvider = captureSourceProvider ?? throw new ArgumentNullException(nameof(captureSourceProvider));
-        _currentScene = currentScene ?? throw new ArgumentNullException(nameof(currentScene));
     }
 
     public GameScene Scene => GameScene.OpenWorld;
 
     public Guid? StartNodeId { get; set; }
+
+    public bool SingleNode { get; set; }
 
     public bool IsEnabled { get; set; }
 
@@ -55,9 +57,9 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             RebuildPipelineIfNeeded(context);
             if (_executor is null)
             {
-                context.EmitEvent(new ToolEvent("route_playback_fault", new Dictionary<string, object?>
+                context.EmitEvent(new ToolEvent("route_fault", new Dictionary<string, object?>
                 {
-                    ["error"] = "截图源不可用，路线回放无法启动。",
+                    ["error"] = "截图源不可用，流程无法启动。",
                 }));
                 return;
             }
@@ -72,7 +74,31 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
     public bool Handle(ReadOnlySpan<byte> bgraPixels, int width, int height)
         => _runTask is not null && !_runTask.IsCompleted;
 
-    public bool HoldActivation(GameScene nextScene) => _teleportInProgress;
+    public bool HoldActivation(GameScene nextScene)
+    {
+        lock (_gate) { return _runTask is not null && !_runTask.IsCompleted; }
+    }
+
+    public bool PauseOnFocusLost()
+    {
+        GraphExecutor? executor;
+        bool running;
+        lock (_gate)
+        {
+            executor = _executor;
+            running = _runTask is not null && !_runTask.IsCompleted;
+        }
+
+        if (running) executor?.Pause();
+        return running;
+    }
+
+    public void ResumeAfterFocusRestored()
+    {
+        GraphExecutor? executor;
+        lock (_gate) { executor = _executor; }
+        executor?.Resume();
+    }
 
     public void Deactivate()
     {
@@ -95,7 +121,6 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
         catch (AggregateException) { }
 
         cts?.Dispose();
-        _teleportInProgress = false;
     }
 
     public void Dispose()
@@ -123,14 +148,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             FastTravelToolId, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                                ?? new FastTravelSettings();
 
-        var playbackSettings = _settings.GetToolSettings(
-            RoutePlaybackSettings.ToolId, typeof(RoutePlaybackSettings), () => new RoutePlaybackSettings()) as RoutePlaybackSettings
-                               ?? new RoutePlaybackSettings();
-        playbackSettings.SanitizeInPlace();
-        _settings.SetToolSettings(RoutePlaybackSettings.ToolId, playbackSettings);
-
         _sensor = TeleportSensor.TryCreate(TeleportTemplatePath);
-        var player = new RoutePlayer(context.InputDriver, source, playbackSettings.ToPlayerOptions());
         var guide = new PoiTeleportGuide(
             grabFrame: () => source.TryGrabLatest(out var frame) ? frame : null,
             inputDriver: context.InputDriver,
@@ -138,28 +156,10 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             teleportSettings: teleportSettings,
             frameToScreen: GameFrameMapper.Create(source),
             isGameForeground: context.IsGameForeground,
-            emitEvent: toolEvent =>
-            {
-                TrackTeleportPhase(toolEvent);
-                context.EmitEvent(toolEvent);
-            });
+            emitEvent: (toolEvent) => context.EmitEvent(toolEvent));
 
-        _executor = new GraphExecutor(player, guide, _store.LoadAsync, _currentScene, context.EmitEvent, playbackSettings.ToExecutorOptions());
+        _executor = new GraphExecutor(guide, context.EmitEvent, inputDriver: context.InputDriver, scriptStore: _scriptStore);
         _builtDriver = context.InputDriver;
-    }
-
-    private void TrackTeleportPhase(ToolEvent toolEvent)
-    {
-        switch (toolEvent.Name)
-        {
-            case "anchor_teleport":
-                _teleportInProgress = toolEvent.Data?.GetValueOrDefault("phase") as string == "started";
-                break;
-
-            case "anchor_failed":
-                _teleportInProgress = false;
-                break;
-        }
     }
 
     private async Task RunAsync(CancellationToken ct)
@@ -183,15 +183,15 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
                 }
                 catch (FileNotFoundException)
                 {
-                    emit(new ToolEvent("route_playback_fault", new Dictionary<string, object?>
+                    emit(new ToolEvent("route_fault", new Dictionary<string, object?>
                     {
-                        ["error"] = "尚未配置路线——到「路线」页添加步骤后再运行。",
+                        ["error"] = "尚未配置流程——到「流程」页添加步骤后再运行。",
                     }));
                     return;
                 }
                 catch (Exception ex)
                 {
-                    emit(new ToolEvent("route_playback_fault", new Dictionary<string, object?>
+                    emit(new ToolEvent("route_fault", new Dictionary<string, object?>
                     {
                         ["error"] = $"执行图加载失败：{ex.Message}",
                     }));
@@ -201,7 +201,7 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
                 _graph = graph;
             }
 
-            var result = await executor.RunAsync(_graph, StartNodeId, ct);
+            var result = await executor.RunAsync(_graph, StartNodeId, SingleNode, ct);
 
             if (result.Reason == GraphCompletionReason.Stopped)
             {
@@ -230,14 +230,10 @@ public sealed class RoutePlaybackHandler : ISceneHandler, IDisposable
             emit?.Invoke(new ToolEvent("fault", new Dictionary<string, object?>
             {
                 ["error"] = ex.GetBaseException().Message,
-                ["source"] = "route_playback",
+                ["source"] = "route_execution",
             }));
             _executor?.Reset();
             _graph = null;
-        }
-        finally
-        {
-            _teleportInProgress = false;
         }
     }
 }

@@ -93,7 +93,7 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="地图快传" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="点击世界地图中的魔力之源，炼金釜等可快速传送；路线回放运行时临时停用" />
+                          Text="点击世界地图中的魔力之源，炼金釜等可快速传送" />
           </StackPanel>
           <ui:ToggleSwitch x:Name="FastTravelToggle" Grid.Column="1"
                            Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />

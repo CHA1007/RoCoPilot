@@ -19,6 +19,7 @@
     <ProjectReference Include="..\RocoPilot.Dispatch\RocoPilot.Dispatch.csproj" />
     <ProjectReference Include="..\RocoPilot.Input\RocoPilot.Input.csproj" />
     <ProjectReference Include="..\RocoPilot.Settings\RocoPilot.Settings.csproj" />
+    <ProjectReference Include="..\RocoPilot.Scripting\RocoPilot.Scripting.csproj" />
     <ProjectReference Include="..\RocoPilot.Tools.FastTravel\RocoPilot.Tools.FastTravel.csproj" />
   </ItemGroup>
 

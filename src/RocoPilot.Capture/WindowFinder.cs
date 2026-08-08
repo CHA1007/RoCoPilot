@@ -111,6 +111,36 @@ public static class WindowFinder
         }
     }
 
+    public static int FindProcessId(string processName)
+    {
+        var processes = Process.GetProcessesByName(processName);
+        try
+        {
+            foreach (var proc in processes)
+            {
+                return proc.Id;
+            }
+
+            return 0;
+        }
+        finally
+        {
+            foreach (var proc in processes)
+            {
+                proc.Dispose();
+            }
+        }
+    }
+
+    public static bool IsForegroundProcess(int processId)
+    {
+        if (processId <= 0) return false;
+        var fg = NativeMethods.GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+        NativeMethods.GetWindowThreadProcessId(fg, out var fgPid);
+        return fgPid == processId;
+    }
+
     public static bool ActivateWindow(IntPtr hwnd) =>
         hwnd != IntPtr.Zero && NativeMethods.SetForegroundWindow(hwnd);
 

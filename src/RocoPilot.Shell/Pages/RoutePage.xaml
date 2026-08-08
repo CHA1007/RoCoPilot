@@ -1,102 +1,18 @@
 <Page x:Class="RocoPilot.Shell.Pages.RoutePage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:controls="clr-namespace:RocoPilot.Shell.Controls"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <Page.Resources>
-    <SolidColorBrush x:Key="RouteErrorBgBrush" Color="#3A211E" />
-    <SolidColorBrush x:Key="RouteErrorBorderBrush" Color="#7E3A33" />
-    <SolidColorBrush x:Key="RouteErrorForegroundBrush" Color="#E8B4AD" />
-  </Page.Resources>
+  <Grid Margin="0,24,0,24">
+    <Grid x:Name="TimelineHost" MaxWidth="880" Margin="24,0,24,48" />
 
-  <Grid Margin="32,24,32,24">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
-
-    <!-- 顶部控制卡 -->
-    <ui:CardControl Grid.Row="0">
-      <ui:CardControl.Header>
-        <Grid HorizontalAlignment="Stretch">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0" VerticalAlignment="Center">
-            <ui:TextBlock FontTypography="Body" Text="采集路线" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="按顺序重放锚点传送与路线回放步骤" />
-          </StackPanel>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-            <ui:Button x:Name="LoopButton" Content="循环：关闭"
-                       Icon="{ui:SymbolIcon ArrowRepeatAll24}" Click="OnLoopClick" />
-            <ui:Button x:Name="RunAllButton" Margin="8,0,0,0"
-                       Content="运行整条路线" Icon="{ui:SymbolIcon Play24}" Click="OnRunAllClick"
-                       MouseOverBackground="#F09A10" PressedBackground="#C07400"
-                       Background="#E08A00" Foreground="White" BorderBrush="#E08A00" />
-          </StackPanel>
-        </Grid>
-      </ui:CardControl.Header>
-    </ui:CardControl>
-
-    <!-- 主体：左列表面板 + 右详情面板，通底同高 -->
-    <Grid Grid.Row="1" Margin="0,16,0,16">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="320" />
-      </Grid.ColumnDefinitions>
-
-      <!-- 左列：浅底圆角面板，通顶到底 -->
-      <Border Grid.Column="0" CornerRadius="8" Padding="16"
-              BorderThickness="1"
-              BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
-              Background="{ui:ThemeResource CardBackgroundFillColorSecondaryBrush}">
-        <Grid>
-          <controls:RouteLineView x:Name="LineView" />
-          <Border x:Name="RecordingBanner" Visibility="Collapsed"
-                  VerticalAlignment="Top" HorizontalAlignment="Center"
-                  Margin="0,2,0,0" Padding="16,8" CornerRadius="4"
-                  Background="{ui:ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                  BorderBrush="{ui:ThemeResource SystemFillColorCriticalBrush}"
-                  BorderThickness="1">
-            <StackPanel Orientation="Horizontal">
-              <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                       Fill="{ui:ThemeResource SystemFillColorCriticalBrush}" />
-              <ui:TextBlock Margin="8,0,0,0" Text="录制中，按 X 结束" VerticalAlignment="Center" />
-            </StackPanel>
-          </Border>
-        </Grid>
-      </Border>
-
-      <!-- 右栏：详情面板，同底 -->
-      <Border Grid.Column="1" Margin="16,0,0,0" CornerRadius="8" Padding="0"
-              BorderThickness="1"
-              BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
-              Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}">
-        <Grid x:Name="InspectorHost" />
-      </Border>
-    </Grid>
-
-    <!-- 状态区 -->
-    <StackPanel Grid.Row="2">
-      <Border x:Name="ErrorBanner" Margin="0,0,0,8" Padding="12,10" CornerRadius="6"
-              BorderThickness="1"
-              Background="{StaticResource RouteErrorBgBrush}"
-              BorderBrush="{StaticResource RouteErrorBorderBrush}"
-              Visibility="Collapsed">
-        <StackPanel Orientation="Horizontal">
-          <ui:SymbolIcon x:Name="ErrorIcon" Symbol="Warning24" FontSize="16" Width="16" Height="16"
-                         Foreground="{StaticResource RouteErrorForegroundBrush}" VerticalAlignment="Center" />
-          <ui:TextBlock x:Name="ErrorText" Margin="8,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
-                        Foreground="{StaticResource RouteErrorForegroundBrush}" />
-        </StackPanel>
-      </Border>
-      <ui:TextBlock x:Name="StatusText" FontTypography="Caption"
-                    Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                    TextWrapping="Wrap" />
-    </StackPanel>
+    <Border x:Name="Toast" Visibility="Collapsed"
+            VerticalAlignment="Bottom" HorizontalAlignment="Center"
+            Margin="0,0,0,16" Padding="16,8" CornerRadius="8"
+            Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
+            BorderThickness="1">
+      <ui:TextBlock x:Name="ToastText" VerticalAlignment="Center" />
+    </Border>
   </Grid>
 </Page>
