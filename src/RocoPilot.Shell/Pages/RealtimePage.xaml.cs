@@ -1,24 +1,33 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Settings;
+using RocoPilot.Shell.Hotkeys;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
+using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Pages;
 
 public partial class RealtimePage : Page
 {
+    private const string ListeningTriggerKey = "按键… ⌫清除";
+
+    private const string UnspecifiedTriggerKey = "未指定";
+
     private readonly AutoThrowTool _tool;
     private readonly ISettingsStore _store;
     private readonly CaptureHost _capture;
     private readonly DispatcherHost _dispatcher;
+    private readonly ShellHotkeys _hotkeys;
     private readonly object _throwSettings;
     private bool _ready;
     private bool _syncing;
+    private bool _listeningTriggerKey;
 
-    public RealtimePage(AutoThrowTool tool, ISettingsStore store, CaptureHost capture, DispatcherHost dispatcher)
+    public RealtimePage(AutoThrowTool tool, ISettingsStore store, CaptureHost capture, DispatcherHost dispatcher, ShellHotkeys hotkeys)
     {
         InitializeComponent();
 
@@ -26,6 +35,7 @@ public partial class RealtimePage : Page
         _store = store;
         _capture = capture;
         _dispatcher = dispatcher;
+        _hotkeys = hotkeys;
         _throwSettings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
 
         ConfigHost.Content = tool.CreateConfigPanel(_throwSettings, PersistThrow);
@@ -34,6 +44,22 @@ public partial class RealtimePage : Page
             "auto-battle", typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
             () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings;
         SkillSlotCombo.SelectedIndex = Math.Clamp((battleSettings?.SkillSlot ?? 1) - 1, 0, 3);
+        FastTravelModeCombo.SelectedIndex = (int)_dispatcher.FastTravelTriggerMode;
+        FastTravelTriggerKeyButton.Content = DisplayTriggerKey(GetFastTravelSettings().TriggerKey);
+
+        FastTravelTriggerKeyButton.Click += (_, _) =>
+        {
+            _listeningTriggerKey = true;
+            FastTravelTriggerKeyButton.Content = ListeningTriggerKey;
+            FastTravelTriggerKeyButton.Focus();
+        };
+        FastTravelTriggerKeyButton.PreviewKeyDown += OnTriggerKeyPreviewKeyDown;
+        FastTravelTriggerKeyButton.LostFocus += (_, _) =>
+        {
+            if (!_listeningTriggerKey) return;
+            _listeningTriggerKey = false;
+            FastTravelTriggerKeyButton.Content = DisplayTriggerKey(GetFastTravelSettings().TriggerKey);
+        };
 
         AutoThrowToggle.IsChecked = _dispatcher.AutoThrowEnabled;
         AutoBattleToggle.IsChecked = _dispatcher.AutoBattleEnabled;
@@ -81,6 +107,53 @@ public partial class RealtimePage : Page
         _store.SetToolSettings("auto-battle", settings);
         _store.Save();
     }
+
+    private void OnFastTravelModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (FastTravelModeCombo.SelectedIndex < 0) return;
+        _dispatcher.FastTravelTriggerMode = (FastTravelTriggerMode)FastTravelModeCombo.SelectedIndex;
+    }
+
+    private void OnTriggerKeyPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (!_listeningTriggerKey) return;
+        e.Handled = true;
+
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.None or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.ImeProcessed)
+        {
+            return;
+        }
+
+        if (key == Key.Escape)
+        {
+            _listeningTriggerKey = false;
+            FastTravelTriggerKeyButton.Content = DisplayTriggerKey(GetFastTravelSettings().TriggerKey);
+            return;
+        }
+
+        var triggerKey = key is Key.Back or Key.Delete
+            ? string.Empty
+            : HotkeyBinding.Format(key, Keyboard.Modifiers);
+
+        var settings = GetFastTravelSettings();
+        settings.TriggerKey = triggerKey;
+        _store.SetToolSettings("fast-travel", settings);
+        _store.Save();
+        _hotkeys.ApplyFastTravelTrigger();
+
+        _listeningTriggerKey = false;
+        FastTravelTriggerKeyButton.Content = DisplayTriggerKey(triggerKey);
+    }
+
+    private FastTravelSettings GetFastTravelSettings() =>
+        _store.GetToolSettings(
+            "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+        ?? new FastTravelSettings();
+
+    private static string DisplayTriggerKey(string triggerKey) =>
+        string.IsNullOrWhiteSpace(triggerKey) ? UnspecifiedTriggerKey : triggerKey;
 
     private void OnDispatcherEvent(object? sender, ToolEvent toolEvent) => Dispatcher.InvokeAsync(() =>
     {

@@ -3,6 +3,7 @@ using RocoPilot.Capture;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
+using RocoPilot.Tools.FastTravel;
 
 namespace RocoPilot.Shell.Hotkeys;
 
@@ -15,6 +16,8 @@ public sealed class ShellHotkeys
     public const string AutoBattleToggleOwner = "AutoBattleToggle";
 
     public const string FastTravelToggleOwner = "FastTravelToggle";
+
+    public const string FastTravelTriggerOwner = "FastTravelTrigger";
 
     public const string DebugOverlayToggleOwner = "DebugOverlayToggle";
 
@@ -44,6 +47,7 @@ public sealed class ShellHotkeys
         RegisterOrClear(AutoThrowToggleOwner, shell.AutoThrowHotkey, shell.AutoThrowHotkeyScope, ToggleAutoThrow);
         RegisterOrClear(AutoBattleToggleOwner, shell.AutoBattleHotkey, shell.AutoBattleHotkeyScope, ToggleAutoBattle);
         RegisterOrClear(FastTravelToggleOwner, shell.FastTravelHotkey, shell.FastTravelHotkeyScope, ToggleFastTravel);
+        ApplyFastTravelTrigger();
         RegisterOrClear(DebugOverlayToggleOwner, shell.DebugOverlayHotkey, shell.DebugOverlayHotkeyScope, ToggleDebugOverlay);
     }
 
@@ -69,6 +73,14 @@ public sealed class ShellHotkeys
     {
         var shell = _store.GetShellSettings();
         return RegisterOrClear(FastTravelToggleOwner, shell.FastTravelHotkey, shell.FastTravelHotkeyScope, ToggleFastTravel);
+    }
+
+    public bool ApplyFastTravelTrigger()
+    {
+        var settings = _store.GetToolSettings(
+            "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                       ?? new FastTravelSettings();
+        return RegisterOrClear(FastTravelTriggerOwner, settings.TriggerKey, HotkeyScope.Global, TriggerFastTravel);
     }
 
     public bool ApplyDebugOverlayToggle()
@@ -111,6 +123,8 @@ public sealed class ShellHotkeys
     private void ToggleAutoBattle() => _dispatcher.AutoBattleEnabled = !_dispatcher.AutoBattleEnabled;
 
     private void ToggleFastTravel() => _dispatcher.FastTravelEnabled = !_dispatcher.FastTravelEnabled;
+
+    private void TriggerFastTravel() => _dispatcher.TriggerFastTravel();
 
     private void ToggleDebugOverlay()
     {

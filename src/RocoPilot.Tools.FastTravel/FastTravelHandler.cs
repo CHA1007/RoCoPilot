@@ -11,6 +11,7 @@ public sealed class FastTravelHandler : ISceneHandler
 
     private TeleportButtonLink? _link;
     private bool _missingTemplateReported;
+    private volatile bool _teleportRequested;
 
     public FastTravelHandler(
         FastTravelSettings settings,
@@ -25,6 +26,8 @@ public sealed class FastTravelHandler : ISceneHandler
     public GameScene Scene => GameScene.WorldMap;
 
     public bool IsEnabled { get; set; } = true;
+
+    public void RequestTeleport() => _teleportRequested = true;
 
     public void Activate(SceneContext context)
     {
@@ -45,10 +48,28 @@ public sealed class FastTravelHandler : ISceneHandler
     }
 
     public bool Handle(ReadOnlySpan<byte> bgraPixels, int width, int height)
-        => _link?.TryClick(bgraPixels, width, height) ?? false;
+    {
+        if (_link is null)
+            return false;
+
+        if (_settings.TriggerMode == FastTravelTriggerMode.KeyPress)
+            return _teleportRequested && TryRequestedClick(_link, bgraPixels, width, height);
+
+        return _link.TryClick(bgraPixels, width, height);
+    }
+
+    private bool TryRequestedClick(TeleportButtonLink link, ReadOnlySpan<byte> bgraPixels, int width, int height)
+    {
+        if (!link.TryClick(bgraPixels, width, height))
+            return false;
+
+        _teleportRequested = false;
+        return true;
+    }
 
     public void Deactivate()
     {
         _link = null;
+        _teleportRequested = false;
     }
 }

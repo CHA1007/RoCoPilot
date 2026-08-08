@@ -28,6 +28,8 @@ public sealed class DispatcherHost : IDisposable
     private OpenWorldModeSelector? _openWorld;
     private AutoBattleHandler? _battleHandler;
     private FastTravelHandler? _fastTravelHandler;
+    private FastTravelSettings? _fastTravelSettings;
+    private FastTravelTriggerMode _fastTravelTriggerMode;
     private bool _autoThrowEnabled;
     private bool _routeExecutionEnabled;
     private bool _autoBattleEnabled;
@@ -47,6 +49,9 @@ public sealed class DispatcherHost : IDisposable
         _autoThrowEnabled = shell.AutoThrowEnabled;
         _autoBattleEnabled = shell.AutoBattleEnabled;
         _fastTravelEnabled = shell.FastTravelEnabled;
+        _fastTravelTriggerMode = (_store.GetToolSettings(
+                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings)
+            ?.TriggerMode ?? FastTravelTriggerMode.Auto;
 
         _capture.Changed += OnCaptureChanged;
     }
@@ -141,6 +146,36 @@ public sealed class DispatcherHost : IDisposable
         }
     }
 
+    public FastTravelTriggerMode FastTravelTriggerMode
+    {
+        get => _fastTravelTriggerMode;
+        set
+        {
+            if (_fastTravelTriggerMode == value) return;
+            _fastTravelTriggerMode = value;
+
+            var settings = _store.GetToolSettings(
+                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                           ?? new FastTravelSettings();
+            settings.TriggerMode = value;
+            _store.SetToolSettings("fast-travel", settings);
+            _store.Save();
+
+            lock (_gate)
+            {
+                if (_fastTravelSettings is not null) _fastTravelSettings.TriggerMode = value;
+            }
+        }
+    }
+
+    public void TriggerFastTravel()
+    {
+        lock (_gate)
+        {
+            _fastTravelHandler?.RequestTeleport();
+        }
+    }
+
     private bool EffectiveFastTravelEnabled => _fastTravelEnabled && !_routeExecutionEnabled;
 
     private void PersistEnables()
@@ -214,6 +249,8 @@ public sealed class DispatcherHost : IDisposable
             var fastTravelSettings = _store.GetToolSettings(
                 "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                                      ?? new FastTravelSettings();
+            fastTravelSettings.TriggerMode = _fastTravelTriggerMode;
+            _fastTravelSettings = fastTravelSettings;
             _fastTravelHandler = new FastTravelHandler(
                 fastTravelSettings,
                 TeleportSensor.TryCreate("assets/templates/map/teleport.png"),
@@ -259,6 +296,7 @@ public sealed class DispatcherHost : IDisposable
             _routeHandler = null;
             _battleHandler = null;
             _fastTravelHandler = null;
+            _fastTravelSettings = null;
         }
 
         if (task is null)
