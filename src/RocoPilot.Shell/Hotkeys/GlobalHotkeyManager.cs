@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Input;
+using RocoPilot.Capture;
+using RocoPilot.Settings;
 
 namespace RocoPilot.Shell.Hotkeys;
 
@@ -54,7 +56,7 @@ public sealed class GlobalHotkeyManager : IDisposable
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     private readonly object _gate = new();
-    private readonly Dictionary<string, (HotkeyBinding Binding, Action Callback)> _bindings = new();
+    private readonly Dictionary<string, (HotkeyBinding Binding, HotkeyScope Scope, Action Callback)> _bindings = new();
     private readonly HashSet<Key> _heldKeys = [];
     private readonly LowLevelKeyboardProc _proc;
     private SynchronizationContext? _syncContext;
@@ -85,14 +87,14 @@ public sealed class GlobalHotkeyManager : IDisposable
         }
     }
 
-    public bool Register(string owner, string hotkey, Action callback)
+    public bool Register(string owner, string hotkey, HotkeyScope scope, Action callback)
     {
         lock (_gate)
         {
             _bindings.Remove(owner);
             if (!HotkeyBinding.TryParse(hotkey, out var binding)) return false;
-            _bindings[owner] = (binding, callback);
-            Trace.TraceInformation($"[GlobalHotkeyManager] registered owner={owner} hotkey={hotkey}");
+            _bindings[owner] = (binding, scope, callback);
+            Trace.TraceInformation($"[GlobalHotkeyManager] registered owner={owner} hotkey={hotkey} scope={scope}");
             return true;
         }
     }
@@ -140,10 +142,10 @@ public sealed class GlobalHotkeyManager : IDisposable
                         break;
                     }
 
-                    var callback = TakeMatchingCallback(key);
-                    if (callback is not null)
+                    var binding = TakeMatchingBinding(key);
+                    if (binding is not null && MatchesScope(binding.Value.Scope))
                     {
-                        DispatchCallback(callback);
+                        DispatchCallback(binding.Value.Callback);
                         return (IntPtr)1;
                     }
 
@@ -179,7 +181,12 @@ public sealed class GlobalHotkeyManager : IDisposable
         }
     }
 
-    private Action? TakeMatchingCallback(Key key)
+    private static bool MatchesScope(HotkeyScope scope) =>
+        scope == HotkeyScope.InGame
+            ? WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName)
+            : !ForegroundIsOwnProcess();
+
+    private (HotkeyBinding Binding, HotkeyScope Scope, Action Callback)? TakeMatchingBinding(Key key)
     {
         if (IsModifier(key)) return null;
 
@@ -187,11 +194,11 @@ public sealed class GlobalHotkeyManager : IDisposable
         {
             if (!_heldKeys.Add(key)) return null;
 
-            foreach (var (binding, callback) in _bindings.Values)
+            foreach (var (binding, scope, callback) in _bindings.Values)
             {
                 if (binding.Key == key && binding.Modifiers == CurrentModifiers())
                 {
-                    return callback;
+                    return (binding, scope, callback);
                 }
             }
 

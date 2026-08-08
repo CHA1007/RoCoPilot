@@ -3,21 +3,77 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="{StaticResource PagePadding}">
+  <Grid Margin="{StaticResource PagePadding}">
 
-    <ui:CardControl>
+    <ui:CardControl VerticalAlignment="Stretch" VerticalContentAlignment="Top">
       <ui:CardControl.Header>
-        <ui:TextBlock FontTypography="Body" Text="截图器开启/关闭" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"
+                      FontTypography="Body" Text="截图器开启/关闭" />
+        <ComboBox Grid.Row="0" Grid.Column="1" Margin="24,0,0,0" x:Name="CaptureScopeBox"
+                  Height="34" Width="130" SelectedIndex="0">
+          <ComboBoxItem Content="全局热键" />
+          <ComboBoxItem Content="游戏内热键" />
+        </ComboBox>
+        <ui:Button Grid.Row="0" Grid.Column="2" x:Name="CaptureToggleButton"
+                   Height="34" Width="130" Margin="8,0,0,0" Content="未指定" />
+
+        <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
+                      FontTypography="Body" Text="自动丢球开关" />
+        <ComboBox Grid.Row="1" Grid.Column="1" Margin="24,12,0,0" x:Name="AutoThrowScopeBox"
+                  Height="34" Width="130" SelectedIndex="0">
+          <ComboBoxItem Content="全局热键" />
+          <ComboBoxItem Content="游戏内热键" />
+        </ComboBox>
+        <ui:Button Grid.Row="1" Grid.Column="2" x:Name="AutoThrowToggleButton"
+                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+
+        <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
+                      FontTypography="Body" Text="自动战斗开关" />
+        <ComboBox Grid.Row="2" Grid.Column="1" Margin="24,12,0,0" x:Name="AutoBattleScopeBox"
+                  Height="34" Width="130" SelectedIndex="0">
+          <ComboBoxItem Content="全局热键" />
+          <ComboBoxItem Content="游戏内热键" />
+        </ComboBox>
+        <ui:Button Grid.Row="2" Grid.Column="2" x:Name="AutoBattleToggleButton"
+                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+
+        <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
+                      FontTypography="Body" Text="地图快传开关" />
+        <ComboBox Grid.Row="3" Grid.Column="1" Margin="24,12,0,0" x:Name="FastTravelScopeBox"
+                  Height="34" Width="130" SelectedIndex="0">
+          <ComboBoxItem Content="全局热键" />
+          <ComboBoxItem Content="游戏内热键" />
+        </ComboBox>
+        <ui:Button Grid.Row="3" Grid.Column="2" x:Name="FastTravelToggleButton"
+                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+
+        <ui:TextBlock Grid.Row="4" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
+                      FontTypography="Body" Text="调试叠层开关" />
+        <ComboBox Grid.Row="4" Grid.Column="1" Margin="24,12,0,0" x:Name="DebugOverlayScopeBox"
+                  Height="34" Width="130" SelectedIndex="0">
+          <ComboBoxItem Content="全局热键" />
+          <ComboBoxItem Content="游戏内热键" />
+        </ComboBox>
+        <ui:Button Grid.Row="4" Grid.Column="2" x:Name="DebugOverlayToggleButton"
+                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+
+      </Grid>
       </ui:CardControl.Header>
-      <TextBox x:Name="CaptureToggleBox"
-               Width="160"
-               IsReadOnly="True"
-               IsUndoEnabled="False"
-               TextAlignment="Center"
-               PreviewKeyDown="OnCaptureToggleKeyDown"
-               GotFocus="OnCaptureToggleGotFocus"
-               LostFocus="OnCaptureToggleLostFocus" />
     </ui:CardControl>
 
-  </StackPanel>
+  </Grid>
 </Page>

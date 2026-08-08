@@ -1,5 +1,12 @@
 namespace RocoPilot.Settings;
 
+public enum HotkeyScope
+{
+    Global,
+
+    InGame,
+}
+
 public enum AppTheme
 {
     System,
@@ -20,6 +27,24 @@ public sealed class ShellSettings
     public string CaptureBackend { get; set; } = "wgc";
 
     public string CaptureToggleHotkey { get; set; } = "F11";
+
+    public string AutoThrowHotkey { get; set; } = "";
+
+    public string AutoBattleHotkey { get; set; } = "";
+
+    public string FastTravelHotkey { get; set; } = "";
+
+    public string DebugOverlayHotkey { get; set; } = "";
+
+    public HotkeyScope CaptureHotkeyScope { get; set; } = HotkeyScope.Global;
+
+    public HotkeyScope AutoThrowHotkeyScope { get; set; } = HotkeyScope.Global;
+
+    public HotkeyScope AutoBattleHotkeyScope { get; set; } = HotkeyScope.Global;
+
+    public HotkeyScope FastTravelHotkeyScope { get; set; } = HotkeyScope.Global;
+
+    public HotkeyScope DebugOverlayHotkeyScope { get; set; } = HotkeyScope.Global;
 
     public bool DebugOverlay { get; set; }
 
