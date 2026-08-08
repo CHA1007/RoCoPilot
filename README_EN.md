@@ -23,6 +23,7 @@
 - **Auto Throw** — Recognizes wild spirits in the open world, auto-centers the camera, aims and throws balls to keep catching
 - **Auto Battle** — Recognizes battle scenes and casts skills automatically to finish rounds
 - **Fast Travel** — Recognizes the world map and clicks the teleport button after you pick a map element such as the Magic Source or the Alchemy Cauldron
+- **Route Replay** — Compose and loop an execution chain of Teleport / Delay / Script Replay steps; teleport locates anchors by geometrically aligning the in-game map against the built-in Magic Source catalog, and a failed leg reruns from the nearest upstream teleport. Great for automating map runs
 - **Egg Query** — Ships with full spirit egg group data; look up a spirit's egg groups, or find all spirits that can breed together in a group
 - **Central Dispatch** — Detects the current game scene and switches tools automatically, no manual intervention
 - **Dynamic Island OSD** — A floating status window above the game screen showing live state and key readings
@@ -95,7 +96,8 @@ A **stable** installer will be published later on the Releases page, with in-app
 2. Install the Interception driver on first use and reboot (see Requirements)
 3. Run RocoPilot and click **Start Capturer** on the Launch page
 4. Toggle the tools you want on the Realtime page; the central dispatcher switches tools by game scene automatically
-5. Switching away from the game pauses everything; switching back resumes automatically
+5. To automate map runs, compose a route of Teleport / Delay / Script Replay steps on the Route page and run it
+6. Switching away from the game pauses everything; switching back resumes automatically
 
 ## Data Sources
 
@@ -103,6 +105,7 @@ A **stable** installer will be published later on the Releases page, with in-app
   [Roco Kingdom Mobile WIKI](https://wiki.biligame.com/rocom/) (egg group calculator / egg group lookup page),
   licensed under **CC BY-NC-SA 4.0** (Attribution-NonCommercial-ShareAlike) and used for learning and research only.
   See [assets/data/README.md](assets/data/README.md) for licensing details of the data files themselves.
+- The Magic Source anchor catalog (name + world coordinates) embedded for Route Replay is compiled from WIKI map data, used for learning and research only.
 
 ## Disclaimer
 

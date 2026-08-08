@@ -29,7 +29,7 @@ public abstract class ActionNode
     public Guid Id { get; private set; }
 
     [JsonInclude]
-    public string Name { get; private set; }
+    public string Name { get; private set; } = string.Empty;
 
     public abstract ActionKind Kind { get; }
 }
@@ -46,7 +46,7 @@ public sealed class TeleportNode : ActionNode
     private TeleportNode() { }
 
     [JsonInclude]
-    public string AnchorName { get; private set; }
+    public string AnchorName { get; private set; } = string.Empty;
 
     public override ActionKind Kind => ActionKind.Teleport;
 }
@@ -82,7 +82,7 @@ public sealed class ScriptReplayNode : ActionNode
     private ScriptReplayNode() { }
 
     [JsonInclude]
-    public string ScriptName { get; private set; }
+    public string ScriptName { get; private set; } = string.Empty;
 
     public override ActionKind Kind => ActionKind.ScriptReplay;
 }
