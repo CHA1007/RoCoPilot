@@ -80,7 +80,14 @@ public sealed class ShellHotkeys
         var settings = _store.GetToolSettings(
             "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                        ?? new FastTravelSettings();
-        return RegisterOrClear(FastTravelTriggerOwner, settings.TriggerKey, HotkeyScope.Global, TriggerFastTravel);
+
+        if (string.IsNullOrWhiteSpace(settings.TriggerKey))
+        {
+            _manager.Unregister(FastTravelTriggerOwner);
+            return true;
+        }
+
+        return _manager.Register(FastTravelTriggerOwner, settings.TriggerKey, HotkeyScope.InGame, TriggerFastTravel, swallow: false);
     }
 
     public bool ApplyDebugOverlayToggle()
@@ -97,7 +104,7 @@ public sealed class ShellHotkeys
             return true;
         }
 
-        var result = _manager.Register(owner, hotkey, scope, callback);
+        var result = _manager.Register(owner, hotkey, scope, callback, swallow: false);
         Trace.TraceInformation($"[ShellHotkeys] Register owner={owner} hotkey='{hotkey}' result={result}");
         return result;
     }

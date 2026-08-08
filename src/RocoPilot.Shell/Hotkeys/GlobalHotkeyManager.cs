@@ -56,7 +56,7 @@ public sealed class GlobalHotkeyManager : IDisposable
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     private readonly object _gate = new();
-    private readonly Dictionary<string, (HotkeyBinding Binding, HotkeyScope Scope, Action Callback)> _bindings = new();
+    private readonly Dictionary<string, (HotkeyBinding Binding, HotkeyScope Scope, bool Swallow, Action Callback)> _bindings = new();
     private readonly HashSet<Key> _heldKeys = [];
     private readonly LowLevelKeyboardProc _proc;
     private SynchronizationContext? _syncContext;
@@ -87,14 +87,14 @@ public sealed class GlobalHotkeyManager : IDisposable
         }
     }
 
-    public bool Register(string owner, string hotkey, HotkeyScope scope, Action callback)
+    public bool Register(string owner, string hotkey, HotkeyScope scope, Action callback, bool swallow = true)
     {
         lock (_gate)
         {
             _bindings.Remove(owner);
             if (!HotkeyBinding.TryParse(hotkey, out var binding)) return false;
-            _bindings[owner] = (binding, scope, callback);
-            Trace.TraceInformation($"[GlobalHotkeyManager] registered owner={owner} hotkey={hotkey} scope={scope}");
+            _bindings[owner] = (binding, scope, swallow, callback);
+            Trace.TraceInformation($"[GlobalHotkeyManager] registered owner={owner} hotkey={hotkey} scope={scope} swallow={swallow}");
             return true;
         }
     }
@@ -146,7 +146,7 @@ public sealed class GlobalHotkeyManager : IDisposable
                     if (binding is not null && MatchesScope(binding.Value.Scope))
                     {
                         DispatchCallback(binding.Value.Callback);
-                        return (IntPtr)1;
+                        if (binding.Value.Swallow) return (IntPtr)1;
                     }
 
                     break;
@@ -186,7 +186,7 @@ public sealed class GlobalHotkeyManager : IDisposable
             ? WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName)
             : !ForegroundIsOwnProcess();
 
-    private (HotkeyBinding Binding, HotkeyScope Scope, Action Callback)? TakeMatchingBinding(Key key)
+    private (HotkeyBinding Binding, HotkeyScope Scope, bool Swallow, Action Callback)? TakeMatchingBinding(Key key)
     {
         if (IsModifier(key)) return null;
 
@@ -194,11 +194,11 @@ public sealed class GlobalHotkeyManager : IDisposable
         {
             if (!_heldKeys.Add(key)) return null;
 
-            foreach (var (binding, scope, callback) in _bindings.Values)
+            foreach (var (binding, scope, swallow, callback) in _bindings.Values)
             {
                 if (binding.Key == key && binding.Modifiers == CurrentModifiers())
                 {
-                    return (binding, scope, callback);
+                    return (binding, scope, swallow, callback);
                 }
             }
 

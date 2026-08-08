@@ -13,7 +13,7 @@ namespace RocoPilot.Shell.Pages;
 
 public partial class RealtimePage : Page
 {
-    private const string ListeningTriggerKey = "按键… ⌫清除";
+    private const string ListeningTriggerKey = "";
 
     private const string UnspecifiedTriggerKey = "未指定";
 
@@ -121,21 +121,26 @@ public partial class RealtimePage : Page
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.None or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
-            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.ImeProcessed)
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.ImeProcessed
+            or Key.Back or Key.Delete)
         {
             return;
         }
 
         if (key == Key.Escape)
         {
+            var cleared = GetFastTravelSettings();
+            cleared.TriggerKey = string.Empty;
+            _store.SetToolSettings("fast-travel", cleared);
+            _store.Save();
+            _hotkeys.ApplyFastTravelTrigger();
+
             _listeningTriggerKey = false;
-            FastTravelTriggerKeyButton.Content = DisplayTriggerKey(GetFastTravelSettings().TriggerKey);
+            FastTravelTriggerKeyButton.Content = UnspecifiedTriggerKey;
             return;
         }
 
-        var triggerKey = key is Key.Back or Key.Delete
-            ? string.Empty
-            : HotkeyBinding.Format(key, Keyboard.Modifiers);
+        var triggerKey = HotkeyBinding.Format(key, Keyboard.Modifiers);
 
         var settings = GetFastTravelSettings();
         settings.TriggerKey = triggerKey;

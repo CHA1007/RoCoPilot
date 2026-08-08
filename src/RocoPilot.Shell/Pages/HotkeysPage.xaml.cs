@@ -8,7 +8,7 @@ namespace RocoPilot.Shell.Pages;
 
 public partial class HotkeysPage : Page
 {
-    private const string Listening = "按键… ⌫清除";
+    private const string Listening = "";
 
     private const string Unspecified = "未指定";
 
@@ -98,19 +98,13 @@ public partial class HotkeysPage : Page
 
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
             if (key is Key.None or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
-                or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.ImeProcessed)
+                or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.ImeProcessed
+                or Key.Back or Key.Delete)
             {
                 return;
             }
 
             if (key == Key.Escape)
-            {
-                bindButton.Content = Display(getter(_store.GetShellSettings()));
-                _listening.Remove(bindButton);
-                return;
-            }
-
-            if (key is Key.Back or Key.Delete)
             {
                 var cleared = _store.GetShellSettings();
                 setter(cleared, string.Empty);
