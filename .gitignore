@@ -1,6 +1,6 @@
 .pi/
 .model-archive/
-
+.qoder/
 .scratch/
 
 docs/
@@ -20,6 +20,8 @@ raw/
 frames/
 retrain/
 
+build/
+
 # .NET
 bin/
 obj/
@@ -28,6 +30,7 @@ obj/
 *.suo
 prototypes/
 publish/
+dist/
 TestResults/
 bin-verify/
 releases/

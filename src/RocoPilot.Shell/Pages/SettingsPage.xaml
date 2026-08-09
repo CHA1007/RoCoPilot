@@ -92,7 +92,7 @@
             <ui:TextBlock FontTypography="Body" Text="更新渠道" />
             <ui:TextBlock FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="稳定版重稳；测试版抢先体验新功能，可能不稳定" />
+                          Text="稳定版更稳；测试版抢先体验新功能" />
           </StackPanel>
           <ComboBox x:Name="UpdateChannelCombo" Grid.Column="1" Margin="0,0,36,0" Width="140"
                     SelectionChanged="OnUpdateChannelChanged">
@@ -100,17 +100,15 @@
             <ComboBoxItem Content="测试版" />
           </ComboBox>
         </Grid>
-        <Grid Margin="16,12,16,0">
+        <Grid Margin="16,12,16,16">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="问题反馈" />
-            <ui:TextBlock FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="打开项目主页提交 Issue" />
-          </StackPanel>
+          <ui:TextBlock Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Text="问题反馈" />
           <ui:Button Grid.Column="1" Margin="0,0,36,0" Content="打开" Click="OnOpenIssuesClick" />
         </Grid>
         <ui:TextBlock x:Name="UpdateStatusText" Margin="16,12,16,16"

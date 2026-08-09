@@ -66,7 +66,6 @@ public partial class RoutePage : Page
     private Guid? _expandedId;
     private Guid? _activeId;
     private int? _pickerInsertIndex;
-    private DispatcherTimer? _undoTimer;
     private Guid? _dragNodeId;
     private Point _dragStart;
 
@@ -283,10 +282,9 @@ public partial class RoutePage : Page
             _recordButton!.Content = "● 停止";
             _recordButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Danger;
         }
-        catch (Exception ex)
+        catch
         {
             _recording = false;
-            ShowToast($"录制启动失败：{ex.Message}");
         }
     }
 
@@ -302,11 +300,10 @@ public partial class RoutePage : Page
             _nameBox.Focus();
             _nameBox.SelectAll();
         }
-        catch (Exception ex)
+        catch
         {
             _recording = false;
             RestoreRecordButton();
-            ShowToast($"停止录制失败：{ex.Message}");
         }
     }
 
@@ -327,12 +324,10 @@ public partial class RoutePage : Page
             await _scriptStore.SaveAsync(script);
             _pendingRecord = null;
             HideSaveRow();
-            ShowToast($"已保存「{script.Name}」，可在下方添加「脚本回放」步骤。");
             Rebuild();
         }
-        catch (Exception ex)
+        catch
         {
-            ShowToast($"保存失败：{ex.Message}");
         }
     }
 
@@ -340,7 +335,6 @@ public partial class RoutePage : Page
     {
         _pendingRecord = null;
         HideSaveRow();
-        ShowToast("已放弃本次录制。");
     }
 
     private void HideSaveRow()
@@ -1038,25 +1032,6 @@ public partial class RoutePage : Page
         _nodes.RemoveAt(index);
         if (_expandedId == nodeId) _expandedId = null;
         SaveAndRebuild();
-        ShowToast($"已删除「{node.Name}」");
-    }
-
-    private void ShowToast(string message)
-    {
-        ToastText.Text = message;
-        Toast.Visibility = Visibility.Visible;
-
-        _undoTimer?.Stop();
-        _undoTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _undoTimer.Tick += (_, _) => HideToast();
-        _undoTimer.Start();
-    }
-
-    private void HideToast()
-    {
-        _undoTimer?.Stop();
-        _undoTimer = null;
-        Toast.Visibility = Visibility.Collapsed;
     }
 
     private void RunRoute(Guid? startNodeId, bool singleNode)
@@ -1093,8 +1068,6 @@ public partial class RoutePage : Page
                 break;
 
             case "execution_faulted":
-                if (toolEvent.Data?["reason"] is string replayReason)
-                    ShowToast(replayReason);
                 break;
 
             case "route_suspended":

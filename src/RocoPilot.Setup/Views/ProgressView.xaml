@@ -1,0 +1,24 @@
+<UserControl x:Class="RocoPilot.Setup.Views.ProgressView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             mc:Ignorable="d"
+             d:DesignHeight="420" d:DesignWidth="560">
+    <StackPanel Margin="40,32">
+        <TextBlock Text="正在安装"
+                   FontSize="26" FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <TextBlock x:Name="StatusText"
+                   Margin="0,12,0,0"
+                   FontSize="14"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <ui:ProgressRing x:Name="Progress"
+                         Margin="0,32,0,0"
+                         IsIndeterminate="True"
+                         FontSize="64"
+                         HorizontalAlignment="Center" />
+    </StackPanel>
+</UserControl>

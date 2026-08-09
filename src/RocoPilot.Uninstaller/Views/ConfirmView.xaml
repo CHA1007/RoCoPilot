@@ -1,0 +1,41 @@
+<UserControl x:Class="RocoPilot.Uninstaller.Views.ConfirmView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             mc:Ignorable="d"
+             d:DesignHeight="320" d:DesignWidth="560">
+    <StackPanel Margin="40,32">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <ui:SymbolIcon Symbol="Delete24" FontSize="44"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="卸载 RocoPilot"
+                           FontSize="26" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock x:Name="DetailText"
+                           Margin="0,6,0,0"
+                           FontSize="13"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Margin="0,28,0,0"
+                   Text="这将从你的电脑中移除 RocoPilot 及其相关文件、快捷方式和注册表信息。"
+                   TextWrapping="Wrap"
+                   FontSize="14"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+
+        <TextBlock Margin="0,16,0,0"
+                   Text="你的个人数据（设置、路线、脚本）默认会保留。如要一并清除，请勾选下方选项。此操作无法撤销。"
+                   TextWrapping="Wrap"
+                   FontSize="13"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <CheckBox x:Name="DeleteUserDataBox"
+                  Margin="0,20,0,0"
+                  Content="同时删除个人数据和应用内设置"
+                  FontSize="14" />
+    </StackPanel>
+</UserControl>
