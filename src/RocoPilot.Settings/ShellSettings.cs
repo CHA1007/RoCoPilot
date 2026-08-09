@@ -16,15 +16,24 @@ public enum AppTheme
     Dark,
 }
 
+public enum UpdateChannel
+{
+    Stable,
+
+    Beta,
+}
+
 public sealed class ShellSettings
 {
     public AppTheme Theme { get; set; } = AppTheme.System;
+
+    public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 
     public string AccentColor { get; set; } = "#0078D4";
 
     public bool DeveloperMode { get; set; } = false;
 
-    public string CaptureBackend { get; set; } = "wgc";
+    public string CaptureBackend { get; set; } = "Auto";
 
     public string CaptureToggleHotkey { get; set; } = "F11";
 
@@ -61,4 +70,10 @@ public sealed class ShellSettings
     public bool AutoBattleEnabled { get; set; }
 
     public bool FastTravelEnabled { get; set; }
+
+    public double WindowWidth { get; set; } = 900;
+
+    public double WindowHeight { get; set; } = 600;
+
+    public bool WindowMaximized { get; set; }
 }

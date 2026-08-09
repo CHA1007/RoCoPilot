@@ -6,6 +6,7 @@ using RocoPilot.Core;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Hotkeys;
 using RocoPilot.Shell.Services;
+using RocoPilot.Tools.AutoBattle;
 using RocoPilot.Tools.AutoThrow;
 using RocoPilot.Tools.FastTravel;
 
@@ -13,7 +14,7 @@ namespace RocoPilot.Shell.Pages;
 
 public partial class RealtimePage : Page
 {
-    private const string ListeningTriggerKey = "";
+    private const string ListeningTriggerKey = "按下按键…";
 
     private const string UnspecifiedTriggerKey = "未指定";
 
@@ -41,7 +42,7 @@ public partial class RealtimePage : Page
         ConfigHost.Content = tool.CreateConfigPanel(_throwSettings, PersistThrow);
 
         var battleSettings = store.GetToolSettings(
-            "auto-battle", typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
+            AutoBattleTool.Id, typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
             () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings;
         SkillSlotCombo.SelectedIndex = Math.Clamp((battleSettings?.SkillSlot ?? 1) - 1, 0, 3);
         FastTravelModeCombo.SelectedIndex = (int)_dispatcher.FastTravelTriggerMode;
@@ -100,11 +101,11 @@ public partial class RealtimePage : Page
     {
         if (SkillSlotCombo.SelectedIndex < 0) return;
         var settings = _store.GetToolSettings(
-            "auto-battle", typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
+            AutoBattleTool.Id, typeof(RocoPilot.Tools.AutoBattle.AutoBattleSettings),
             () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings
                        ?? new RocoPilot.Tools.AutoBattle.AutoBattleSettings();
         settings.SkillSlot = SkillSlotCombo.SelectedIndex + 1;
-        _store.SetToolSettings("auto-battle", settings);
+        _store.SetToolSettings(AutoBattleTool.Id, settings);
         _store.Save();
     }
 
@@ -131,7 +132,7 @@ public partial class RealtimePage : Page
         {
             var cleared = GetFastTravelSettings();
             cleared.TriggerKey = string.Empty;
-            _store.SetToolSettings("fast-travel", cleared);
+            _store.SetToolSettings(FastTravelTool.Id, cleared);
             _store.Save();
             _hotkeys.ApplyFastTravelTrigger();
 
@@ -144,7 +145,7 @@ public partial class RealtimePage : Page
 
         var settings = GetFastTravelSettings();
         settings.TriggerKey = triggerKey;
-        _store.SetToolSettings("fast-travel", settings);
+        _store.SetToolSettings(FastTravelTool.Id, settings);
         _store.Save();
         _hotkeys.ApplyFastTravelTrigger();
 
@@ -154,7 +155,7 @@ public partial class RealtimePage : Page
 
     private FastTravelSettings GetFastTravelSettings() =>
         _store.GetToolSettings(
-            "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+            FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
         ?? new FastTravelSettings();
 
     private static string DisplayTriggerKey(string triggerKey) =>
@@ -165,13 +166,13 @@ public partial class RealtimePage : Page
         switch (toolEvent.Name)
         {
             case "arming_failed":
-                StatusText.Text = "启动失败：" + toolEvent.Data?["error"] + "。" + toolEvent.Data?["remedy"];
-                StatusText.Visibility = Visibility.Visible;
+                ErrorBannerText.Text = "启动失败：" + toolEvent.Data?["error"] + "。" + toolEvent.Data?["remedy"];
+                ErrorBanner.Visibility = Visibility.Visible;
                 break;
 
             case "fault":
-                StatusText.Text = "异常：" + toolEvent.Data?["error"];
-                StatusText.Visibility = Visibility.Visible;
+                ErrorBannerText.Text = "异常：" + toolEvent.Data?["error"];
+                ErrorBanner.Visibility = Visibility.Visible;
                 break;
         }
     });

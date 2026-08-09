@@ -1,0 +1,68 @@
+<ui:FluentWindow x:Class="RocoPilot.Shell.Dialogs.WindowPickerDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="选择窗口"
+                 Width="640"
+                 Height="520"
+                 MinWidth="420"
+                 MinHeight="320"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica">
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar Grid.Row="0" Title="选择窗口" />
+
+    <TextBlock Grid.Row="1"
+               Margin="20,4,20,8"
+               FontSize="12"
+               Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+               Text="点击选中要捕获的窗口" />
+
+    <ListBox x:Name="WindowList"
+             Grid.Row="2"
+             Margin="12,0,12,12"
+             Background="Transparent"
+             BorderThickness="0"
+             SelectionChanged="OnListSelected"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Grid Margin="4,6" Height="44">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Width="36"
+                    Height="36"
+                    Margin="0,0,12,0"
+                    CornerRadius="4"
+                    Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}">
+              <Image Width="24"
+                     Height="24"
+                     Source="{Binding Icon}"
+                     RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding Title}"
+                         FontWeight="SemiBold"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip="{Binding Title}" />
+              <TextBlock Margin="0,2,0,0"
+                         FontSize="12"
+                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                         Text="{Binding ProcessName}" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </Grid>
+</ui:FluentWindow>

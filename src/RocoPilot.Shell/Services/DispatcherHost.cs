@@ -30,8 +30,7 @@ public sealed class DispatcherHost : IDisposable
     private FastTravelHandler? _fastTravelHandler;
     private FastTravelSettings? _fastTravelSettings;
     private FastTravelTriggerMode _fastTravelTriggerMode;
-    private bool _autoThrowEnabled;
-    private bool _routeExecutionEnabled;
+    private OpenWorldModule _openWorldModule;
     private bool _autoBattleEnabled;
     private bool _fastTravelEnabled;
     private Guid? _pendingStartNode;
@@ -46,11 +45,11 @@ public sealed class DispatcherHost : IDisposable
         _scriptStore = scriptStore;
 
         var shell = store.GetShellSettings();
-        _autoThrowEnabled = shell.AutoThrowEnabled;
+        _openWorldModule = shell.AutoThrowEnabled ? OpenWorldModule.AutoThrow : OpenWorldModule.None;
         _autoBattleEnabled = shell.AutoBattleEnabled;
         _fastTravelEnabled = shell.FastTravelEnabled;
         _fastTravelTriggerMode = (_store.GetToolSettings(
-                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings)
+                FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings)
             ?.TriggerMode ?? FastTravelTriggerMode.Auto;
 
         _capture.Changed += OnCaptureChanged;
@@ -102,24 +101,24 @@ public sealed class DispatcherHost : IDisposable
 
     public bool AutoThrowEnabled
     {
-        get => _autoThrowEnabled;
+        get => _openWorldModule == OpenWorldModule.AutoThrow;
         set
         {
-            if (_autoThrowEnabled == value) return;
-            _autoThrowEnabled = value;
-            if (value) _routeExecutionEnabled = false;
+            var next = value ? OpenWorldModule.AutoThrow : OpenWorldModule.None;
+            if (_openWorldModule == next) return;
+            _openWorldModule = next;
             PersistEnables();
         }
     }
 
     public bool RouteExecutionEnabled
     {
-        get => _routeExecutionEnabled;
+        get => _openWorldModule == OpenWorldModule.Route;
         set
         {
-            if (_routeExecutionEnabled == value) return;
-            _routeExecutionEnabled = value;
-            if (value) _autoThrowEnabled = false;
+            var next = value ? OpenWorldModule.Route : OpenWorldModule.None;
+            if (_openWorldModule == next) return;
+            _openWorldModule = next;
             PersistEnables();
         }
     }
@@ -155,10 +154,10 @@ public sealed class DispatcherHost : IDisposable
             _fastTravelTriggerMode = value;
 
             var settings = _store.GetToolSettings(
-                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                            ?? new FastTravelSettings();
             settings.TriggerMode = value;
-            _store.SetToolSettings("fast-travel", settings);
+            _store.SetToolSettings(FastTravelTool.Id, settings);
             _store.Save();
 
             lock (_gate)
@@ -176,12 +175,13 @@ public sealed class DispatcherHost : IDisposable
         }
     }
 
-    private bool EffectiveFastTravelEnabled => _fastTravelEnabled && !_routeExecutionEnabled;
+    private bool EffectiveFastTravelEnabled =>
+        _fastTravelEnabled && _openWorldModule != OpenWorldModule.Route;
 
     private void PersistEnables()
     {
         var shell = _store.GetShellSettings();
-        shell.AutoThrowEnabled = _autoThrowEnabled;
+        shell.AutoThrowEnabled = _openWorldModule == OpenWorldModule.AutoThrow;
         shell.AutoBattleEnabled = _autoBattleEnabled;
         shell.FastTravelEnabled = _fastTravelEnabled;
         _store.SetShellSettings(shell);
@@ -219,7 +219,7 @@ public sealed class DispatcherHost : IDisposable
                 _throwTool.Id, _throwTool.SettingsType, _throwTool.CreateDefaultSettings) as AutoThrowSettings
                                 ?? new AutoThrowSettings();
             var battleSettings = _store.GetToolSettings(
-                "auto-battle", typeof(AutoBattleSettings), () => new AutoBattleSettings()) as AutoBattleSettings
+                AutoBattleTool.Id, typeof(AutoBattleSettings), () => new AutoBattleSettings()) as AutoBattleSettings
                                  ?? new AutoBattleSettings();
 
             _throwHandler = new AutoThrowHandler(throwSettings, source, _store)
@@ -247,7 +247,7 @@ public sealed class DispatcherHost : IDisposable
             };
 
             var fastTravelSettings = _store.GetToolSettings(
-                "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+                FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                                      ?? new FastTravelSettings();
             fastTravelSettings.TriggerMode = _fastTravelTriggerMode;
             _fastTravelSettings = fastTravelSettings;
@@ -423,5 +423,12 @@ public sealed class DispatcherHost : IDisposable
                 _active = selected;
             }
         }
+    }
+
+    private enum OpenWorldModule
+    {
+        None,
+        AutoThrow,
+        Route,
     }
 }

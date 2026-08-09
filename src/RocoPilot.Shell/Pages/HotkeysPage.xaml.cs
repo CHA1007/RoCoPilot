@@ -8,7 +8,7 @@ namespace RocoPilot.Shell.Pages;
 
 public partial class HotkeysPage : Page
 {
-    private const string Listening = "";
+    private const string Listening = "按下按键…";
 
     private const string Unspecified = "未指定";
 

@@ -40,6 +40,4 @@ public sealed record CatchPipelineFactories
     public Func<IInputDriver> Driver { get; init; } = InputDriverFactory.Create;
 
     public Func<bool> IsGameForeground { get; init; } = () => global::RocoPilot.Capture.WindowFinder.IsForegroundProcess(global::RocoPilot.Capture.WindowFinder.GameProcessName);
-
-    public Func<ISceneImageEncoder> SceneImageEncoder { get; init; } = () => new WpfSceneImageEncoder();
 }

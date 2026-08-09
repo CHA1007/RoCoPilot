@@ -48,7 +48,7 @@
     </Style>
   </Page.Resources>
 
-  <Grid Margin="32,24,32,40">
+  <Grid Margin="{StaticResource PagePadding}">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />

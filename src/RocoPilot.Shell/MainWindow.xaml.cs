@@ -2,7 +2,8 @@ using System.IO;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
+using RocoPilot.Core;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Appearance;
 using RocoPilot.Shell.Hotkeys;
@@ -24,7 +25,14 @@ public partial class MainWindow : FluentWindow
     private readonly OverlayController _overlay;
     private readonly CaptureHost _capture;
     private readonly ShellHotkeys _hotkeys;
+    private readonly DispatcherHost _dispatcher;
     private readonly System.Windows.Threading.DispatcherTimer _brandTimer;
+    private readonly DoubleAnimation _breath = new(1.0, 0.2, TimeSpan.FromMilliseconds(900))
+    {
+        AutoReverse = true,
+        RepeatBehavior = RepeatBehavior.Forever,
+        EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut },
+    };
     private bool _brandEnglish = true;
 
     private void SwapBrand()
@@ -50,7 +58,8 @@ public partial class MainWindow : FluentWindow
         RunningTaskHost taskHost,
         OverlayController overlay,
         CaptureHost capture,
-        ShellHotkeys hotkeys)
+        ShellHotkeys hotkeys,
+        DispatcherHost dispatcher)
     {
         InitializeComponent();
 
@@ -63,6 +72,23 @@ public partial class MainWindow : FluentWindow
         _overlay = overlay;
         _capture = capture;
         _hotkeys = hotkeys;
+        _dispatcher = dispatcher;
+
+        var shellSettings = _store.GetShellSettings();
+        if (shellSettings.WindowWidth >= MinWidth && shellSettings.WindowHeight >= MinHeight)
+        {
+            Width = shellSettings.WindowWidth;
+            Height = shellSettings.WindowHeight;
+        }
+
+        if (shellSettings.WindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+
+        _dispatcher.Changed += OnDispatcherChanged;
+        _dispatcher.TaskStateChanged += OnTaskStateChanged;
+        UpdateStatusLight();
         NavigationView.SetPageProviderService(pageProvider);
 
         BuildNavigation();
@@ -88,17 +114,60 @@ public partial class MainWindow : FluentWindow
             ShellTheme.WatchSystemTheme(this);
         }
 
-        Closed += (_, _) => _overlay.Shutdown();
+        Closed += (_, _) =>
+        {
+            _dispatcher.Changed -= OnDispatcherChanged;
+            _dispatcher.TaskStateChanged -= OnTaskStateChanged;
+
+            var shell = _store.GetShellSettings();
+            shell.WindowMaximized = WindowState == WindowState.Maximized;
+            var bounds = WindowState == WindowState.Normal ? new Rect(0, 0, Width, Height) : RestoreBounds;
+            shell.WindowWidth = bounds.Width;
+            shell.WindowHeight = bounds.Height;
+            _store.SetShellSettings(shell);
+            _store.Save();
+
+            _overlay.Shutdown();
+        };
 
         _hotkeys.Start();
 
         _overlay.Start();
     }
 
+    private void OnDispatcherChanged() => Dispatcher.InvokeAsync(UpdateStatusLight);
+
+    private void OnTaskStateChanged(object? sender, TaskState state) => Dispatcher.InvokeAsync(UpdateStatusLight);
+
+    private void UpdateStatusLight()
+    {
+        var (color, breathing, tip) = _dispatcher.DispatcherState switch
+        {
+            TaskState.Running => ("#6CCB5F", true, "任务运行中"),
+            TaskState.Arming => ("#4CC2FF", true, "任务武装中"),
+            TaskState.Paused => ("#FFB900", false, "任务已暂停"),
+            TaskState.Stopping => ("#FF6B6B", false, "任务停止中"),
+            _ => ("#8A8A8A", false, "任务待机"),
+        };
+
+        StatusLight.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+        StatusLight.ToolTip = tip;
+
+        if (breathing)
+        {
+            StatusLight.BeginAnimation(OpacityProperty, _breath);
+        }
+        else
+        {
+            StatusLight.BeginAnimation(OpacityProperty, null);
+            StatusLight.Opacity = 1;
+        }
+    }
+
     private void BuildNavigation()
     {
         NavigationView.MenuItems.Add(new NavigationViewItem("启动", SymbolRegular.Rocket24, typeof(LaunchPage)));
-        NavigationView.MenuItems.Add(new NavigationViewItem("实时", SymbolRegular.TargetArrow24, typeof(RealtimePage)));
+        NavigationView.MenuItems.Add(new NavigationViewItem("实时触发", SymbolRegular.TargetArrow24, typeof(RealtimePage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("孵蛋", SymbolRegular.FoodEgg24, typeof(EggQueryPage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("流程", SymbolRegular.BranchFork24, typeof(RoutePage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("热键", SymbolRegular.Keyboard24, typeof(HotkeysPage)));
@@ -110,12 +179,7 @@ public partial class MainWindow : FluentWindow
                 Content = "诊断调试",
                 Icon = new SymbolIcon { Symbol = SymbolRegular.Pulse24 },
             };
-            diagnostics.MenuItems.Add(new NavigationViewItem("输入探针", SymbolRegular.Keyboard24, typeof(InputProbePage)));
-            diagnostics.MenuItems.Add(new NavigationViewItem("捕获调试", SymbolRegular.Screenshot24, typeof(CaptureDebugPage)));
-            diagnostics.MenuItems.Add(new NavigationViewItem("检测调试", SymbolRegular.EyeTracking24, typeof(DetectionDebugPage)));
-            diagnostics.MenuItems.Add(new NavigationViewItem("居中调试", SymbolRegular.AlignCenterHorizontal24, typeof(CenteringDebugPage)));
-            diagnostics.MenuItems.Add(new NavigationViewItem("捕捉调试", SymbolRegular.AnimalRabbit24, typeof(CatchLoopDebugPage)));
-            diagnostics.MenuItems.Add(new NavigationViewItem("失败现场", SymbolRegular.ImageMultiple24, typeof(ScenesPage)));
+            diagnostics.MenuItems.Add(new NavigationViewItem("管线调试", SymbolRegular.Pulse24, typeof(DiagnosticsPage)));
             NavigationView.MenuItems.Add(diagnostics);
         }
 
@@ -130,6 +194,9 @@ public partial class MainWindow : FluentWindow
     }
 
     private void OnHideToTrayClick(object sender, RoutedEventArgs e) => Hide();
+
+    private async void OnTrayCheckUpdateClick(object sender, RoutedEventArgs e) =>
+        await UpdateFlow.CheckAsync(_store.GetShellSettings().UpdateChannel, _ => { });
 
     private void OnTrayLeftDoubleClick(NotifyIcon sender, RoutedEventArgs e) => RestoreFromTray();
 

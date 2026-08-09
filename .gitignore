@@ -27,6 +27,7 @@ obj/
 .vs/
 *.suo
 prototypes/
-tests/
 publish/
+TestResults/
+bin-verify/
 releases/

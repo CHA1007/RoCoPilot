@@ -9,10 +9,6 @@ public enum CaptureBackendMode
     ForceWgcMonitor,
 
     ForceGdi,
-
-    BitBlt,
-
-    Wgc,
 }
 
 public sealed record CaptureOptions

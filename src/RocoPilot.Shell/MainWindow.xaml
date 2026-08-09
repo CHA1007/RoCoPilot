@@ -34,6 +34,13 @@
       </ui:TitleBar.Header>
       <ui:TitleBar.TrailingContent>
         <StackPanel VerticalAlignment="Top" Orientation="Horizontal">
+          <Ellipse x:Name="StatusLight"
+                   Width="10"
+                   Height="10"
+                   Margin="0,0,6,0"
+                   VerticalAlignment="Center"
+                   Fill="#8A8A8A"
+                   ToolTip="任务待机" />
           <ui:Button Width="40"
                      Height="32"
                      Background="Transparent"
@@ -62,7 +69,7 @@
                        OpenPaneLength="160" />
 
     <tray:NotifyIcon Grid.Row="0"
-                     Icon="pack://application:,,,/RocoPilot.ico"
+                     Icon="pack://application:,,,/assets/icons/game.png"
                      TooltipText="RocoPilot"
                      FocusOnLeftClick="False"
                      LeftDoubleClick="OnTrayLeftDoubleClick"
@@ -72,6 +79,9 @@
           <ui:MenuItem Header="显示"
                        Icon="{ui:SymbolIcon Window24}"
                        Click="OnShowFromTrayClick" />
+          <ui:MenuItem Header="检查更新"
+                       Icon="{ui:SymbolIcon ArrowAutofitUp24}"
+                       Click="OnTrayCheckUpdateClick" />
           <Separator />
           <ui:MenuItem Header="退出"
                        Icon="{ui:SymbolIcon Dismiss24}"

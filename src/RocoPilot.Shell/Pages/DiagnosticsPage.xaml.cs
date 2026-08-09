@@ -2,10 +2,9 @@ using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using RocoPilot.Capture;
+using RocoPilot.Core;
 using RocoPilot.Detection;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
@@ -13,10 +12,11 @@ using RocoPilot.Tools.AutoThrow;
 
 namespace RocoPilot.Shell.Pages;
 
-public partial class DetectionDebugPage : Page
+public partial class DiagnosticsPage : Page
 {
     private const double BlitIntervalMs = 33;
     private const int MaxListedBoxes = 8;
+    private static readonly TimeSpan WorkerJoinTimeout = TimeSpan.FromSeconds(3);
 
     private static readonly Dictionary<string, (string Label, byte B, byte G, byte R)> s_classPresentation = new()
     {
@@ -26,6 +26,7 @@ public partial class DetectionDebugPage : Page
 
     private readonly ISettingsStore _store;
     private readonly DispatcherTimer _readingsTimer;
+    private readonly FrameBlitter _blitter = new();
     private readonly object _readingsGate = new();
 
     private ICaptureSource? _source;
@@ -37,33 +38,28 @@ public partial class DetectionDebugPage : Page
     private RollingFpsMeter _inferenceMeter = new();
     private int _generation;
 
-    private IReadOnlyList<CaptureWindow> _windows = [];
-    private WriteableBitmap? _bitmap;
-    private byte[] _presentationBuffer = [];
     private int _blitBusy;
     private long _lastBlitTicks;
     private int _presentWidth;
     private int _presentHeight;
     private long _lastSequence = -1;
-    private long _detectCount;
     private double _lastInferenceMs;
+    private string _detectParamsLine = "参数：—（读 settings.json tools.auto-throw）";
     private string _boxLines = "（无检出）";
     private string _stableLine = "稳定目标：—（门控未采信）";
-    private string _paramsLine = "参数：—（读 settings.json tools.auto-throw）";
 
-    public DetectionDebugPage(ISettingsStore store)
+    public DiagnosticsPage(ISettingsStore store)
     {
         InitializeComponent();
 
         _store = store;
+        SetupCard.StartRequested += OnStart;
+        SetupCard.StopRequested += OnStop;
+
         _readingsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _readingsTimer.Tick += (_, _) => RefreshReadings();
 
-        Loaded += (_, _) =>
-        {
-            RefreshWindowList();
-            _readingsTimer.Start();
-        };
+        Loaded += (_, _) => _readingsTimer.Start();
         Unloaded += (_, _) =>
         {
             _readingsTimer.Stop();
@@ -71,37 +67,31 @@ public partial class DetectionDebugPage : Page
         };
     }
 
-    private async void OnStartClick(object sender, RoutedEventArgs e)
+    private async void OnStart(object? sender, EventArgs e)
     {
         TearDownPipeline();
         var generation = ++_generation;
-        StartButton.IsEnabled = false;
+        SetupCard.IsBusy = true;
 
-        OnnxYoloDetector? detector = null;
         ICaptureSource? source = null;
+        OnnxYoloDetector? detector = null;
         try
         {
             var toolSettings = (AutoThrowSettings)_store.GetToolSettings(
                 AutoThrowTool.ToolId, typeof(AutoThrowSettings), static () => new AutoThrowSettings());
-            var options = toolSettings.ToDetectionOptions();
+            var detectionOptions = toolSettings.ToDetectionOptions();
+
+            SetStatus("正在启动捕获…");
+            source = await CaptureSourceFactory.StartBestAvailableAsync(SetupCard.BuildCaptureOptions());
 
             SetStatus("正在装载检测器（ONNX 会话，首次约数百毫秒）…");
-            detector = DetectorFactory.CreateOnnxYolo(options);
-            var gate = new StabilityGate(options.StableFrames, options.StabilitySpreadPx, options.AssociationRadiusPx);
-
-            var substring = WindowTitleBox.Text?.Trim();
-            var captureOptions = new CaptureOptions
-            {
-                WindowTitleSubstring = string.IsNullOrEmpty(substring) ? null : substring,
-            };
-            SetStatus("正在启动捕获（回退链：窗口 WGC → 整屏 WGC → GDI）…");
-            source = await CaptureSourceFactory.StartBestAvailableAsync(captureOptions);
+            detector = DetectorFactory.CreateOnnxYolo(detectionOptions);
+            var gate = new StabilityGate(
+                detectionOptions.StableFrames, detectionOptions.StabilitySpreadPx, detectionOptions.AssociationRadiusPx);
 
             if (generation != _generation)
             {
-                source.Stop();
-                source.Dispose();
-                detector.Dispose();
+                CleanupLocals(source, detector);
                 return;
             }
 
@@ -113,52 +103,57 @@ public partial class DetectionDebugPage : Page
             _inferenceMeter = new RollingFpsMeter();
             _lastSequence = -1;
 
-            source.FrameArrived += OnFrameArrived;
+            source.FrameArrived += OnDetectFrameArrived;
             source.Stopped += OnSourceStopped;
-            _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "检测调试推理" };
-            _worker.Start();
+            _worker = StartWorker(DetectionWorkerLoop, "检测调试推理");
+
+            SourceText.Text = $"目标：{source.SourceDescription}";
 
             var applied = detector.AppliedOptions;
-            _paramsLine = "参数：conf " +
+            _detectParamsLine = "参数：conf " +
                 $"{applied.ConfidenceThreshold:F2} · iou {applied.IouThreshold:F2} · 稳定 {applied.StableFrames} 帧 · " +
                 $"白名单 {(applied.Whitelist.Count == 0 ? "全类" : string.Join("/", applied.Whitelist.Select(Label)))}";
-            BackendText.Text = $"捕获后端：{source.BackendName}（检测 {detector.BackendName}）";
-            SourceText.Text = $"目标：{source.SourceDescription}";
-            StopButton.IsEnabled = true;
-            StartButton.IsEnabled = true;
+
+            SyncLiveVisibility();
+            SetupCard.IsRunning = true;
             SetStatus("运行中");
             RefreshReadings();
         }
         catch (DetectionException ex)
         {
-            source?.Dispose();
-            detector?.Dispose();
-            StartButton.IsEnabled = true;
+            CleanupLocals(source, detector);
             SetStatus($"检测器装载失败：{ex.Message}");
         }
         catch (CaptureException ex)
         {
-            source?.Dispose();
-            detector?.Dispose();
-            StartButton.IsEnabled = true;
+            CleanupLocals(source, detector);
             SetStatus($"全链失败：{ex.Message}");
         }
         catch (Exception ex)
         {
-            source?.Dispose();
-            detector?.Dispose();
-            StartButton.IsEnabled = true;
+            CleanupLocals(source, detector);
             SetStatus($"意外失败：{ex.GetBaseException().Message}");
+        }
+        finally
+        {
+            SetupCard.IsBusy = false;
         }
     }
 
-    private void OnStopClick(object sender, RoutedEventArgs e)
+    private Thread StartWorker(ThreadStart body, string name)
+    {
+        var thread = new Thread(body) { IsBackground = true, Name = name };
+        thread.Start();
+        return thread;
+    }
+
+    private void OnStop(object? sender, EventArgs e)
     {
         TearDownPipeline();
         SetStatus("已停止");
     }
 
-    private void OnFrameArrived(object? sender, EventArgs e)
+    private void OnDetectFrameArrived(object? sender, EventArgs e)
     {
         try
         {
@@ -173,10 +168,10 @@ public partial class DetectionDebugPage : Page
         Dispatcher.InvokeAsync(() =>
         {
             SetStatus($"非请求式结束：{e.Reason}（最后一帧仍可查看）");
-            StopButton.IsEnabled = false;
+            SetupCard.IsRunning = false;
         });
 
-    private void WorkerLoop()
+    private void DetectionWorkerLoop()
     {
         var cts = _cts!;
         var signal = _frameSignal!;
@@ -223,7 +218,6 @@ public partial class DetectionDebugPage : Page
                     var stable = gate.Update(boxes);
                     _lastInferenceMs = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
                     _inferenceMeter.Tick();
-                    Interlocked.Increment(ref _detectCount);
 
                     UpdateReadoutLines(boxes, stable);
                     MaybeCompositeAndBlit(frame, boxes, stable);
@@ -255,29 +249,25 @@ public partial class DetectionDebugPage : Page
 
         Interlocked.Exchange(ref _lastBlitTicks, now);
 
-        var width = frame.Width;
-        var height = frame.Height;
-        var length = frame.Pixels.Length;
-        if (_presentationBuffer.Length < length)
+        if (!_blitter.Prepare(frame))
         {
-            _presentationBuffer = new byte[length];
+            Interlocked.Exchange(ref _blitBusy, 0);
+            return;
         }
 
-        frame.Pixels.CopyTo(_presentationBuffer);
-        for (var i = 3; i < length; i += 4)
-        {
-            _presentationBuffer[i] = 0xFF;
-        }
+        var buffer = _blitter.Buffer;
+        var width = frame.Width;
+        var height = frame.Height;
 
         foreach (var box in boxes)
         {
             var (b, g, r) = ClassColor(box.ClassName);
-            DrawRect(_presentationBuffer, width, height, box.X1, box.Y1, box.X2, box.Y2, b, g, r, thickness: 2);
+            PixelPaint.DrawRect(buffer, width, height, box.X1, box.Y1, box.X2, box.Y2, b, g, r, thickness: 2);
         }
 
         foreach (var target in stable)
         {
-            DrawRect(_presentationBuffer, width, height,
+            PixelPaint.DrawRect(buffer, width, height,
                 target.Latest.X1 - 3, target.Latest.Y1 - 3, target.Latest.X2 + 3, target.Latest.Y2 + 3,
                 b: 80, g: 230, r: 80, thickness: 3);
         }
@@ -298,13 +288,7 @@ public partial class DetectionDebugPage : Page
                 return;
             }
 
-            if (_bitmap is null || _bitmap.PixelWidth != width || _bitmap.PixelHeight != height)
-            {
-                _bitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
-                LiveImage.Source = _bitmap;
-            }
-
-            _bitmap.WritePixels(new Int32Rect(0, 0, width, height), _presentationBuffer, width * 4, 0);
+            _blitter.Blit(LiveImage, width, height);
         }
         finally
         {
@@ -348,43 +332,48 @@ public partial class DetectionDebugPage : Page
 
     private void RefreshReadings()
     {
-        InferenceFpsText.Text = _source is null ? "— FPS" : $"{_inferenceMeter.CurrentFps:F0} FPS";
-        InferenceMsText.Text = $"推理 {Volatile.Read(ref _lastInferenceMs):F1} ms/帧";
-        DetectCountText.Text = $"累计推理 {Interlocked.Read(ref _detectCount)} 帧";
-        CaptureFpsText.Text = _source is { } source
-            ? $"捕获：{source.FramesPerSecond:F0} FPS · 分辨率 {(source.FrameWidth > 0 ? $"{source.FrameWidth}×{source.FrameHeight}" : "—")}"
-            : "捕获：— FPS · 分辨率 —";
-        ParamsText.Text = _paramsLine;
-
-        lock (_readingsGate)
+        if (_source is { } source)
         {
-            BoxListText.Text = _boxLines;
-            StableText.Text = _stableLine;
+            FpsText.Text = $"{source.FramesPerSecond:F0} FPS";
+            SourceText.Text = source.FrameWidth > 0
+                ? $"目标：{source.SourceDescription} · {source.FrameWidth}×{source.FrameHeight}"
+                : $"目标：{source.SourceDescription}";
+        }
+
+        if (_detector is not null)
+        {
+            InferenceText.Text = _source is null
+                ? "推理 —"
+                : $"推理 {_inferenceMeter.CurrentFps:F0} FPS · {Volatile.Read(ref _lastInferenceMs):F1} ms/帧";
+            DetectParamsText.Text = _detectParamsLine;
+            lock (_readingsGate)
+            {
+                BoxListText.Text = _boxLines;
+                StableText.Text = _stableLine;
+            }
         }
     }
+
+    private void SyncLiveVisibility() =>
+        LiveImageCard.Visibility = _source is null ? Visibility.Collapsed : Visibility.Visible;
 
     private void TearDownPipeline()
     {
         _generation++;
 
-        if (_source is { } source)
+        if (_source is { } live)
         {
-            source.FrameArrived -= OnFrameArrived;
-            source.Stopped -= OnSourceStopped;
+            live.FrameArrived -= OnDetectFrameArrived;
+            live.Stopped -= OnSourceStopped;
         }
 
         _cts?.Cancel();
-        var worker = _worker;
-        if (worker is not null && worker.IsAlive)
-        {
-            worker.Join(TimeSpan.FromSeconds(2));
-        }
 
-        _source?.Stop();
-        _source?.Dispose();
-        _detector?.Dispose();
-        _cts?.Dispose();
-        _frameSignal?.Dispose();
+        var worker = _worker;
+        var source = _source;
+        var detector = _detector;
+        var cts = _cts;
+        var signal = _frameSignal;
 
         _source = null;
         _detector = null;
@@ -392,40 +381,45 @@ public partial class DetectionDebugPage : Page
         _worker = null;
         _cts = null;
         _frameSignal = null;
-        StopButton.IsEnabled = false;
-        BackendText.Text = "捕获后端：未启动";
+
+        SyncLiveVisibility();
+        SetupCard.IsRunning = false;
+        FpsText.Text = "— FPS";
+        InferenceText.Text = "推理 —";
         SourceText.Text = "目标：—";
-    }
 
-    private void OnRefreshWindowsClick(object sender, RoutedEventArgs e) => RefreshWindowList();
-
-    private void RefreshWindowList()
-    {
-        try
+        if (worker is null && source is null)
         {
-            _windows = WindowFinder.ListVisibleWindows();
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"枚举窗口失败：{ex.GetBaseException().Message}");
+            cts?.Dispose();
+            signal?.Dispose();
             return;
         }
 
-        WindowList.Items.Clear();
-        foreach (var window in _windows)
+        Task.Run(() =>
         {
-            WindowList.Items.Add($"{window.Title}（0x{window.Handle:X}）");
-        }
+            if (worker is not null && worker.IsAlive)
+            {
+                worker.Join(WorkerJoinTimeout);
+            }
 
-        SetStatus($"可见窗口 {_windows.Count} 个；选中即填入标题子串");
+            source?.Stop();
+            source?.Dispose();
+            detector?.Dispose();
+            cts?.Dispose();
+            signal?.Dispose();
+        });
     }
 
-    private void OnWindowSelected(object sender, SelectionChangedEventArgs e)
+    private void CleanupLocals(ICaptureSource? source, OnnxYoloDetector? detector)
     {
-        if (WindowList.SelectedIndex is >= 0 and var index && index < _windows.Count)
+        if (ReferenceEquals(source, _source))
         {
-            WindowTitleBox.Text = _windows[index].Title;
+            TearDownPipeline();
+            return;
         }
+
+        source?.Dispose();
+        detector?.Dispose();
     }
 
     private void SetStatus(string text) => StatusText.Text = $"状态：{text}";
@@ -437,47 +431,4 @@ public partial class DetectionDebugPage : Page
         s_classPresentation.TryGetValue(className, out var presentation)
             ? (presentation.B, presentation.G, presentation.R)
             : ((byte)200, (byte)200, (byte)200);
-
-    private static void DrawRect(
-        byte[] buffer, int width, int height,
-        float x1, float y1, float x2, float y2,
-        byte b, byte g, byte r, int thickness)
-    {
-        var left = Math.Clamp((int)x1, 0, width - 1);
-        var right = Math.Clamp((int)x2, 0, width - 1);
-        var top = Math.Clamp((int)y1, 0, height - 1);
-        var bottom = Math.Clamp((int)y2, 0, height - 1);
-        if (left > right || top > bottom)
-        {
-            return;
-        }
-
-        for (var t = 0; t < thickness; t++)
-        {
-            var topRow = Math.Clamp(top + t, 0, height - 1);
-            var bottomRow = Math.Clamp(bottom - t, 0, height - 1);
-            for (var x = left; x <= right; x++)
-            {
-                SetPixel(buffer, topRow * width + x, b, g, r);
-                SetPixel(buffer, bottomRow * width + x, b, g, r);
-            }
-
-            var leftCol = Math.Clamp(left + t, 0, width - 1);
-            var rightCol = Math.Clamp(right - t, 0, width - 1);
-            for (var y = top; y <= bottom; y++)
-            {
-                SetPixel(buffer, y * width + leftCol, b, g, r);
-                SetPixel(buffer, y * width + rightCol, b, g, r);
-            }
-        }
-    }
-
-    private static void SetPixel(byte[] buffer, int pixelIndex, byte b, byte g, byte r)
-    {
-        var offset = pixelIndex * 4;
-        buffer[offset] = b;
-        buffer[offset + 1] = g;
-        buffer[offset + 2] = r;
-        buffer[offset + 3] = 0xFF;
-    }
 }

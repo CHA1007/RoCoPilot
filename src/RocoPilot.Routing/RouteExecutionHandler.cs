@@ -12,7 +12,7 @@ namespace RocoPilot.Routing;
 public sealed class RouteExecutionHandler : ISceneHandler, IDisposable
 {
     private const string TeleportTemplatePath = "assets/templates/map/teleport.png";
-    private const string FastTravelToolId = "fast-travel";
+    
 
     private readonly RouteStore _store;
     private readonly ScriptStore _scriptStore;
@@ -145,7 +145,7 @@ public sealed class RouteExecutionHandler : ISceneHandler, IDisposable
         if (source is null) return;
 
         var teleportSettings = _settings.GetToolSettings(
-            FastTravelToolId, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+            FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                                ?? new FastTravelSettings();
 
         _sensor = TeleportSensor.TryCreate(TeleportTemplatePath);

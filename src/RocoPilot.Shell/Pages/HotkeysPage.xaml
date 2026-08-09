@@ -3,77 +3,129 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <Grid Margin="{StaticResource PagePadding}">
+  <Page.Resources>
+    <GridLength x:Key="ScopeColumnWidth">154</GridLength>
+    <GridLength x:Key="KeyColumnWidth">138</GridLength>
+  </Page.Resources>
 
-    <ui:CardControl VerticalAlignment="Stretch" VerticalContentAlignment="Top">
-      <ui:CardControl.Header>
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+  <StackPanel Margin="{StaticResource PagePadding}">
 
-        <ui:TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"
-                      FontTypography="Body" Text="截图器开启/关闭" />
-        <ComboBox Grid.Row="0" Grid.Column="1" Margin="24,0,0,0" x:Name="CaptureScopeBox"
-                  Height="34" Width="130" SelectedIndex="0">
-          <ComboBoxItem Content="全局热键" />
-          <ComboBoxItem Content="游戏内热键" />
-        </ComboBox>
-        <ui:Button Grid.Row="0" Grid.Column="2" x:Name="CaptureToggleButton"
-                   Height="34" Width="130" Margin="8,0,0,0" Content="未指定" />
+    <Border Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ui:ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+      <StackPanel>
 
-        <ui:TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
-                      FontTypography="Body" Text="自动丢球开关" />
-        <ComboBox Grid.Row="1" Grid.Column="1" Margin="24,12,0,0" x:Name="AutoThrowScopeBox"
-                  Height="34" Width="130" SelectedIndex="0">
-          <ComboBoxItem Content="全局热键" />
-          <ComboBoxItem Content="游戏内热键" />
-        </ComboBox>
-        <ui:Button Grid.Row="1" Grid.Column="2" x:Name="AutoThrowToggleButton"
-                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+        <Grid Margin="16,12,16,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="截图器开启/关闭" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="CaptureScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="CaptureToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
 
-        <ui:TextBlock Grid.Row="2" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
-                      FontTypography="Body" Text="自动战斗开关" />
-        <ComboBox Grid.Row="2" Grid.Column="1" Margin="24,12,0,0" x:Name="AutoBattleScopeBox"
-                  Height="34" Width="130" SelectedIndex="0">
-          <ComboBoxItem Content="全局热键" />
-          <ComboBoxItem Content="游戏内热键" />
-        </ComboBox>
-        <ui:Button Grid.Row="2" Grid.Column="2" x:Name="AutoBattleToggleButton"
-                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+        <Separator Margin="16,0" BorderThickness="0,1,0,0" />
 
-        <ui:TextBlock Grid.Row="3" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
-                      FontTypography="Body" Text="地图快传开关" />
-        <ComboBox Grid.Row="3" Grid.Column="1" Margin="24,12,0,0" x:Name="FastTravelScopeBox"
-                  Height="34" Width="130" SelectedIndex="0">
-          <ComboBoxItem Content="全局热键" />
-          <ComboBoxItem Content="游戏内热键" />
-        </ComboBox>
-        <ui:Button Grid.Row="3" Grid.Column="2" x:Name="FastTravelToggleButton"
-                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+        <Grid Margin="16,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="自动丢球开关" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="AutoThrowScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="AutoThrowToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
 
-        <ui:TextBlock Grid.Row="4" Grid.Column="0" Margin="0,12,0,0" VerticalAlignment="Center"
-                      FontTypography="Body" Text="调试叠层开关" />
-        <ComboBox Grid.Row="4" Grid.Column="1" Margin="24,12,0,0" x:Name="DebugOverlayScopeBox"
-                  Height="34" Width="130" SelectedIndex="0">
-          <ComboBoxItem Content="全局热键" />
-          <ComboBoxItem Content="游戏内热键" />
-        </ComboBox>
-        <ui:Button Grid.Row="4" Grid.Column="2" x:Name="DebugOverlayToggleButton"
-                   Height="34" Margin="8,12,0,0" Width="130" Content="未指定" />
+        <Separator Margin="16,0" BorderThickness="0,1,0,0" />
 
-      </Grid>
-      </ui:CardControl.Header>
-    </ui:CardControl>
+        <Grid Margin="16,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="自动战斗开关" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="AutoBattleScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="AutoBattleToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
 
-  </Grid>
+        <Separator Margin="16,0" BorderThickness="0,1,0,0" />
+
+        <Grid Margin="16,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="地图快传开关" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="FastTravelScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="FastTravelToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
+
+        <Separator Margin="16,0" BorderThickness="0,1,0,0" />
+
+        <Grid Margin="16,10,16,12">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="调试叠层开关" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="DebugOverlayScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="DebugOverlayToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
+
+      </StackPanel>
+    </Border>
+
+  </StackPanel>
 </Page>

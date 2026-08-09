@@ -1,0 +1,94 @@
+<Page x:Class="RocoPilot.Shell.Pages.DiagnosticsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:controls="clr-namespace:RocoPilot.Shell.Controls">
+
+  <Grid Margin="32,0,32,0"
+        MaxWidth="1200"
+        MaxHeight="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=ui:DynamicScrollViewer}}">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" MinHeight="120" />
+    </Grid.RowDefinitions>
+
+    <controls:CaptureSetupCard Grid.Row="0"
+                               x:Name="SetupCard"
+                               Margin="0,24,0,0"
+                               RunLabel="开始"
+                               InitialTitle="洛克王国：世界" />
+
+    <Grid Grid.Row="1" Margin="0,12,0,24">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <Border x:Name="LiveImageCard"
+              Grid.Column="0"
+              Visibility="Collapsed"
+              VerticalAlignment="Top"
+              Padding="8"
+              CornerRadius="8"
+              Background="#FF000000"
+              BorderBrush="{ui:ThemeResource CardStrokeColorDefaultBrush}"
+              BorderThickness="1">
+        <Image x:Name="LiveImage"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Stretch="Uniform" />
+      </Border>
+
+      <ScrollViewer Grid.Column="1"
+                    Margin="12,0,0,0"
+                    Width="360"
+                    VerticalScrollBarVisibility="Auto">
+        <Border Padding="16,14"
+                CornerRadius="8"
+                Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ui:ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+          <StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <ui:TextBlock x:Name="FpsText"
+                            FontTypography="TitleLarge"
+                            Text="— FPS" />
+              <ui:TextBlock x:Name="InferenceText"
+                            Margin="12,0,0,4"
+                            VerticalAlignment="Bottom"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                            Text="推理 —" />
+            </StackPanel>
+            <ui:TextBlock x:Name="SourceText"
+                          Margin="0,8,0,0"
+                          FontTypography="Body"
+                          TextWrapping="Wrap"
+                          Text="目标：—" />
+            <ui:TextBlock x:Name="StatusText"
+                          Margin="0,4,0,0"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          Text="状态：待机" />
+            <ui:TextBlock x:Name="DetectParamsText"
+                          Margin="0,4,0,0"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                          TextWrapping="Wrap"
+                          Text="参数：—" />
+            <ui:TextBlock x:Name="StableText"
+                          Margin="0,10,0,0"
+                          FontTypography="BodyStrong"
+                          TextWrapping="Wrap"
+                          Text="稳定目标：—（门控未采信）" />
+            <ui:TextBlock x:Name="BoxListText"
+                          Margin="0,6,0,0"
+                          FontTypography="Body"
+                          TextWrapping="Wrap"
+                          Text="（无检出）" />
+          </StackPanel>
+        </Border>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</Page>

@@ -3,9 +3,31 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="32,24,32,40">
+  <StackPanel Margin="{StaticResource PagePadding}">
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Camera24}">
+    <Border x:Name="BannerBorder"
+            Margin="0,0,0,12"
+            CornerRadius="8"
+            ClipToBounds="True"
+            Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}">
+      <Image x:Name="BannerImage"
+             RenderOptions.BitmapScalingMode="HighQuality"
+             Source="pack://application:,,,/assets/banners/placeholder.png"
+             Stretch="Uniform">
+        <Image.OpacityMask>
+          <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Offset="0" Color="Transparent" />
+            <GradientStop Offset="0.12" Color="Black" />
+            <GradientStop Offset="0.88" Color="Black" />
+            <GradientStop Offset="1" Color="Transparent" />
+          </LinearGradientBrush>
+        </Image.OpacityMask>
+      </Image>
+    </Border>
+
+    <ui:CardExpander Margin="0,0,0,12"
+                     ContentPadding="0"
+                     Icon="{ui:SymbolIcon Camera24}">
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>
@@ -15,14 +37,65 @@
           <StackPanel Grid.Column="0">
             <ui:TextBlock FontTypography="Body" Text="截图器" />
             <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="截图器启动后才能使用自动丢球等功能，点击展开启动相关配置" />
+                          Text="截图器启动后才能使用各项功能，点击展开启动相关配置" />
           </StackPanel>
           <ui:Button x:Name="CaptureButton"
                      Grid.Column="1"
-                     Margin="0,0,16,0"
+                     Margin="0,0,24,0"
+                     Appearance="Primary"
                      Content="启动"
                      Icon="{ui:SymbolIcon Play24}"
                      Click="OnCaptureClick" />
+        </Grid>
+      </ui:CardExpander.Header>
+      <StackPanel>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid x:Name="CaptureStatusRow" Margin="16" Visibility="Collapsed">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕获状态" />
+          <ui:TextBlock x:Name="CaptureStatusText"
+                        Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" />
+        </Grid>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid Margin="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0"
+                        VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Text="截图模式" />
+          <ComboBox x:Name="BackendCombo"
+                    Grid.Column="1"
+                    Width="280"
+                    Margin="0,0,36,0"
+                    SelectionChanged="OnBackendChanged" />
+        </Grid>
+      </StackPanel>
+    </ui:CardExpander>
+
+    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon CompassNorthwest24}">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="转向灵敏度" />
+            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="对中控制的核心参数，建议校准自动测量，不准会导致投掷偏移" />
+          </StackPanel>
+          <ui:Button x:Name="CalibrateButton"
+                     Grid.Column="1"
+                     Margin="0,0,24,0"
+                     Content="校准"
+                     Click="OnCalibrateClick" />
         </Grid>
       </ui:CardExpander.Header>
       <StackPanel>
@@ -36,22 +109,62 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="截图模式" />
+          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="水平灵敏度" />
           <ui:TextBlock Grid.Row="1"
                         Grid.Column="0"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="选择屏幕捕获使用的 API" />
-          <ComboBox x:Name="BackendCombo"
-                    Grid.Row="0"
-                    Grid.RowSpan="2"
-                    Grid.Column="1"
-                    Width="260"
-                    SelectionChanged="OnBackendChanged">
-            <ComboBoxItem Content="BitBlt" />
-            <ComboBoxItem Content="WindowsGraphicsCapture" />
-          </ComboBox>
+                        Text="0 = 用回退值估算" />
+          <ui:NumberBox x:Name="SensitivityPpcXBox"
+                        Grid.Row="0"
+                        Grid.RowSpan="2"
+                        Grid.Column="1"
+                        Width="200"
+                        Margin="0,0,36,0"
+                        Minimum="0"
+                        Maximum="100"
+                        SmallChange="0.1"
+                        MaxDecimalPlaces="3"
+                        ValidationMode="InvalidInputOverwritten"
+                        ValueChanged="OnSensitivityChanged" />
+        </Grid>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid Margin="16">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="垂直灵敏度" />
+          <ui:TextBlock Grid.Row="1"
+                        Grid.Column="0"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="0 = 用回退值估算" />
+          <ui:NumberBox x:Name="SensitivityPpcYBox"
+                        Grid.Row="0"
+                        Grid.RowSpan="2"
+                        Grid.Column="1"
+                        Width="200"
+                        Margin="0,0,36,0"
+                        Minimum="0"
+                        Maximum="100"
+                        SmallChange="0.1"
+                        MaxDecimalPlaces="3"
+                        ValidationMode="InvalidInputOverwritten"
+                        ValueChanged="OnSensitivityChanged" />
+        </Grid>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid Margin="16">
+          <ui:TextBlock x:Name="CalibrateHint"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                        Text="校准会短暂转动镜头，请先启动截图器并保持游戏窗口聚焦"
+                        TextWrapping="Wrap" />
         </Grid>
       </StackPanel>
     </ui:CardExpander>
+
   </StackPanel>
 </Page>

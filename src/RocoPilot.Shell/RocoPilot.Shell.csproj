@@ -28,6 +28,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="..\..\assets\banners\*.png" Link="assets\banners\%(Filename)%(Extension)" />
+    <Resource Include="..\..\assets\icons\*.png" Link="assets\icons\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
 
     <Resource Include="RocoPilot.ico" />
   </ItemGroup>

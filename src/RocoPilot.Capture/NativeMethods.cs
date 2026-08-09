@@ -104,4 +104,19 @@ internal static partial class NativeMethods
     [LibraryImport("gdi32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool BitBlt(IntPtr hdc, int x, int y, int cx, int cy, IntPtr hdcSrc, int x1, int y1, uint rop);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    public static partial IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmGetWindowAttribute(IntPtr hwnd, uint dwAttribute, out int pvAttribute, uint cbAttribute);
+
+    public const int GWL_EXSTYLE = -20;
+    public const long WS_EX_TOOLWINDOW = 0x80;
+    public const long WS_EX_LAYERED = 0x80000;
+    public const uint GW_OWNER = 4;
+    public const uint DWMWA_CLOAKED = 14;
 }

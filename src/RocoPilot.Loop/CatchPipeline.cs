@@ -21,7 +21,6 @@ public sealed class CatchPipeline : ICatchPipeline
     private CatchLoopEngine? _engine;
     private CatchEventBus? _bus;
     private JsonlEventSink? _sink;
-    private FailureSceneRecorder? _recorder;
     private IntPtr _gameWindow;
     private Task? _armTask;
     private AutoCalibrator.PpcProbeResult? _calibratedPpc;
@@ -79,12 +78,6 @@ public sealed class CatchPipeline : ICatchPipeline
     public void Dispose()
     {
         _engine?.Dispose();
-        if (_sensor is not null)
-        {
-            _sensor.RecognitionFlipped -= OnRecognitionFlipped;
-        }
-
-        _recorder?.Dispose();
         _sensor?.Dispose();
         if (_ownsSource)
         {
@@ -166,15 +159,14 @@ public sealed class CatchPipeline : ICatchPipeline
                 _source = await _factories.Capture(new CaptureOptions
                 {
                     WindowTitleSubstring = _spec.WindowTitleSubstring ?? "洛克王国",
-                    Backend = CaptureBackendMode.BitBlt,
+                    Backend = CaptureBackendMode.ForceGdi,
                 }, cancellationToken);
                 _ownsSource = true;
             }
 
-            var retainFrames = _spec.SessionLogDirectory is not null;
             _sensor = new StreamingTargetSensor(_source, _detector!, new StabilityGate(
                 _spec.Detection.StableFrames, _spec.Detection.StabilitySpreadPx, _spec.Detection.AssociationRadiusPx),
-                retainFrames, _spec.DetectionIntervalMs);
+                minIntervalMs: _spec.DetectionIntervalMs);
             _sensor.Start();
 
             var firstFrame = await Task.WhenAny(
@@ -186,13 +178,6 @@ public sealed class CatchPipeline : ICatchPipeline
                 throw new CaptureException(
                     $"{CaptureDefaults.FirstFrameTimeout.TotalSeconds:0}s 内没有帧（后端 {_source.BackendName}：捕获已起但未出帧）");
             }
-            if (_spec.SessionLogDirectory is { } sessionDir)
-            {
-                var store = new SceneStore(Path.Combine(sessionDir, "scenes"), _factories.SceneImageEncoder());
-                _recorder = new FailureSceneRecorder(store, () => _sensor.TrySnapshot(out var snap) ? snap : null);
-                _sensor.RecognitionFlipped += OnRecognitionFlipped;
-            }
-
             _sink = _spec.SessionLogDirectory is { } dir
                 ? new JsonlEventSink(Path.Combine(dir, "events.jsonl"))
                 : null;
@@ -208,11 +193,10 @@ public sealed class CatchPipeline : ICatchPipeline
                 });
             }
 
-            _recorder?.AttachBus(_bus);
         })
     {
         Remedy = ex => ex is CaptureException cex && cex.Message.Contains("未出帧")
-            ? "换一个截图模式（启动页：WGC ↔ BitBlt）再启动；若游戏窗口最小化过，先还原窗口"
+            ? "换一个捕获后端（启动页截图模式：自动 / 窗口 Windows Graphics Capture / 整屏 Windows Graphics Capture / BitBlt 再启动；若游戏窗口最小化过，先还原窗口"
             : "把《洛克王国：世界》客户端开起来（窗口标题含「洛克王国」）再重试",
     };
 
@@ -255,23 +239,5 @@ public sealed class CatchPipeline : ICatchPipeline
     {
         Quiet = true,
     };
-
-    private void OnRecognitionFlipped(object? sender, RecognitionFlip flip)
-    {
-        try
-        {
-            _recorder?.Capture("jump", new ToolEvent("recognition_flipped", new Dictionary<string, object?>
-            {
-                ["track_id"] = flip.TrackId,
-                ["from"] = flip.PreviousClass,
-                ["to"] = flip.Current.Latest.ClassName,
-                ["conf"] = Math.Round(flip.Current.Latest.Confidence, 3),
-            }));
-        }
-        catch (Exception ex)
-        {
-            Trace.TraceWarning($"OnRecognitionFlipped 录制失败: {ex.GetBaseException().Message}");
-        }
-    }
 
 }

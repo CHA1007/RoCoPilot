@@ -46,22 +46,8 @@ public static class CaptureSourceFactory
         CaptureBackendMode.ForceWgcWindow => [() => WgcWindowOrThrow(options)],
         CaptureBackendMode.ForceWgcMonitor => [() => new WgcCaptureSource(WgcTarget.PrimaryMonitor(options.FpsWindow, options.FirstFrameTimeout))],
         CaptureBackendMode.ForceGdi => [() => new GdiCaptureSource(options.FpsWindow)],
-        CaptureBackendMode.BitBlt => [() => new GdiCaptureSource(options.FpsWindow)],
-        CaptureBackendMode.Wgc => WgcStages(options),
         _ => AutoStages(options),
     };
-
-    private static IReadOnlyList<Func<ICaptureSource>> WgcStages(CaptureOptions options)
-    {
-        var stages = new List<Func<ICaptureSource>>(2);
-        if (!string.IsNullOrWhiteSpace(options.WindowTitleSubstring))
-        {
-            stages.Add(() => WgcWindowOrThrow(options));
-        }
-
-        stages.Add(() => new WgcCaptureSource(WgcTarget.PrimaryMonitor(options.FpsWindow, options.FirstFrameTimeout)));
-        return stages;
-    }
 
     private static IReadOnlyList<Func<ICaptureSource>> AutoStages(CaptureOptions options)
     {

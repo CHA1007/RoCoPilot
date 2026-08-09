@@ -1,0 +1,34 @@
+<UserControl x:Class="RocoPilot.Shell.Controls.CaptureSetupCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+  <Border Padding="14,12"
+          CornerRadius="8"
+          Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
+          BorderBrush="{ui:ThemeResource CardStrokeColorDefaultBrush}"
+          BorderThickness="1">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,6">
+        <ui:Button x:Name="PickWindowButton"
+                   DockPanel.Dock="Right"
+                   Margin="8,0,0,0"
+                   Content="选择窗口"
+                   Icon="{ui:SymbolIcon Window24}"
+                   Click="OnPickWindowClick" />
+        <ui:TextBox x:Name="WindowTitleBox"
+                    PlaceholderText="输入进程名称匹配窗口" />
+      </DockPanel>
+
+      <DockPanel>
+        <ui:Button x:Name="RunButton"
+                   DockPanel.Dock="Right"
+                   Click="OnRunClick" />
+        <ComboBox x:Name="BackendBox"
+                  DockPanel.Dock="Left"
+                  Margin="0,0,8,0"
+                  SelectedIndex="0" />
+      </DockPanel>
+    </StackPanel>
+  </Border>
+</UserControl>

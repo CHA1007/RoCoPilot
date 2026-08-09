@@ -16,11 +16,12 @@ public static class SceneShiftEstimator
         var grayA = ToGrayDownsampled(frameA, width, height, sw, sh);
         var grayB = ToGrayDownsampled(frameB, width, height, sw, sh);
 
-        var maxShift = Math.Min(maxShiftPx / Downsample, Math.Min(sw, sh) / 3);
+        var margin = Margin / Downsample;
+        var maxShift = Math.Min(maxShiftPx / Downsample, Math.Min(sw, sh) / 2 - margin - 4);
         if (maxShift < 2) return null;
 
-        var dx = FindBestShift(grayA, grayB, sw, sh, maxShift, horizontal: true);
-        var dy = FindBestShift(grayA, grayB, sw, sh, maxShift, horizontal: false);
+        var dx = FindBestShift(grayA, grayB, sw, sh, maxShift, margin, horizontal: true);
+        var dy = FindBestShift(grayA, grayB, sw, sh, maxShift, margin, horizontal: false);
 
         if (dx is null && dy is null) return null;
 
@@ -30,12 +31,12 @@ public static class SceneShiftEstimator
     }
 
     private static int? FindBestShift(
-        byte[] a, byte[] b, int w, int h, int maxShift, bool horizontal)
+        byte[] a, byte[] b, int w, int h, int maxShift, int margin, bool horizontal)
     {
         var bestShift = 0;
         long bestSad = long.MaxValue;
         long zeroSad = 0;
-        var m = Margin;
+        var m = margin;
 
         int x0, x1, y0, y1;
         if (horizontal)
@@ -73,9 +74,9 @@ public static class SceneShiftEstimator
             }
         }
 
-        if (bestShift == 0) return 0;
+        if (zeroSad == 0) return 0;
 
-        if (zeroSad == 0 || bestSad > zeroSad * 0.85) return null;
+        if (bestSad > zeroSad * 0.85) return null;
         return bestShift;
     }
 

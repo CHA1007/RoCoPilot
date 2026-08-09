@@ -78,7 +78,7 @@ public sealed class ShellHotkeys
     public bool ApplyFastTravelTrigger()
     {
         var settings = _store.GetToolSettings(
-            "fast-travel", typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
+            FastTravelTool.Id, typeof(FastTravelSettings), () => new FastTravelSettings()) as FastTravelSettings
                        ?? new FastTravelSettings();
 
         if (string.IsNullOrWhiteSpace(settings.TriggerKey))
@@ -122,7 +122,7 @@ public sealed class ShellHotkeys
         var toolSettings = _store.GetToolSettings(
             AutoThrowTool.ToolId, typeof(AutoThrowSettings), () => new AutoThrowSettings());
         var title = ((AutoThrowSettings)toolSettings).WindowTitleSubstring;
-        _ = _capture.StartAsync(title, ParseBackend(shell.CaptureBackend));
+        _ = _capture.StartAsync(title, CaptureBackendCatalog.Parse(shell.CaptureBackend));
     }
 
     private void ToggleAutoThrow() => _dispatcher.AutoThrowEnabled = !_dispatcher.AutoThrowEnabled;
@@ -141,6 +141,4 @@ public sealed class ShellHotkeys
         _store.Save();
     }
 
-    private static CaptureBackendMode ParseBackend(string key) =>
-        Enum.TryParse<CaptureBackendMode>(key, ignoreCase: true, out var mode) ? mode : CaptureBackendMode.Auto;
 }

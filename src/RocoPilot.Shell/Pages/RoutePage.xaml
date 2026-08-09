@@ -3,8 +3,8 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <Grid Margin="0,24,0,24">
-    <Grid x:Name="TimelineHost" MaxWidth="880" Margin="24,0,24,48" />
+  <Grid Margin="{StaticResource PagePadding}">
+    <Grid x:Name="TimelineHost" MaxWidth="880" Margin="0,0,0,24" />
 
     <Border x:Name="Toast" Visibility="Collapsed"
             VerticalAlignment="Bottom" HorizontalAlignment="Center"

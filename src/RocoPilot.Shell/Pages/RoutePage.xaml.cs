@@ -28,7 +28,6 @@ public partial class RoutePage : Page
     private const double RailColumnWidth = 44;
     private const double StationDotSize = 22;
     private const double RailThickness = 2;
-    private static readonly Thickness SectionGap = new(0, 0, 0, 14);
 
     private static readonly SolidColorBrush AccentBrush = RouteVisuals.AccentBrush;
     private static readonly SolidColorBrush StartBrush = RouteVisuals.StartBrush;
@@ -129,19 +128,19 @@ public partial class RoutePage : Page
         _timeline.Children.Clear();
         _stepCards.Clear();
 
-        _timeline.Children.Add(WithGap(BuildHero()));
+        _timeline.Children.Add(BuildHero());
 
         for (var i = 0; i < _nodes.Count; i++)
         {
-            _timeline.Children.Add(WithGap(StationRow(_nodes[i], i)));
+            _timeline.Children.Add(StationRow(_nodes[i], i));
         }
 
         if (_pickerInsertIndex is { } insertIndex)
         {
-            _timeline.Children.Add(WithGap(PickerRow(insertIndex)));
+            _timeline.Children.Add(PickerRow(insertIndex));
         }
 
-        _timeline.Children.Add(WithGap(BuildAddRow()));
+        _timeline.Children.Add(BuildAddRow());
         _timeline.Children.Add(BuildLoopSection());
 
         if (_nodes.Count == 0 && _pickerInsertIndex is null)
@@ -263,7 +262,9 @@ public partial class RoutePage : Page
         var hero = new StackPanel { Orientation = Orientation.Vertical };
         hero.Children.Add(toolbar);
         hero.Children.Add(saveRow);
-        return hero;
+        var heroCard = CardShell(hero);
+        heroCard.Margin = new Thickness(RailColumnWidth, 0, 0, 14);
+        return heroCard;
     }
 
     private void OnRecordToggle()
@@ -410,50 +411,50 @@ public partial class RoutePage : Page
         var isLast = index == _nodes.Count - 1;
         var accent = isFirst ? StartBrush : isLast ? EndBrush : AccentBrush;
 
-        // —— 左列：竖线贯穿、轨道穿过圆点中心 ——
-        // 圆点固定于左列顶部：外环描边 + 实心内核
-        var dotRing = new System.Windows.Shapes.Ellipse
-        {
-            Width = StationDotSize,
-            Height = StationDotSize,
-            Stroke = accent,
-            StrokeThickness = 2,
-            Fill = null,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Top,
-            ToolTip = isFirst ? "起点" : isLast ? "终点" : "锚点可用",
-        };
+        const double DotSize = 12;
+        const double DotCenterY = 26;
 
-        var dotCore = new System.Windows.Shapes.Ellipse
+        var dot = new System.Windows.Shapes.Ellipse
         {
-            Width = 8,
-            Height = 8,
+            Width = DotSize,
+            Height = DotSize,
             Fill = accent,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, (StationDotSize - 8) / 2.0, 0, 0),
-            IsHitTestVisible = false,
+            Margin = new Thickness(0, DotCenterY - DotSize / 2.0, 0, 0),
+            ToolTip = isFirst ? "起点" : isLast ? "终点" : "锚点可用",
         };
 
-        // 竖线：水平居中于左列（与圆点同轴），圆点水平居中于左列，
-        // 故竖线轴心 = 圆点中心。顶部从圆点中心开始，向下延伸到卡片内容底部。
-        var rail = new System.Windows.Shapes.Rectangle
+        var railTop = new System.Windows.Shapes.Rectangle
+        {
+            Width = RailThickness,
+            Height = DotCenterY,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            RadiusX = 1,
+            RadiusY = 1,
+            IsHitTestVisible = false,
+            Visibility = isFirst ? Visibility.Collapsed : Visibility.Visible,
+        };
+        railTop.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlStrokeColorDefaultBrush");
+
+        var railBottom = new System.Windows.Shapes.Rectangle
         {
             Width = RailThickness,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Stretch,
-            Margin = new Thickness(0, StationDotSize / 2.0, 0, 0),
+            Margin = new Thickness(0, DotCenterY, 0, 0),
             RadiusX = 1,
             RadiusY = 1,
             IsHitTestVisible = false,
+            Visibility = isLast ? Visibility.Collapsed : Visibility.Visible,
         };
-        rail.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlStrokeColorDefaultBrush");
-        rail.Visibility = isLast ? Visibility.Collapsed : Visibility.Visible;
+        railBottom.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlStrokeColorDefaultBrush");
 
-        var railColumn = new Grid { Width = RailColumnWidth };
-        railColumn.Children.Add(rail);
-        railColumn.Children.Add(dotRing);
-        railColumn.Children.Add(dotCore);
+        var axis = new Grid { Width = RailColumnWidth };
+        axis.Children.Add(railTop);
+        axis.Children.Add(railBottom);
+        axis.Children.Add(dot);
 
         var title = new TextBlock
         {
@@ -502,15 +503,12 @@ public partial class RoutePage : Page
         var chevron = ChevronGlyph();
 
         var front = new Grid();
-        front.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
         front.ColumnDefinitions.Add(new ColumnDefinition());
         front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(railColumn, 0);
-        Grid.SetColumn(textStack, 1);
-        Grid.SetColumn(badge, 2);
-        Grid.SetColumn(chevron, 3);
-        front.Children.Add(railColumn);
+        Grid.SetColumn(textStack, 0);
+        Grid.SetColumn(badge, 1);
+        Grid.SetColumn(chevron, 2);
         front.Children.Add(textStack);
         front.Children.Add(badge);
         front.Children.Add(chevron);
@@ -550,7 +548,14 @@ public partial class RoutePage : Page
         };
         card.MouseLeftButtonUp += (_, _) => _dragNodeId = null;
 
-        return card;
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        Grid.SetColumn(axis, 0);
+        Grid.SetColumn(card, 1);
+        row.Children.Add(axis);
+        row.Children.Add(card);
+        return row;
     }
 
     private void OnDropOnCard(Guid targetId, DragEventArgs args)
@@ -593,7 +598,7 @@ public partial class RoutePage : Page
     {
         var panel = new StackPanel
         {
-            Margin = new Thickness(RailColumnWidth, 12, 0, 2),
+            Margin = new Thickness(0, 12, 0, 2),
         };
 
         switch (node.Kind)
@@ -716,14 +721,13 @@ public partial class RoutePage : Page
         };
         text.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
 
-        var plus = new TextBlock
+        var plus = new Wpf.Ui.Controls.SymbolIcon
         {
-            Text = "＋",
-            FontSize = 18,
+            Symbol = Wpf.Ui.Controls.SymbolRegular.Add24,
+            FontSize = 15,
             VerticalAlignment = VerticalAlignment.Center,
             Width = StationDotSize,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 0),
         };
         plus.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
 
@@ -742,6 +746,7 @@ public partial class RoutePage : Page
             Rebuild();
         };
         row.Cursor = Cursors.Hand;
+        row.Margin = new Thickness(0, 0, 0, 14);
         return row;
     }
 
@@ -851,10 +856,7 @@ public partial class RoutePage : Page
             SaveAndRebuild();
         }
 
-        var panel = new StackPanel
-        {
-            Margin = new Thickness(RailColumnWidth, 12, 0, 12),
-        };
+        var panel = new StackPanel();
         panel.Children.Add(kindCombo);
         panel.Children.Add(search);
         panel.Children.Add(delayBox);
@@ -863,20 +865,43 @@ public partial class RoutePage : Page
 
         var card = CardShell(panel);
         card.Loaded += (_, _) => search.Focus();
-        return card;
+
+        var rail = new System.Windows.Shapes.Rectangle
+        {
+            Width = RailThickness,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            RadiusX = 1,
+            RadiusY = 1,
+            IsHitTestVisible = false,
+        };
+        rail.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "ControlStrokeColorDefaultBrush");
+        var axis = new Grid { Width = RailColumnWidth };
+        axis.Children.Add(rail);
+
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        Grid.SetColumn(axis, 0);
+        Grid.SetColumn(card, 1);
+        row.Children.Add(axis);
+        row.Children.Add(card);
+        return row;
     }
 
     private FrameworkElement BuildLoopSection()
     {
-        var icon = new TextBlock
+        var icon = new Wpf.Ui.Controls.SymbolIcon
         {
-            Text = "⟳",
+            Symbol = Wpf.Ui.Controls.SymbolRegular.ArrowCounterclockwise24,
             FontSize = 15,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Width = StationDotSize,
         };
         icon.SetResourceReference(ForegroundProperty, "TextFillColorSecondaryBrush");
+
+        var axis = new Grid { Width = RailColumnWidth };
+        axis.Children.Add(icon);
 
         var summary = new TextBlock
         {
@@ -895,13 +920,10 @@ public partial class RoutePage : Page
         toggle.Unchecked += (_, _) => SetLoop(false, summary);
 
         var front = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-        front.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
         front.ColumnDefinitions.Add(new ColumnDefinition());
         front.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(icon, 0);
-        Grid.SetColumn(summary, 1);
-        Grid.SetColumn(toggle, 2);
-        front.Children.Add(icon);
+        Grid.SetColumn(summary, 0);
+        Grid.SetColumn(toggle, 1);
         front.Children.Add(summary);
         front.Children.Add(toggle);
 
@@ -921,7 +943,15 @@ public partial class RoutePage : Page
             _endExpanded = !_endExpanded;
             SaveAndRebuild();
         };
-        return card;
+
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(RailColumnWidth) });
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        Grid.SetColumn(axis, 0);
+        Grid.SetColumn(card, 1);
+        row.Children.Add(axis);
+        row.Children.Add(card);
+        return row;
     }
 
     private bool _endExpanded;
@@ -1178,37 +1208,25 @@ public partial class RoutePage : Page
         _ => string.Empty,
     };
 
-    private static TextBlock ChevronGlyph()
+    private static Wpf.Ui.Controls.SymbolIcon ChevronGlyph()
     {
-        var chevron = new TextBlock
+        var chevron = new Wpf.Ui.Controls.SymbolIcon
         {
-            Text = "›",
-            FontSize = 16,
+            Symbol = Wpf.Ui.Controls.SymbolRegular.ChevronRight24,
+            FontSize = 14,
             VerticalAlignment = VerticalAlignment.Center,
         };
         chevron.SetResourceReference(ForegroundProperty, "TextFillColorTertiaryBrush");
         return chevron;
     }
 
-    private static FrameworkElement WithGap(FrameworkElement element)
-    {
-        element.Margin = MergeMargin(element.Margin, SectionGap);
-        return element;
-    }
-
-    private static Thickness MergeMargin(Thickness current, Thickness extra) => new(
-        current.Left + extra.Left,
-        current.Top + extra.Top,
-        current.Right + extra.Right,
-        current.Bottom + extra.Bottom);
-
     private static System.Windows.Controls.Border CardShell(FrameworkElement content) =>
         new()
         {
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(8),
             Padding = new Thickness(16, 14, 16, 14),
             BorderThickness = new Thickness(1),
-            Background = Res("SolidBackgroundFillColorSecondaryBrush"),
+            Background = Res("CardBackgroundFillColorDefaultBrush"),
             BorderBrush = Res("ControlStrokeColorDefaultBrush"),
             Child = content,
         };

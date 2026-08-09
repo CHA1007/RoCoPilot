@@ -5,140 +5,120 @@
 
   <StackPanel Margin="{StaticResource PagePadding}">
 
-      <ui:CardControl>
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="主题" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="切换后立即生效" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ComboBox x:Name="ThemeCombo" Width="160" SelectionChanged="OnThemeSelectionChanged">
-          <ComboBoxItem Content="跟随系统" />
-          <ComboBoxItem Content="浅色" />
-          <ComboBoxItem Content="深色" />
-        </ComboBox>
-      </ui:CardControl>
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Color24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="主题" />
+          <ui:TextBlock Grid.Row="1"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                        Text="切换后立即生效" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ComboBox x:Name="ThemeCombo" Width="200" SelectionChanged="OnThemeSelectionChanged">
+        <ComboBoxItem Content="跟随系统" />
+        <ComboBoxItem Content="浅色" />
+        <ComboBoxItem Content="深色" />
+      </ComboBox>
+    </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="调试叠层" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
-      </ui:CardControl>
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon EyeTracking24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="调试叠层" />
+          <ui:TextBlock Grid.Row="1"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                        Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
+    </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="水平灵敏度" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="SensitivityPpcXBox"
-                      Width="200"
-                      Minimum="0"
-                      Maximum="100"
-                      SmallChange="0.1"
-                      MaxDecimalPlaces="3"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
+    <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Code24}">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="开发者模式" />
+          <ui:TextBlock Grid.Row="1"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
+                        Text="解锁「诊断调试」页面分组，重启后生效" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch x:Name="DeveloperModeToggle" Checked="OnDeveloperModeChanged" Unchecked="OnDeveloperModeChanged" />
+    </ui:CardControl>
 
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="垂直灵敏度" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="建议用下方校准自动获取，不准会导致投掷偏移。0 = 用回退值估算" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:NumberBox x:Name="SensitivityPpcYBox"
-                      Width="200"
-                      Minimum="0"
-                      Maximum="100"
-                      SmallChange="0.1"
-                      MaxDecimalPlaces="3"
-                      ValidationMode="InvalidInputOverwritten"
-                      ValueChanged="OnSensitivityChanged" />
-      </ui:CardControl>
-
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="自动校准灵敏度" />
-            <ui:TextBlock x:Name="CalibrateHint"
-                          Grid.Row="1"
-                          FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                          Text="校准会短暂转动镜头，请先开启截图并保持游戏窗口聚焦" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ui:Button x:Name="CalibrateButton"
-                   Content="校准"
-                   Click="OnCalibrateClick" />
-      </ui:CardControl>
-
-      <ui:CardControl Margin="0,12,0,0">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="关于" />
-            <ui:TextBlock Grid.Row="1"
-                          FontTypography="Caption"
+    <ui:CardExpander x:Name="AboutCard" ContentPadding="0" Icon="{ui:SymbolIcon Info24}">
+      <ui:CardExpander.Header>
+        <Grid HorizontalAlignment="Stretch">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="关于" />
+            <ui:TextBlock FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                           Text="RocoPilot · 洛克工具箱" />
-          </Grid>
-        </ui:CardControl.Header>
-        <StackPanel MinWidth="220">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,24,0" Orientation="Horizontal">
             <ui:TextBlock x:Name="VersionText" VerticalAlignment="Center"
                           Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}" />
             <ui:Button x:Name="CheckUpdateButton" Margin="12,0,0,0"
                        Content="检查更新" Click="OnCheckUpdateClick" />
-            <ui:Button x:Name="TestVersionButton" Margin="8,0,0,0"
-                       Content="下载测试版" Click="OnDownloadTestClick" />
           </StackPanel>
-          <ui:TextBlock x:Name="UpdateStatusText" Margin="0,4,0,0"
-                        FontTypography="Caption"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        TextWrapping="Wrap" Visibility="Collapsed" />
-        </StackPanel>
-      </ui:CardControl>
-    </StackPanel>
+        </Grid>
+      </ui:CardExpander.Header>
+      <StackPanel>
+        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
+        <Grid Margin="16,16,16,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="更新渠道" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="稳定版重稳；测试版抢先体验新功能，可能不稳定" />
+          </StackPanel>
+          <ComboBox x:Name="UpdateChannelCombo" Grid.Column="1" Margin="0,0,36,0" Width="140"
+                    SelectionChanged="OnUpdateChannelChanged">
+            <ComboBoxItem Content="稳定版" />
+            <ComboBoxItem Content="测试版" />
+          </ComboBox>
+        </Grid>
+        <Grid Margin="16,12,16,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0">
+            <ui:TextBlock FontTypography="Body" Text="问题反馈" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="打开项目主页提交 Issue" />
+          </StackPanel>
+          <ui:Button Grid.Column="1" Margin="0,0,36,0" Content="打开" Click="OnOpenIssuesClick" />
+        </Grid>
+        <ui:TextBlock x:Name="UpdateStatusText" Margin="16,12,16,16"
+                      FontTypography="Caption"
+                      Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                      TextWrapping="Wrap" Visibility="Collapsed" />
+      </StackPanel>
+    </ui:CardExpander>
+
+  </StackPanel>
 </Page>

@@ -286,9 +286,8 @@ public sealed class SceneDispatcher
     private static void SleepInterruptible(int milliseconds, CancellationToken cancellationToken)
     {
         var remaining = milliseconds;
-        while (remaining > 0)
+        while (remaining > 0 && !cancellationToken.IsCancellationRequested)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             var chunk = Math.Min(SleepChunkMs, remaining);
             Thread.Sleep(chunk);
             remaining -= chunk;

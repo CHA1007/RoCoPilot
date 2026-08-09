@@ -37,9 +37,12 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        var settingsStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
+        settingsStore.Load();
+
         try
         {
-            AppUpdater.ApplyPendingUpdate();
+            AppUpdater.ApplyPendingUpdate(settingsStore.GetShellSettings().UpdateChannel);
         }
         catch
         {
@@ -48,9 +51,6 @@ public partial class App : Application
         var tracePath = Path.Combine(Path.GetTempPath(), "RocoPilot-trace.log");
         Trace.Listeners.Add(new TextWriterTraceListener(tracePath) { TraceOutputOptions = System.Diagnostics.TraceOptions.DateTime });
         Trace.AutoFlush = true;
-
-        var settingsStore = new JsonSettingsStore(RocoPaths.SettingsFilePath);
-        settingsStore.Load();
 
         var services = new ServiceCollection();
         ConfigureServices(services, settingsStore);
@@ -94,18 +94,15 @@ public partial class App : Application
 
         services.AddSingleton(_ => PetCatalog.LoadEmbedded());
 
+        services.AddSingleton<RocoBannerService>();
+
         services.AddTransient<LaunchPage>();
         services.AddTransient<HotkeysPage>();
         services.AddSingleton<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
         services.AddSingleton<RoutePage>();
         services.AddTransient<SettingsPage>();
-        services.AddTransient<InputProbePage>();
-        services.AddTransient<CaptureDebugPage>();
-        services.AddTransient<DetectionDebugPage>();
-        services.AddTransient<CenteringDebugPage>();
-        services.AddTransient<CatchLoopDebugPage>();
-        services.AddTransient<ScenesPage>();
+        services.AddTransient<DiagnosticsPage>();
         services.AddSingleton<MainWindow>();
     }
 

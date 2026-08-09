@@ -3,9 +3,23 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel Margin="32,24,32,40">
+  <StackPanel Margin="{StaticResource PagePadding}">
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon TargetArrow24}">
+    <Border x:Name="ErrorBanner"
+            Margin="0,0,0,12"
+            Padding="12,8"
+            Background="{ui:ThemeResource SystemFillColorCriticalBackgroundBrush}"
+            CornerRadius="4"
+            Visibility="Collapsed">
+      <ui:TextBlock x:Name="ErrorBannerText"
+                    Foreground="{ui:ThemeResource SystemFillColorCriticalBrush}"
+                    TextWrapping="Wrap" />
+    </Border>
+
+    <ui:CardExpander Margin="0,0,0,12" ContentPadding="0">
+      <ui:CardExpander.Icon>
+        <ui:SymbolIcon Symbol="TargetArrow24" />
+      </ui:CardExpander.Icon>
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>
@@ -44,7 +58,10 @@
       </StackPanel>
     </ui:CardExpander>
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Shield24}" Margin="0,12,0,0">
+    <ui:CardExpander Margin="0,0,0,12" ContentPadding="0">
+      <ui:CardExpander.Icon>
+        <ui:SymbolIcon Symbol="Flash24" />
+      </ui:CardExpander.Icon>
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>
@@ -83,7 +100,10 @@
       </StackPanel>
     </ui:CardExpander>
 
-    <ui:CardExpander ContentPadding="0" Icon="{ui:SymbolIcon Map24}" Margin="0,12,0,0">
+    <ui:CardExpander ContentPadding="0">
+      <ui:CardExpander.Icon>
+        <ui:SymbolIcon Symbol="Map24" />
+      </ui:CardExpander.Icon>
       <ui:CardExpander.Header>
         <Grid HorizontalAlignment="Stretch">
           <Grid.ColumnDefinitions>
@@ -124,8 +144,5 @@
       </StackPanel>
     </ui:CardExpander>
 
-    <ui:TextBlock x:Name="StatusText" Margin="0,12,0,0" FontTypography="Caption"
-                  Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                  TextWrapping="Wrap" Visibility="Collapsed" />
   </StackPanel>
 </Page>

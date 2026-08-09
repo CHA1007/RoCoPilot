@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using RocoPilot.Capture;
 using RocoPilot.Detection;
 
@@ -9,7 +8,6 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     private readonly ICaptureSource _source;
     private readonly IDetector _detector;
     private readonly StabilityGate _stabilityGate;
-    private readonly bool _retainFrames;
     private readonly int _minIntervalMs;
     private readonly object _snapshotLock = new();
 
@@ -18,14 +16,6 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     private long _lastSequence = -1;
     private long _lastDetectMs;
 
-    private byte[]? _retainedPixels;
-    private int _retainedWidth;
-    private int _retainedHeight;
-    private long _retainedSequence;
-    private DateTimeOffset _retainedCapturedAt;
-    private IReadOnlyList<DetectedBox> _retainedDetections = [];
-    private readonly Dictionary<int, string> _trackClasses = new();
-
     private Thread? _worker;
     private CancellationTokenSource? _cts;
     private SemaphoreSlim? _frameSignal;
@@ -33,20 +23,17 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     private int _suspended;
     private readonly TaskCompletionSource _firstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public StreamingTargetSensor(ICaptureSource source, IDetector detector, StabilityGate gate, bool retainFrames = false, int minIntervalMs = 0)
+    public StreamingTargetSensor(ICaptureSource source, IDetector detector, StabilityGate gate, int minIntervalMs = 0)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _detector = detector ?? throw new ArgumentNullException(nameof(detector));
         _stabilityGate = gate ?? throw new ArgumentNullException(nameof(gate));
-        _retainFrames = retainFrames;
         _minIntervalMs = Math.Max(0, minIntervalMs);
     }
 
     public event EventHandler<Exception>? Faulted;
 
     public Task FirstFrameArrived => _firstFrame.Task;
-
-    public event EventHandler<RecognitionFlip>? RecognitionFlipped;
 
     public void Start()
     {
@@ -97,25 +84,6 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
     public (int Width, int Height) LatestFrameSize
     {
         get { lock (_snapshotLock) { return _frameSize; } }
-    }
-
-    public bool TrySnapshot([NotNullWhen(true)] out FrameSnapshot? snapshot)
-    {
-        lock (_snapshotLock)
-        {
-            if (_retainedPixels is null)
-            {
-                snapshot = null;
-                return false;
-            }
-
-            var pixels = new byte[_retainedPixels.Length];
-            Buffer.BlockCopy(_retainedPixels, 0, pixels, 0, pixels.Length);
-            snapshot = new FrameSnapshot(
-                pixels, _retainedWidth, _retainedHeight, _retainedSequence, _retainedCapturedAt,
-                _retainedDetections.ToList());
-            return true;
-        }
     }
 
     public void Dispose()
@@ -215,18 +183,10 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
                         _lastDetectMs = Environment.TickCount64;
                         var boxes = _detector.Detect(frame.Pixels, frame.Width, frame.Height);
                         var stable = _stabilityGate.Update(boxes);
-                        List<RecognitionFlip>? flips = null;
                         lock (_snapshotLock)
                         {
                             _snapshot = stable;
-                            if (_retainFrames)
-                            {
-                                RetainFrame(frame, boxes);
-                                flips = DetectFlips(stable);
-                            }
                         }
-
-                        RaiseFlips(flips);
                     }
                     catch (Exception ex)
                     {
@@ -240,95 +200,4 @@ public sealed class StreamingTargetSensor : ICenteringSensor, IDisposable
         }
     }
 
-    private void RetainFrame(CapturedFrame frame, IReadOnlyList<DetectedBox> boxes)
-    {
-        var length = frame.Pixels.Length;
-        if (_retainedPixels is null || _retainedPixels.Length != length)
-        {
-            _retainedPixels = new byte[length];
-        }
-
-        frame.Pixels.CopyTo(_retainedPixels);
-        _retainedWidth = frame.Width;
-        _retainedHeight = frame.Height;
-        _retainedSequence = frame.Sequence;
-        _retainedCapturedAt = frame.CapturedAt;
-        _retainedDetections = boxes;
-    }
-
-    private List<RecognitionFlip>? DetectFlips(IReadOnlyList<StableTarget> stable)
-    {
-        List<RecognitionFlip>? flips = null;
-        foreach (var target in stable)
-        {
-            var cls = target.Latest.ClassName;
-            if (_trackClasses.TryGetValue(target.TrackId, out var previous) &&
-                !string.Equals(previous, cls, StringComparison.Ordinal))
-            {
-                (flips ??= []).Add(new RecognitionFlip(target.TrackId, previous, target));
-            }
-
-            _trackClasses[target.TrackId] = cls;
-        }
-
-        if (_trackClasses.Count > stable.Count)
-        {
-            List<int>? dead = null;
-            foreach (var trackId in _trackClasses.Keys)
-            {
-                var alive = false;
-                foreach (var target in stable)
-                {
-                    if (target.TrackId == trackId)
-                    {
-                        alive = true;
-                        break;
-                    }
-                }
-
-                if (!alive)
-                {
-                    (dead ??= []).Add(trackId);
-                }
-            }
-
-            if (dead is not null)
-            {
-                foreach (var trackId in dead)
-                {
-                    _trackClasses.Remove(trackId);
-                }
-            }
-        }
-
-        return flips;
-    }
-
-    private void RaiseFlips(List<RecognitionFlip>? flips)
-    {
-        if (flips is not { Count: > 0 })
-        {
-            return;
-        }
-
-        var handlers = RecognitionFlipped;
-        if (handlers is null)
-        {
-            return;
-        }
-
-        foreach (var flip in flips)
-        {
-            foreach (var handler in handlers.GetInvocationList())
-            {
-                try
-                {
-                    ((EventHandler<RecognitionFlip>)handler)(this, flip);
-                }
-                catch
-                {
-                }
-            }
-        }
-    }
 }

@@ -1,3 +1,4 @@
+using RocoPilot.Settings;
 using Velopack;
 using Velopack.Sources;
 
@@ -12,6 +13,9 @@ public static class AppUpdater
 
     private static readonly Lazy<UpdateManager> Beta =
         new(() => new UpdateManager(new GithubSource(RepoUrl, accessToken: null, prerelease: true)));
+
+    public static UpdateManager Manager(UpdateChannel channel) =>
+        channel == UpdateChannel.Beta ? Beta.Value : Stable.Value;
 
     public static bool IsInstalled
     {
@@ -28,39 +32,38 @@ public static class AppUpdater
         }
     }
 
-    public static void ApplyPendingUpdate()
+    public static void ApplyPendingUpdate(UpdateChannel channel)
     {
-        if (!IsInstalled || Stable.Value.UpdatePendingRestart is null)
+        var manager = Manager(channel);
+        if (!IsInstalled || manager.UpdatePendingRestart is null)
         {
             return;
         }
 
-        Stable.Value.ApplyUpdatesAndRestart(Stable.Value.UpdatePendingRestart);
+        manager.ApplyUpdatesAndRestart(manager.UpdatePendingRestart);
     }
 
-    public static async Task<string?> CheckAsync(bool beta)
+    public static async Task<string?> CheckAsync(UpdateChannel channel)
     {
-        var info = await Manager(beta).CheckForUpdatesAsync();
+        var info = await Manager(channel).CheckForUpdatesAsync();
         return info?.TargetFullRelease.Version.ToString();
     }
 
-    public static async Task<string> DownloadAsync(bool beta)
+    public static async Task<string> DownloadAsync(UpdateChannel channel)
     {
-        var manager = Manager(beta);
+        var manager = Manager(channel);
         var info = await manager.CheckForUpdatesAsync()
             ?? throw new InvalidOperationException("没有待下载的更新");
         await manager.DownloadUpdatesAsync(info);
         return info.TargetFullRelease.Version.ToString();
     }
 
-    public static void RestartToApply()
+    public static void RestartToApply(UpdateChannel channel)
     {
-        var manager = Stable.Value;
+        var manager = Manager(channel);
         if (manager.UpdatePendingRestart is { } pending)
         {
             manager.ApplyUpdatesAndRestart(pending);
         }
     }
-
-    private static UpdateManager Manager(bool beta) => beta ? Beta.Value : Stable.Value;
 }
