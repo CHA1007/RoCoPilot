@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="卸载 RocoPilot"
-                 Width="640" Height="420"
+                 Width="540" Height="520"
                  ExtendsContentIntoTitleBar="True"
                  WindowStartupLocation="CenterScreen"
                  ResizeMode="NoResize">

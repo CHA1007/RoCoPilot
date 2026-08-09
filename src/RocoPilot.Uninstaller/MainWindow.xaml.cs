@@ -30,6 +30,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ShowStep(Step.Confirm);
     }
 
+    protected override void OnMouseLeftButtonDown(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        DragMove();
+    }
+
     private void ShowStep(Step step)
     {
         _step = step;

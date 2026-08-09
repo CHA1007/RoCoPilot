@@ -22,7 +22,7 @@
 
 - **Auto Throw** — Recognizes wild spirits in the open world, auto-centers the camera, aims and throws balls to keep catching
 - **Auto Battle** — Recognizes battle scenes and casts skills automatically to finish rounds
-- **Fast Travel** — Recognizes the world map and clicks the teleport button after you pick a map element such as the Magic Source or the Alchemy Cauldron
+- **Fast Travel** — Recognizes the teleport button on the world map with auto or custom key-press triggering; after picking a map element such as the Magic Source or Alchemy Cauldron, completes the teleport automatically
 - **Route Replay** — Compose and loop an execution chain of Teleport / Delay / Script Replay steps; teleport locates anchors by geometrically aligning the in-game map against the built-in Magic Source catalog, and a failed leg reruns from the nearest upstream teleport. Great for automating map runs
 - **Egg Query** — Ships with full spirit egg group data; look up a spirit's egg groups, or find all spirits that can breed together in a group
 - **Central Dispatch** — Detects the current game scene and switches tools automatically, no manual intervention

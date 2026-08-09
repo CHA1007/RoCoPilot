@@ -121,7 +121,7 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16,16,16,0">
+        <Grid x:Name="ModeRow" Margin="16,16,16,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
@@ -133,7 +133,7 @@
             <ComboBoxItem Content="按键传送" />
           </ComboBox>
         </Grid>
-        <Grid Margin="16,12,16,16">
+        <Grid x:Name="TriggerKeyRow" Margin="16,12,16,16">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />

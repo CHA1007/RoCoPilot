@@ -46,6 +46,7 @@ public partial class RealtimePage : Page
             () => new RocoPilot.Tools.AutoBattle.AutoBattleSettings()) as RocoPilot.Tools.AutoBattle.AutoBattleSettings;
         SkillSlotCombo.SelectedIndex = Math.Clamp((battleSettings?.SkillSlot ?? 1) - 1, 0, 3);
         FastTravelModeCombo.SelectedIndex = (int)_dispatcher.FastTravelTriggerMode;
+        UpdateTriggerKeyVisibility();
         FastTravelTriggerKeyButton.Content = DisplayTriggerKey(GetFastTravelSettings().TriggerKey);
 
         FastTravelTriggerKeyButton.Click += (_, _) =>
@@ -113,6 +114,14 @@ public partial class RealtimePage : Page
     {
         if (FastTravelModeCombo.SelectedIndex < 0) return;
         _dispatcher.FastTravelTriggerMode = (FastTravelTriggerMode)FastTravelModeCombo.SelectedIndex;
+        UpdateTriggerKeyVisibility();
+    }
+
+    private void UpdateTriggerKeyVisibility()
+    {
+        var isKeyPress = _dispatcher.FastTravelTriggerMode == FastTravelTriggerMode.KeyPress;
+        TriggerKeyRow.Visibility = isKeyPress ? Visibility.Visible : Visibility.Collapsed;
+        ModeRow.Margin = isKeyPress ? new Thickness(16, 16, 16, 0) : new Thickness(16);
     }
 
     private void OnTriggerKeyPreviewKeyDown(object sender, KeyEventArgs e)

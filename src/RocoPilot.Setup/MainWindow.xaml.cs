@@ -2,8 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Threading;
 using RocoPilot.Installer.Core;
 using RocoPilot.Setup.Views;
@@ -76,43 +74,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 NextButton.IsEnabled = true;
                 break;
         }
-
-        UpdateStepIndicators();
-    }
-
-    private void UpdateStepIndicators()
-    {
-        SetStepState(Step1Badge, Step1Text, Step.Welcome, "1", "欢迎");
-        SetStepState(Step2Badge, Step2Text, Step.Options, "2", "选项");
-        SetStepState(Step3Badge, Step3Text, Step.Progress, "3", "安装");
-        SetStepState(Step4Badge, Step4Text, Step.Complete, "4", "完成");
-    }
-
-    private void SetStepState(Border badge, TextBlock text, Step targetStep, string number, string label)
-    {
-        bool isCurrent = _step == targetStep;
-
-        badge.Background = isCurrent
-            ? (Brush)FindResource("AccentFillColorDefaultBrush")
-            : (Brush)FindResource("ControlFillColorDefaultBrush");
-        badge.BorderBrush = isCurrent
-            ? (Brush)FindResource("AccentFillColorDefaultBrush")
-            : (Brush)FindResource("ControlStrokeColorDefaultBrush");
-        badge.BorderThickness = new Thickness(1);
-
-        if (badge.Child is TextBlock badgeText)
-        {
-            badgeText.Text = number;
-            badgeText.Foreground = isCurrent
-                ? Brushes.White
-                : (Brush)FindResource("TextFillColorSecondaryBrush");
-        }
-
-        text.Text = label;
-        text.FontWeight = isCurrent ? FontWeights.SemiBold : FontWeights.Normal;
-        text.Foreground = isCurrent
-            ? (Brush)FindResource("TextFillColorPrimaryBrush")
-            : (Brush)FindResource("TextFillColorSecondaryBrush");
     }
 
     private void Next_Click(object sender, RoutedEventArgs e)
