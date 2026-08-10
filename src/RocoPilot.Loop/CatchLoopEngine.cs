@@ -9,7 +9,7 @@ public sealed class CatchLoopEngine : IDisposable
     private const int SleepChunkMs = 100;
     private const int VerifySettleMs = 80;
 
-    private readonly CatchLoopOptions _options;
+    private volatile CatchLoopOptions _options;
     private readonly CatchLoopMode _mode;
     private readonly ICenteringSensor _sensor;
     private readonly IInputDriver _driver;
@@ -67,6 +67,12 @@ public sealed class CatchLoopEngine : IDisposable
     }
 
     public CatchLoopMode Mode => _mode;
+
+    public void ApplyOptions(CatchLoopOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _options = options.Normalized();
+    }
 
     public CatchEventBus Bus => _bus;
 

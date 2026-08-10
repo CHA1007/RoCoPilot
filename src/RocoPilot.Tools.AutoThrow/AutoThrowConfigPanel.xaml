@@ -83,21 +83,21 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="触发器间隔（ms）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="投掷间隔（秒）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         FontTypography="Caption"
-                        Text="两次触发判断之间的等待间隔，间隔越短，目标出现后出手越快"
+                        Text="两次咕噜球投掷行为的时间间隔"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
       <ui:NumberBox Width="200"
-                    Minimum="0"
-                    Maximum="5000"
-                    SmallChange="50"
-                    MaxDecimalPlaces="0"
+                    Minimum="0.1"
+                    Maximum="300"
+                    SmallChange="0.1"
+                    MaxDecimalPlaces="2"
                     ValidationMode="InvalidInputOverwritten"
-                    Value="{Binding DetectionIntervalMs}" />
+                    Value="{Binding ThrowIntervalSeconds}" />
     </ui:CardControl>
 
     <ui:CardControl Margin="0,0,0,12">
@@ -107,7 +107,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="蓄力投掷时间（ms）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                         FontTypography="Caption"

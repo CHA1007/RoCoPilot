@@ -93,6 +93,38 @@ public class CatchLoopEngineTests
         engine.Dispose();
     }
 
+    [Fact]
+    public void ApplyOptionsNullThrows()
+    {
+        var (engine, _, _) = CreateEngine();
+        Assert.Throws<ArgumentNullException>(() => engine.ApplyOptions(null!));
+    }
+
+    [Fact]
+    public void ApplyOptionsInvalidThrows()
+    {
+        var (engine, _, _) = CreateEngine();
+        var invalid = new CatchLoopOptions { PostSettleDelayMinMs = 0 };
+        Assert.Throws<LoopException>(() => engine.ApplyOptions(invalid));
+    }
+
+    [Fact]
+    public async Task ApplyOptionsMidRunChangesStallThreshold()
+    {
+        long now = 0;
+        var (engine, _, events) = CreateEngine(nowMs: () => Interlocked.Increment(ref now));
+        var cts = new CancellationTokenSource();
+        var task = Task.Run(() => engine.Run(cts.Token));
+        WaitUntil(() => HasEvent(events, "session_start"));
+        Assert.False(HasEvent(events, "stall_alert"));
+
+        engine.ApplyOptions(new CatchLoopOptions { StallAlertMs = 1 });
+
+        WaitUntil(() => HasEvent(events, "stall_alert"));
+        cts.Cancel();
+        await task.WaitAsync(TimeSpan.FromSeconds(3));
+    }
+
     private static void FastSleep(int milliseconds, CancellationToken cancellationToken)
         => cancellationToken.ThrowIfCancellationRequested();
 

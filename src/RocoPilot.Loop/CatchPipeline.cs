@@ -59,6 +59,8 @@ public sealed class CatchPipeline : ICatchPipeline
     public void Run(CancellationToken cancellationToken) =>
         (_engine ?? throw new InvalidOperationException("Run 须先完成 Arming")).Run(cancellationToken);
 
+    public void ApplyLoopOptions(CatchLoopOptions options) => _engine?.ApplyOptions(options);
+
     public bool Pause(string source = "manual") => _engine is not null && _engine.Pause(source);
 
     public bool Resume(string source = "manual") => _engine is not null && _engine.Resume(source);

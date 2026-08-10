@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Dispatch;
@@ -12,18 +13,27 @@ public sealed class AutoThrowHandler : ISceneHandler
     private readonly AutoThrowSettings _settings;
     private readonly ICaptureSource _captureSource;
     private readonly ISettingsStore _store;
+    private readonly Func<AutoThrowSettings>? _settingsProvider;
+
+    private static readonly TimeSpan OptionRefreshInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly object _gate = new();
     private CancellationTokenSource? _cts;
     private Task? _runTask;
+    private Thread? _optionRefresher;
     private ICatchPipeline? _pipeline;
     private SceneContext? _context;
 
-    public AutoThrowHandler(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
+    public AutoThrowHandler(
+        AutoThrowSettings settings,
+        ICaptureSource captureSource,
+        ISettingsStore store,
+        Func<AutoThrowSettings>? settingsProvider = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _captureSource = captureSource ?? throw new ArgumentNullException(nameof(captureSource));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _settingsProvider = settingsProvider;
     }
 
     public GameScene Scene => GameScene.OpenWorld;
@@ -126,6 +136,7 @@ public sealed class AutoThrowHandler : ISceneHandler
             }
 
             _context?.EmitEvent(new ToolEvent("auto_throw_started"));
+            StartOptionRefresher(pipeline, ct);
 
             pipeline.Bus.EventRaised += OnPipelineEvent;
             try
@@ -150,6 +161,7 @@ public sealed class AutoThrowHandler : ISceneHandler
         }
         finally
         {
+            StopOptionRefresher();
             lock (_gate)
             {
                 if (ReferenceEquals(_pipeline, pipeline))
@@ -160,6 +172,42 @@ public sealed class AutoThrowHandler : ISceneHandler
             _context?.EmitEvent(new ToolEvent("auto_throw_stopped"));
         }
     }
+
+    private void StartOptionRefresher(ICatchPipeline pipeline, CancellationToken ct)
+    {
+        StopOptionRefresher();
+        _optionRefresher = new Thread(() =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                ct.WaitHandle.WaitOne(OptionRefreshInterval);
+                if (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                ApplyLatestOptions(pipeline);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "自动丢球配置热刷新",
+        };
+        _optionRefresher.Start();
+    }
+
+    private void StopOptionRefresher()
+    {
+        var refresher = _optionRefresher;
+        _optionRefresher = null;
+        if (refresher is not null && refresher.IsAlive)
+        {
+            refresher.Join(TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void ApplyLatestOptions(ICatchPipeline pipeline) =>
+        pipeline.ApplyLoopOptions(((_settingsProvider?.Invoke()) ?? _settings).ToLoopOptions());
 
     private void OnPipelineEvent(object? sender, ToolEvent e) => _context?.EmitEvent(e);
 

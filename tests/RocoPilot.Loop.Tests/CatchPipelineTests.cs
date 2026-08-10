@@ -59,4 +59,12 @@ public class CatchPipelineTests
         pipe.SetSensing(true);
         pipe.Dispose();
     }
+
+    [Fact]
+    public void ApplyLoopOptionsIsNoOpBeforeArming()
+    {
+        var pipe = new CatchPipeline();
+        pipe.ApplyLoopOptions(new CatchLoopOptions { StallAlertMs = 1 });
+        pipe.Dispose();
+    }
 }

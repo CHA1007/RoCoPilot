@@ -6,8 +6,6 @@ public sealed class AutoThrowSettings
 {
     public const string DefaultWindowTitle = "洛克王国";
 
-    private const int MaxDelayMs = 3_600_000;
-
     private static readonly AutoThrowSettings s_baseline = new();
 
     public string FarmingSpotName { get; set; } = "眠枭庇护所";
@@ -36,17 +34,13 @@ public sealed class AutoThrowSettings
 
     public int ChargeJitterMs { get; set; }
 
-    public int PostSettleDelayMinMs { get; set; } = 100;
-
-    public int PostSettleDelayMaxMs { get; set; } = 100;
+    public double ThrowIntervalSeconds { get; set; } = 0.2;
 
     public double AimJitterPx { get; set; }
 
     public double CommandNoiseCounts { get; set; }
 
     public string InferenceDevice { get; set; } = "cpu";
-
-    public int DetectionIntervalMs { get; set; } = 200;
 
     public string WindowTitleSubstring { get; set; } = DefaultWindowTitle;
 
@@ -57,7 +51,6 @@ public sealed class AutoThrowSettings
         FarmingSpotName = (FarmingSpotName ?? string.Empty).Trim();
         DetectionWhitelist = SanitizeWhitelist(DetectionWhitelist);
         InferenceDevice = string.Equals(InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase) ? "gpu" : "cpu";
-        DetectionIntervalMs = (int)Clamp(DetectionIntervalMs, 0, 5000);
         WindowTitleSubstring = SanitizeWindowTitle(WindowTitleSubstring);
 
         DetectionConfidence = FiniteOrFallback(DetectionConfidence, s_baseline.DetectionConfidence, 0, 1);
@@ -71,15 +64,11 @@ public sealed class AutoThrowSettings
         SensitivityPpc = FiniteOrFallback(SensitivityPpc, 0, 0, 100);
         ChargeMs = (int)Clamp(ChargeMs, 10, 3000);
         ChargeJitterMs = (int)Math.Min(Clamp(ChargeJitterMs, 0, 400), ChargeMs - 1);
-        PostSettleDelayMinMs = (int)Clamp(PostSettleDelayMinMs, 100, MaxDelayMs);
-        PostSettleDelayMaxMs = (int)Clamp(PostSettleDelayMaxMs, 100, MaxDelayMs);
-        if (PostSettleDelayMaxMs < PostSettleDelayMinMs)
-        {
-            PostSettleDelayMaxMs = PostSettleDelayMinMs;
-        }
+        ThrowIntervalSeconds = FiniteOrFallback(ThrowIntervalSeconds, s_baseline.ThrowIntervalSeconds, 0.1, 300);
 
         AimJitterPx = FiniteOrFallback(AimJitterPx, s_baseline.AimJitterPx, 0, 50);
         CommandNoiseCounts = FiniteOrFallback(CommandNoiseCounts, s_baseline.CommandNoiseCounts, 0, 20);
+        ThrowIntervalSeconds = FiniteOrFallback(ThrowIntervalSeconds, s_baseline.ThrowIntervalSeconds, 0.1, 300);
     }
 
     private static double FiniteOrFallback(double value, double fallback, double min, double max) =>

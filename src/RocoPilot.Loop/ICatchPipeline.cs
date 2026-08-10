@@ -21,6 +21,8 @@ public interface ICatchPipeline : IDisposable
 
     void Run(CancellationToken cancellationToken);
 
+    void ApplyLoopOptions(CatchLoopOptions options);
+
     bool Pause(string source = "manual");
 
     bool Resume(string source = "manual");

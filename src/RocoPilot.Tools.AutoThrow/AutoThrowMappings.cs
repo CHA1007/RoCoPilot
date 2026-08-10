@@ -38,8 +38,8 @@ public static class AutoThrowMappings
         {
             ChargeMs = settings.ChargeMs,
             ChargeJitterMs = settings.ChargeJitterMs,
-            PostSettleDelayMinMs = settings.PostSettleDelayMinMs,
-            PostSettleDelayMaxMs = settings.PostSettleDelayMaxMs,
+            PostSettleDelayMinMs = (int)Math.Round(settings.ThrowIntervalSeconds * 1000),
+            PostSettleDelayMaxMs = (int)Math.Round(settings.ThrowIntervalSeconds * 1000),
             AimJitterPx = settings.AimJitterPx,
             CommandNoiseCounts = settings.CommandNoiseCounts,
         };
@@ -57,7 +57,6 @@ public static class AutoThrowMappings
                 ? AutoThrowSettings.DefaultWindowTitle
                 : settings.WindowTitleSubstring.Trim(),
             UseGpu = string.Equals(settings.InferenceDevice, "gpu", StringComparison.OrdinalIgnoreCase),
-            DetectionIntervalMs = settings.DetectionIntervalMs,
             CalibrateBeforeThrow = settings.CalibrateBeforeThrow,
         };
     }

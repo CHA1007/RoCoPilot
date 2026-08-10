@@ -243,7 +243,13 @@ public sealed class DispatcherHost : IDisposable
                 AutoBattleTool.Id, typeof(AutoBattleSettings), () => new AutoBattleSettings()) as AutoBattleSettings
                                  ?? new AutoBattleSettings();
 
-            _throwHandler = new AutoThrowHandler(throwSettings, source, _store)
+            _throwHandler = new AutoThrowHandler(
+                throwSettings,
+                source,
+                _store,
+                settingsProvider: () =>
+                    _store.GetToolSettings(_throwTool.Id, _throwTool.SettingsType, _throwTool.CreateDefaultSettings)
+                        as AutoThrowSettings ?? throwSettings)
             {
                 IsEnabled = AutoThrowEnabled,
             };
@@ -262,7 +268,12 @@ public sealed class DispatcherHost : IDisposable
             _openWorld = new OpenWorldModeSelector(_routeHandler, _throwHandler);
 
             var sensor = new TemplateBattleSensor("assets/templates/panel", "assets/templates/skills");
-            _battleHandler = new AutoBattleHandler(battleSettings, sensor)
+            _battleHandler = new AutoBattleHandler(
+                battleSettings,
+                sensor,
+                settingsProvider: () =>
+                    _store.GetToolSettings(AutoBattleTool.Id, typeof(AutoBattleSettings), () => new AutoBattleSettings())
+                        as AutoBattleSettings ?? battleSettings)
             {
                 IsEnabled = AutoBattleEnabled,
             };

@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RocoPilot.Setup", "src\Roco
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RocoPilot.Uninstaller", "src\RocoPilot.Uninstaller\RocoPilot.Uninstaller.csproj", "{6CE0E30C-D702-4015-BFA3-4541BBA51771}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RocoPilot.Tools.AutoBattle.Tests", "tests\RocoPilot.Tools.AutoBattle.Tests\RocoPilot.Tools.AutoBattle.Tests.csproj", "{12242FC1-3834-4E9C-99E1-97A83F491465}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -311,6 +313,18 @@ Global
 		{6CE0E30C-D702-4015-BFA3-4541BBA51771}.Release|x64.Build.0 = Release|Any CPU
 		{6CE0E30C-D702-4015-BFA3-4541BBA51771}.Release|x86.ActiveCfg = Release|Any CPU
 		{6CE0E30C-D702-4015-BFA3-4541BBA51771}.Release|x86.Build.0 = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|x64.Build.0 = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Debug|x86.Build.0 = Debug|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|x64.ActiveCfg = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|x64.Build.0 = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|x86.ActiveCfg = Release|Any CPU
+		{12242FC1-3834-4E9C-99E1-97A83F491465}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -337,5 +351,6 @@ Global
 		{86EE7E1F-E474-49FA-9A8D-CA88F07B8927} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{9117C9CD-54DC-4FAE-80EE-3CE25BAD946B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{6CE0E30C-D702-4015-BFA3-4541BBA51771} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{12242FC1-3834-4E9C-99E1-97A83F491465} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

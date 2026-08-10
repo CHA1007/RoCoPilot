@@ -1,4 +1,5 @@
 using System.IO;
+using System.Threading;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Loop;
@@ -8,15 +9,24 @@ namespace RocoPilot.Tools.AutoThrow;
 
 public sealed class AutoThrowRunningTask : RunningTaskBase
 {
+    private static readonly TimeSpan OptionRefreshInterval = TimeSpan.FromMilliseconds(500);
+
     private readonly Func<ICatchPipeline> _pipelineFactory;
     private readonly TimeSpan _focusPollInterval;
+    private readonly Func<AutoThrowSettings>? _settingsProvider;
 
     private ICatchPipeline? _pipeline;
     private Thread? _focusWatcher;
+    private Thread? _optionRefresher;
 
     public AutoThrowRunningTask(AutoThrowSettings settings, ICaptureSource captureSource, ISettingsStore store)
         : this(() => CreatePipeline(settings ?? throw new ArgumentNullException(nameof(settings)), captureSource, store))
     {
+        var captured = settings;
+        _settingsProvider = store is null
+            ? null
+            : () => store.GetToolSettings(AutoThrowTool.ToolId, typeof(AutoThrowSettings), () => new AutoThrowSettings())
+                     as AutoThrowSettings ?? captured;
     }
 
     internal AutoThrowRunningTask(Func<ICatchPipeline> pipelineFactory, TimeSpan? focusPollInterval = null)
@@ -160,6 +170,7 @@ public sealed class AutoThrowRunningTask : RunningTaskBase
 
             RaiseStateChanged(TaskState.Running);
             StartFocusWatcher(pipeline, ct);
+            StartOptionRefresher(pipeline, ct);
 
             var bus = pipeline.Bus;
             bus.EventRaised += OnPipelineEvent;
@@ -196,6 +207,7 @@ public sealed class AutoThrowRunningTask : RunningTaskBase
         finally
         {
             StopFocusWatcher();
+            StopOptionRefresher();
             lock (Gate)
             {
                 _pipeline = null;
@@ -203,6 +215,45 @@ public sealed class AutoThrowRunningTask : RunningTaskBase
 
             pipeline?.Dispose();
             FinishStopped();
+        }
+    }
+
+    private void StartOptionRefresher(ICatchPipeline pipeline, CancellationToken ct)
+    {
+        StopOptionRefresher();
+        var provider = _settingsProvider;
+        if (provider is null)
+        {
+            return;
+        }
+
+        _optionRefresher = new Thread(() =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                ct.WaitHandle.WaitOne(OptionRefreshInterval);
+                if (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                pipeline.ApplyLoopOptions(provider().ToLoopOptions());
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "自动丢球配置热刷新",
+        };
+        _optionRefresher.Start();
+    }
+
+    private void StopOptionRefresher()
+    {
+        var refresher = _optionRefresher;
+        _optionRefresher = null;
+        if (refresher is not null && refresher.IsAlive)
+        {
+            refresher.Join(TimeSpan.FromSeconds(1));
         }
     }
 
