@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\RocoPilot.Shell\RocoPilot.Shell.csproj" />
     <ProjectReference Include="..\..\src\RocoPilot.Core\RocoPilot.Core.csproj" />
+    <ProjectReference Include="..\..\src\RocoPilot.Tools.FastTravel\RocoPilot.Tools.FastTravel.csproj" />
   </ItemGroup>
 
 </Project>

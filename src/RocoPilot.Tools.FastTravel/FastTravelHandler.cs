@@ -11,7 +11,8 @@ public sealed class FastTravelHandler : ISceneHandler
 
     private TeleportButtonLink? _link;
     private bool _missingTemplateReported;
-    private volatile bool _teleportRequested;
+    private readonly TeleportRequestGate _teleportRequest = new();
+    private volatile bool _active;
     private Action<ToolEvent>? _emitEvent;
     private bool _teleportClicked;
 
@@ -29,10 +30,14 @@ public sealed class FastTravelHandler : ISceneHandler
 
     public bool IsEnabled { get; set; } = true;
 
-    public void RequestTeleport() => _teleportRequested = true;
+    public void RequestTeleport()
+    {
+        if (_active) _teleportRequest.Request();
+    }
 
     public void Activate(SceneContext context)
     {
+        _active = true;
         _settings.SanitizeInPlace();
         _emitEvent = context.EmitEvent;
         _link = _sensor is null
@@ -56,7 +61,7 @@ public sealed class FastTravelHandler : ISceneHandler
             return false;
 
         var clicked = _settings.TriggerMode == FastTravelTriggerMode.KeyPress
-            ? _teleportRequested && TryRequestedClick(_link, bgraPixels, width, height)
+            ? TryRequestedClick(_link, bgraPixels, width, height)
             : _link.TryClick(bgraPixels, width, height);
 
         if (clicked) _teleportClicked = true;
@@ -65,11 +70,11 @@ public sealed class FastTravelHandler : ISceneHandler
 
     private bool TryRequestedClick(TeleportButtonLink link, ReadOnlySpan<byte> bgraPixels, int width, int height)
     {
-        if (!link.TryClick(bgraPixels, width, height))
+        if (!_teleportRequest.Pending)
             return false;
 
-        _teleportRequested = false;
-        return true;
+        _teleportRequest.Consume();
+        return link.TryClick(bgraPixels, width, height);
     }
 
     public void Deactivate()
@@ -80,8 +85,9 @@ public sealed class FastTravelHandler : ISceneHandler
             _emitEvent?.Invoke(new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()));
         }
 
+        _active = false;
         _link = null;
-        _teleportRequested = false;
+        _teleportRequest.Consume();
         _emitEvent = null;
     }
 }
