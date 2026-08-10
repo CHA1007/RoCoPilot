@@ -134,6 +134,10 @@ public sealed class OverlayProjection
                     _phase = RoutePhase("传送·等待落地");
                     break;
 
+                case "fast_travel_landed":
+                    _phase = null;
+                    break;
+
                 case "anchor_failed":
                     _phase = RoutePhase("传送·失败");
                     break;

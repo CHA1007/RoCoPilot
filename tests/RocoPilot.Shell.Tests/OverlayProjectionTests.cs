@@ -51,6 +51,16 @@ public class OverlayProjectionTests
     }
 
     [Fact]
+    public void FastTravelLandedClearsWaitingPhase()
+    {
+        var phase = PhaseAfter(
+            new ToolEvent("teleport_clicked", new Dictionary<string, object?>()),
+            new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()));
+
+        Assert.Null(phase);
+    }
+
+    [Fact]
     public void TeleportFailureProjectsFailurePhase()
     {
         Assert.Equal("传送·失败", PhaseAfter(

@@ -12,6 +12,8 @@ public sealed class FastTravelHandler : ISceneHandler
     private TeleportButtonLink? _link;
     private bool _missingTemplateReported;
     private volatile bool _teleportRequested;
+    private Action<ToolEvent>? _emitEvent;
+    private bool _teleportClicked;
 
     public FastTravelHandler(
         FastTravelSettings settings,
@@ -32,6 +34,7 @@ public sealed class FastTravelHandler : ISceneHandler
     public void Activate(SceneContext context)
     {
         _settings.SanitizeInPlace();
+        _emitEvent = context.EmitEvent;
         _link = _sensor is null
             ? null
             : new TeleportButtonLink(_sensor, context.InputDriver, _settings.ClickCooldownMs, _frameToScreen, context.EmitEvent);
@@ -52,10 +55,12 @@ public sealed class FastTravelHandler : ISceneHandler
         if (_link is null)
             return false;
 
-        if (_settings.TriggerMode == FastTravelTriggerMode.KeyPress)
-            return _teleportRequested && TryRequestedClick(_link, bgraPixels, width, height);
+        var clicked = _settings.TriggerMode == FastTravelTriggerMode.KeyPress
+            ? _teleportRequested && TryRequestedClick(_link, bgraPixels, width, height)
+            : _link.TryClick(bgraPixels, width, height);
 
-        return _link.TryClick(bgraPixels, width, height);
+        if (clicked) _teleportClicked = true;
+        return clicked;
     }
 
     private bool TryRequestedClick(TeleportButtonLink link, ReadOnlySpan<byte> bgraPixels, int width, int height)
@@ -69,7 +74,14 @@ public sealed class FastTravelHandler : ISceneHandler
 
     public void Deactivate()
     {
+        if (_teleportClicked)
+        {
+            _teleportClicked = false;
+            _emitEvent?.Invoke(new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()));
+        }
+
         _link = null;
         _teleportRequested = false;
+        _emitEvent = null;
     }
 }
