@@ -74,6 +74,29 @@
                      FontSize="11" Foreground="#B3FFFFFF" />
         </StackPanel>
       </Grid>
+
+      <Grid x:Name="ShineHost" IsHitTestVisible="False">
+        <Grid.Clip>
+          <RectangleGeometry x:Name="ShineClip"
+                             Rect="0,0,0,0" RadiusX="18" RadiusY="18" />
+        </Grid.Clip>
+        <Rectangle x:Name="ShineSweep"
+                   Width="80" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                   Opacity="0">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Offset="0" Color="#00FFFFFF" />
+              <GradientStop Offset="0.3" Color="#4DFFFFFF" />
+              <GradientStop Offset="0.5" Color="#80FFFFFF" />
+              <GradientStop Offset="0.7" Color="#4DFFFFFF" />
+              <GradientStop Offset="1" Color="#00FFFFFF" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+          <Rectangle.RenderTransform>
+            <TranslateTransform x:Name="ShineShift" X="0" Y="0" />
+          </Rectangle.RenderTransform>
+        </Rectangle>
+      </Grid>
     </Grid>
   </Border>
 </Window>

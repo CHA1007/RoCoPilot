@@ -11,11 +11,16 @@ public partial class OverlayWindow : Window
 {
 
     private const double CompactWidth = 200, CompactHeight = 36, CompactRadius = 18;
-    private const double ExpandedWidth = 300, ExpandedHeight = 72, ExpandedRadius = 36;
+    private const double SceneExpandWidth = 170, SceneExpandHeight = 42, SceneExpandRadius = 21;
+    private const double StallWidth = 300, StallHeight = 72, StallRadius = 36;
     private const double MaxCompactWidth = 420;
 
-    private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(420);
-    private static readonly TimeSpan SceneExpandWindow = TimeSpan.FromMilliseconds(2200);
+    private static readonly TimeSpan SceneMorphDuration = TimeSpan.FromMilliseconds(240);
+    private static readonly TimeSpan StallMorphDuration = TimeSpan.FromMilliseconds(420);
+    private static readonly TimeSpan SceneExpandWindow = TimeSpan.FromMilliseconds(800);
+    private const double ShineBandWidth = 80;
+    private static readonly TimeSpan ShineDelay = TimeSpan.FromMilliseconds(140);
+    private static readonly TimeSpan ShineSweepDuration = TimeSpan.FromMilliseconds(450);
 
     private static readonly SolidColorBrush s_accentRunning = Frozen("#FF22C55E");
     private static readonly SolidColorBrush s_accentPaused = Frozen("#FFEF4444");
@@ -36,6 +41,7 @@ public partial class OverlayWindow : Window
     private Storyboard? _pulse;
     private bool _expanded;
     private bool _sceneExpandActive;
+    private bool _stallActive;
     private string? _lastPhase;
     private string? _lastScene;
     private string? _expandScene;
@@ -47,6 +53,7 @@ public partial class OverlayWindow : Window
     {
         InitializeComponent();
         SourceInitialized += (_, _) => MakeClickThrough();
+        Island.SizeChanged += (_, _) => UpdateShineClip();
 
         _shrinkTimer = new DispatcherTimer { Interval = SceneExpandWindow };
         _shrinkTimer.Tick += (_, _) =>
@@ -83,6 +90,7 @@ public partial class OverlayWindow : Window
                 _sceneExpandActive = true;
                 _shrinkTimer.Stop();
                 _shrinkTimer.Start();
+                PlaySceneEffects();
             }
         }
 
@@ -106,6 +114,7 @@ public partial class OverlayWindow : Window
         }
 
         var stalled = snapshot.StallBanner is not null;
+        _stallActive = stalled;
         if (stalled)
         {
             FillStall(snapshot.StallMinutes);
@@ -187,13 +196,37 @@ public partial class OverlayWindow : Window
         if (_expanded == expanded) return;
         _expanded = expanded;
 
+        double targetWidth, targetHeight, targetRadius;
+        TimeSpan duration;
+        if (!expanded)
+        {
+            targetWidth = _compactWidth;
+            targetHeight = CompactHeight;
+            targetRadius = CompactRadius;
+            duration = SceneMorphDuration;
+        }
+        else if (_stallActive)
+        {
+            targetWidth = StallWidth;
+            targetHeight = StallHeight;
+            targetRadius = StallRadius;
+            duration = StallMorphDuration;
+        }
+        else
+        {
+            targetWidth = Math.Max(SceneExpandWidth, _compactWidth);
+            targetHeight = SceneExpandHeight;
+            targetRadius = SceneExpandRadius;
+            duration = SceneMorphDuration;
+        }
+
         var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
         Island.BeginAnimation(WidthProperty,
-            new DoubleAnimation(expanded ? ExpandedWidth : _compactWidth, MorphDuration) { EasingFunction = ease });
+            new DoubleAnimation(targetWidth, duration) { EasingFunction = ease });
         Island.BeginAnimation(HeightProperty,
-            new DoubleAnimation(expanded ? ExpandedHeight : CompactHeight, MorphDuration) { EasingFunction = ease });
+            new DoubleAnimation(targetHeight, duration) { EasingFunction = ease });
 
-        Island.CornerRadius = new CornerRadius(expanded ? ExpandedRadius : CompactRadius);
+        Island.CornerRadius = new CornerRadius(targetRadius);
 
         var fade = TimeSpan.FromMilliseconds(160);
         var stagger = TimeSpan.FromMilliseconds(150);
@@ -256,6 +289,42 @@ public partial class OverlayWindow : Window
         sx.KeyFrames.Add(new EasingDoubleKeyFrame(1.03, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(90))) { EasingFunction = easeOut });
         sx.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(330))) { EasingFunction = settle });
         IslandScale.BeginAnimation(ScaleTransform.ScaleXProperty, sx);
+    }
+
+    private void PlaySceneEffects()
+    {
+        PlayShineSweep();
+    }
+
+    private void UpdateShineClip()
+    {
+        var radius = Island.CornerRadius.TopLeft;
+        ShineClip.Rect = new Rect(0, 0, Island.ActualWidth, Island.ActualHeight);
+        ShineClip.RadiusX = radius;
+        ShineClip.RadiusY = radius;
+    }
+
+    private void PlayShineSweep()
+    {
+        var islandWidth = Math.Max(Island.ActualWidth, SceneExpandWidth);
+        var easeTravel = new CubicEase { EasingMode = EasingMode.EaseInOut };
+        var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+        var travel = TimeSpan.FromMilliseconds(ShineDelay.TotalMilliseconds + ShineSweepDuration.TotalMilliseconds);
+        var shiftX = new DoubleAnimationUsingKeyFrames();
+        shiftX.KeyFrames.Add(new LinearDoubleKeyFrame(-ShineBandWidth, KeyTime.FromTimeSpan(ShineDelay)));
+        shiftX.KeyFrames.Add(new EasingDoubleKeyFrame(islandWidth, KeyTime.FromTimeSpan(travel)) { EasingFunction = easeTravel });
+        ShineShift.BeginAnimation(TranslateTransform.XProperty, shiftX);
+
+        var fadeIn = TimeSpan.FromMilliseconds(110);
+        var fadeOut = TimeSpan.FromMilliseconds(140);
+        var opacity = new DoubleAnimationUsingKeyFrames();
+        opacity.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromTimeSpan(ShineDelay)));
+        opacity.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(ShineDelay + fadeIn)) { EasingFunction = easeOut });
+        opacity.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(ShineDelay + ShineSweepDuration - fadeOut)) { EasingFunction = easeIn });
+        opacity.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(ShineDelay + ShineSweepDuration)) { EasingFunction = easeIn });
+        ShineSweep.BeginAnimation(OpacityProperty, opacity);
     }
 
     private static string SceneLabel(string? scene) => scene switch
