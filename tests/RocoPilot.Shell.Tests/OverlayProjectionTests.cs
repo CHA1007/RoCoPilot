@@ -55,9 +55,36 @@ public class OverlayProjectionTests
     {
         var phase = PhaseAfter(
             new ToolEvent("teleport_clicked", new Dictionary<string, object?>()),
-            new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()));
+            new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()),
+            new ToolEvent("scene_changed", new Dictionary<string, object?> { ["to"] = "Unknown" }));
 
-        Assert.Null(phase);
+        Assert.Equal("传送·等待落地", phase);
+    }
+
+    [Fact]
+    public void FastTravelKeepsWaitingUntilOpenWorldLands()
+    {
+        var projection = RunningRoute();
+        projection.ApplyEvent(new ToolEvent("teleport_clicked", new Dictionary<string, object?>()));
+        projection.ApplyEvent(new ToolEvent("fast_travel_landed", new Dictionary<string, object?>()));
+        projection.ApplyEvent(new ToolEvent("scene_changed", new Dictionary<string, object?> { ["to"] = "Unknown" }));
+
+        Assert.Equal("传送·等待落地", projection.Snapshot().Phase);
+
+        projection.ApplyEvent(new ToolEvent("scene_changed", new Dictionary<string, object?> { ["to"] = "OpenWorld" }));
+
+        Assert.Null(projection.Snapshot().Phase);
+    }
+
+    [Fact]
+    public void RouteLandedPhase_IsNotClearedByOpenWorldScene()
+    {
+        var projection = RunningRoute();
+        projection.ApplyEvent(new ToolEvent("teleport_clicked", new Dictionary<string, object?>()));
+        projection.ApplyEvent(new ToolEvent("anchor_teleport", new Dictionary<string, object?> { ["phase"] = "landed" }));
+        projection.ApplyEvent(new ToolEvent("scene_changed", new Dictionary<string, object?> { ["to"] = "OpenWorld" }));
+
+        Assert.Equal("传送·已落地", projection.Snapshot().Phase);
     }
 
     [Fact]

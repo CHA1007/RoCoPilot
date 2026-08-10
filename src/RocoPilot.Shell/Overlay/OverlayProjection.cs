@@ -19,6 +19,7 @@ public sealed class OverlayProjection
     private int _stallSinceSeconds;
     private string? _scene;
     private int _routeLap;
+    private bool _landingChecking;
 
     public OverlayProjection(Func<long>? nowMs = null, long stallBannerMs = DefaultStallBannerMs)
     {
@@ -58,6 +59,7 @@ public sealed class OverlayProjection
                 case "session_start":
                     _throws = 0;
                     _stallAlerted = false;
+                    _landingChecking = false;
                     _phase = "扫描";
                     break;
 
@@ -88,9 +90,15 @@ public sealed class OverlayProjection
 
                 case "scene_changed":
                     _scene = toolEvent.Data?.GetValueOrDefault("to") as string;
+                    if (_landingChecking && string.Equals(_scene, "OpenWorld", StringComparison.Ordinal))
+                    {
+                        _landingChecking = false;
+                        _phase = null;
+                    }
                     break;
 
                 case "session_stop":
+                    _landingChecking = false;
                     _phase = null;
                     break;
 
@@ -108,6 +116,7 @@ public sealed class OverlayProjection
                     break;
 
                 case "anchor_teleport":
+                    _landingChecking = false;
                     _phase = RoutePhase(
                         toolEvent.Data?.GetValueOrDefault("phase") as string == "landed" ? "传送·已落地" : "传送·开始");
                     break;
@@ -135,7 +144,7 @@ public sealed class OverlayProjection
                     break;
 
                 case "fast_travel_landed":
-                    _phase = null;
+                    _landingChecking = true;
                     break;
 
                 case "anchor_failed":

@@ -80,11 +80,15 @@ public partial class OverlayWindow : Window
             _lastScene = snapshot.Scene;
             SceneText.Text = SceneLabel(snapshot.Scene);
             SceneText.Foreground = SceneBrush(snapshot.Scene);
-            _sceneExpandActive = true;
-            _shrinkTimer.Stop();
-            _shrinkTimer.Start();
-            AnimateSceneIn();
-            PlaySceneEffects();
+
+            if (IsKnownScene(snapshot.Scene))
+            {
+                _sceneExpandActive = true;
+                _shrinkTimer.Stop();
+                _shrinkTimer.Start();
+                AnimateSceneIn();
+                PlaySceneEffects();
+            }
         }
 
         var phase = snapshot.Phase;
@@ -333,6 +337,9 @@ public partial class OverlayWindow : Window
         opacity.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(ShineDelay + ShineSweepDuration)) { EasingFunction = easeIn });
         ShineSweep.BeginAnimation(OpacityProperty, opacity);
     }
+
+    private static bool IsKnownScene(string? scene) =>
+        scene is "OpenWorld" or "Battle" or "WorldMap";
 
     private static string SceneLabel(string? scene) => scene switch
     {
