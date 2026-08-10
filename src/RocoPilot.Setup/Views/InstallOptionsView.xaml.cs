@@ -16,6 +16,11 @@ public sealed partial class InstallOptionsView : UserControl
         InstallPathBox.Text = session.InstallPath;
         DesktopShortcutBox.IsChecked = session.CreateDesktopShortcut;
         LaunchOnExitBox.IsChecked = session.LaunchOnExit;
+        if (session.InterceptionMissing)
+        {
+            InterceptionBox.Visibility = Visibility.Visible;
+            InterceptionHint.Visibility = Visibility.Visible;
+        }
     }
 
     public void Commit()
@@ -23,6 +28,8 @@ public sealed partial class InstallOptionsView : UserControl
         _session.InstallPath = InstallPathBox.Text.Trim();
         _session.CreateDesktopShortcut = DesktopShortcutBox.IsChecked == true;
         _session.LaunchOnExit = LaunchOnExitBox.IsChecked == true;
+        _session.InstallInterceptionDriver = InterceptionBox.Visibility == Visibility.Visible
+            && InterceptionBox.IsChecked == true;
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)

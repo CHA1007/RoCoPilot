@@ -47,6 +47,7 @@
     <ProjectReference Include="..\RocoPilot.Detection\RocoPilot.Detection.csproj" />
     <ProjectReference Include="..\RocoPilot.Dispatch\RocoPilot.Dispatch.csproj" />
     <ProjectReference Include="..\RocoPilot.Input\RocoPilot.Input.csproj" />
+    <ProjectReference Include="..\RocoPilot.Installer.Core\RocoPilot.Installer.Core.csproj" />
     <ProjectReference Include="..\RocoPilot.Loop\RocoPilot.Loop.csproj" />
     <ProjectReference Include="..\RocoPilot.Routing\RocoPilot.Routing.csproj" />
     <ProjectReference Include="..\RocoPilot.Scripting\RocoPilot.Scripting.csproj" />

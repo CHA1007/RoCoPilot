@@ -32,6 +32,22 @@ public sealed class InterceptionDriver : IInputDriver
 
     public string BackendName => "interception";
 
+    public static bool CanUse() => CanUse(new InterceptionNativeApi());
+
+    internal static bool CanUse(IInterceptionApi api)
+    {
+        try
+        {
+            using var driver = new InterceptionDriver(api);
+            driver.Arm();
+            return true;
+        }
+        catch (InputDriverException)
+        {
+            return false;
+        }
+    }
+
     public void Arm()
     {
         lock (_sendGate) EnsureSendContext();

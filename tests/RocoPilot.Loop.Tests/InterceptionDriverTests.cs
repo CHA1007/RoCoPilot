@@ -82,6 +82,22 @@ public sealed class InterceptionDriverTests
     }
 
     [Fact]
+    public void CanUse_ReturnsTrue_WhenDriverRunning()
+    {
+        var api = new FakeInterceptionApi();
+
+        Assert.True(InterceptionDriver.CanUse(api));
+    }
+
+    [Fact]
+    public void CanUse_ReturnsFalse_WhenDriverNotRunning()
+    {
+        var api = new FakeInterceptionApi { CreateContextFails = true };
+
+        Assert.False(InterceptionDriver.CanUse(api));
+    }
+
+    [Fact]
     public void Arm_CreatesSendContextOnce()
     {
         var (driver, api) = CreateDriver();

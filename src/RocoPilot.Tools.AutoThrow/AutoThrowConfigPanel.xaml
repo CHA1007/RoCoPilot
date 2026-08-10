@@ -12,10 +12,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕捉的精灵对象" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="捕捉的精灵对象" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="留空则捕捉所有识别到的精灵 Tip:目前仅支持识别恶魔狼和月牙雪熊"
+                        FontTypography="Caption"
+                        Text="留空捕捉全部；目前仅识别恶魔狼、月牙雪熊"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -35,10 +36,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="识别置信度阈值" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="识别置信度阈值" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="数值越低识别越宽松，也越容易误判"
+                        FontTypography="Caption"
+                        Text="越低识别越宽松，但也越容易误判"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -58,10 +60,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="推理设备" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="推理设备" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="GPU（DirectML）速度更快，CPU 兼容性更好"
+                        FontTypography="Caption"
+                        Text="一般情况下GPU效率更快，CPU 兼容好"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -80,10 +83,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="触发器间隔（毫秒）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="触发器间隔（ms）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="两次推理之间的最小间隔，0＝每帧都跑"
+                        FontTypography="Caption"
+                        Text="两次触发判断之间的等待间隔，间隔越短，目标出现后出手越快"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -103,10 +107,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="蓄力投掷时间（毫秒）" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="蓄力投掷时间（ms）" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="长按蓄力投出咕噜球的时间，一般保持默认即可"
+                        FontTypography="Caption"
+                        Text="按住左键蓄力投掷咕噜球的时长"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>
@@ -126,10 +131,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="启动时自动测量转向灵敏度，关闭则使用手动值"
+                        FontTypography="Caption"
+                        Text="开启后每次启动都会进行灵敏度校准"
                         TextWrapping="Wrap" />
         </Grid>
       </ui:CardControl.Header>

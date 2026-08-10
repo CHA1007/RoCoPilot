@@ -6,4 +6,8 @@
     <RootNamespace>RocoPilot.Installer.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="..\RocoPilot.Input\native\win-x64\interception.dll" Link="interception.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

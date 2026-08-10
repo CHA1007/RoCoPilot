@@ -6,26 +6,68 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d"
              d:DesignHeight="420" d:DesignWidth="560">
-    <StackPanel Margin="40,32">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <ui:SymbolIcon Symbol="CheckmarkCircle24"
-                           FontSize="44"
-                           Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
-            <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="安装完成"
-                           FontSize="26" FontWeight="SemiBold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <TextBlock x:Name="SummaryText"
-                           Margin="0,6,0,0"
-                           FontSize="13"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+    <StackPanel Margin="40,24" VerticalAlignment="Center">
+        <StackPanel HorizontalAlignment="Center">
+            <Border Width="72" Height="72"
+                    CornerRadius="36"
+                    HorizontalAlignment="Center"
+                    Background="{DynamicResource AccentFillColorDefaultBrush}">
+                <ui:SymbolIcon Symbol="Checkmark24"
+                               FontSize="36"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+            </Border>
+            <TextBlock Text="安装完成"
+                       Margin="0,16,0,0"
+                       FontSize="26" FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock x:Name="SummaryText"
+                       Margin="0,6,0,0"
+                       MaxWidth="420"
+                       FontSize="13"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <TextBlock x:Name="MessageText"
-                   Margin="0,28,0,0"
-                   TextWrapping="Wrap"
-                   FontSize="14"
-                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        <ui:Card Margin="0,28,0,0" Padding="20">
+            <StackPanel>
+                <TextBlock x:Name="MessageText"
+                           TextWrapping="Wrap"
+                           FontSize="14"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+
+                <ui:Button x:Name="LaunchButton"
+                           Content="启动 RocoPilot"
+                           Appearance="Primary"
+                           Margin="0,20,0,0"
+                           Height="40"
+                           HorizontalAlignment="Stretch"
+                           Click="Launch_Click" />
+
+                <Border x:Name="RebootNote"
+                        Margin="0,16,0,0"
+                        Padding="12,10"
+                        CornerRadius="6"
+                        Background="{DynamicResource ControlFillColorDefaultBrush}"
+                        Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Info24"
+                                       FontSize="18"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                        <TextBlock x:Name="RebootText"
+                                   Margin="10,0,0,0"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ui:Card>
     </StackPanel>
 </UserControl>

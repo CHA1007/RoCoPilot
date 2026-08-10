@@ -74,6 +74,14 @@ public partial class App : Application
         services.AddSingleton(settingsStore);
         services.AddSingleton<RunningTaskHost>();
         var captureHost = new CaptureHost();
+        if (settingsStore.GetToolSettings(
+                RocoPilot.Tools.AutoThrow.AutoThrowTool.ToolId,
+                typeof(RocoPilot.Tools.AutoThrow.AutoThrowSettings),
+                () => new RocoPilot.Tools.AutoThrow.AutoThrowSettings()) is RocoPilot.Tools.AutoThrow.AutoThrowSettings throwSettings)
+        {
+            captureHost.WindowTitleSubstring = throwSettings.WindowTitleSubstring ?? string.Empty;
+        }
+        captureHost.Backend = CaptureBackendCatalog.Parse(settingsStore.GetShellSettings().CaptureBackend);
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
         services.AddSingleton<GlobalHotkeyManager>();

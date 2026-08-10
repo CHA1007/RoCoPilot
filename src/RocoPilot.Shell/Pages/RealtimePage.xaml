@@ -11,9 +11,24 @@
             Background="{ui:ThemeResource SystemFillColorCriticalBackgroundBrush}"
             CornerRadius="4"
             Visibility="Collapsed">
-      <ui:TextBlock x:Name="ErrorBannerText"
-                    Foreground="{ui:ThemeResource SystemFillColorCriticalBrush}"
-                    TextWrapping="Wrap" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:TextBlock x:Name="ErrorBannerText"
+                      Grid.Column="0"
+                      VerticalAlignment="Center"
+                      Foreground="{ui:ThemeResource SystemFillColorCriticalBrush}"
+                      TextWrapping="Wrap" />
+        <ui:Button x:Name="PickWindowButton"
+                   Grid.Column="1"
+                   Margin="12,0,0,0"
+                   VerticalAlignment="Center"
+                   Content="选择窗口"
+                   Visibility="Collapsed"
+                   Click="OnPickWindowClick" />
+      </Grid>
     </Border>
 
     <ui:CardExpander Margin="0,0,0,12" ContentPadding="0">
@@ -27,9 +42,10 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="自动丢球" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="大世界场景下自动识别精灵并投球" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="自动丢球" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="在大世界场景中，自动识别精灵位置并转向投掷咕噜球" />
           </StackPanel>
           <ui:ToggleSwitch x:Name="AutoThrowToggle" Grid.Column="1"
                            Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
@@ -48,7 +64,7 @@
             </Grid.ColumnDefinitions>
             <ui:TextBlock x:Name="CalibrationHint" Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
                           Foreground="{ui:ThemeResource SystemFillColorCautionBrush}"
-                          Text="尚未校准转向灵敏度，投掷方向可能偏移。请先开启截图，再点击右侧校准。" />
+                          Text="尚未校准，投掷可能偏移" />
             <ui:Button x:Name="CalibrateButton" Grid.Column="1" Margin="12,0,0,0"
                        Content="校准" VerticalAlignment="Center" Click="OnCalibrateClick" />
           </Grid>
@@ -69,9 +85,10 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="自动战斗" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="战斗场景下自动释放技能" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="自动战斗" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="战斗场景中自动释放技能" />
           </StackPanel>
           <ui:ToggleSwitch x:Name="AutoBattleToggle" Grid.Column="1"
                            Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
@@ -79,24 +96,31 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="技能槽位" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="战斗中技能对应数字" />
-          </StackPanel>
-          <ComboBox x:Name="SkillSlotCombo" Grid.Column="1" Width="100"
+        <ui:CardControl Margin="16">
+          <ui:CardControl.Header>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="技能槽位" TextWrapping="Wrap" />
+              <ui:TextBlock Grid.Row="1"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                            Text="自动战斗时释放的技能所在栏位"
+                            TextWrapping="Wrap" />
+            </Grid>
+          </ui:CardControl.Header>
+          <ComboBox x:Name="SkillSlotCombo"
+                    Width="120"
+                    HorizontalAlignment="Left"
                     SelectionChanged="OnSkillSlotChanged">
             <ComboBoxItem Content="1" />
             <ComboBoxItem Content="2" />
             <ComboBoxItem Content="3" />
             <ComboBoxItem Content="4" />
           </ComboBox>
-        </Grid>
+        </ui:CardControl>
       </StackPanel>
     </ui:CardExpander>
 
@@ -111,9 +135,10 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="地图快传" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="点击世界地图中的魔力之源，炼金釜等可快速传送" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="地图快传" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="在大地图中快速点击传送按钮" />
           </StackPanel>
           <ui:ToggleSwitch x:Name="FastTravelToggle" Grid.Column="1"
                            Margin="0,0,16,0" Checked="OnToggleChanged" Unchecked="OnToggleChanged" />
@@ -121,26 +146,49 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid x:Name="ModeRow" Margin="16,16,16,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center" FontTypography="Body" Text="传送方式" />
-          <ComboBox x:Name="FastTravelModeCombo" Grid.Column="1" Width="130"
+        <ui:CardControl Margin="16,16,16,0">
+          <ui:CardControl.Header>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="传送方式" TextWrapping="Wrap" />
+              <ui:TextBlock Grid.Row="1"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                            Text="自动传送：点击魔力之源，炼金釜自动点击传送；按键传送：需按下触发键手动传送"
+                            TextWrapping="Wrap" />
+            </Grid>
+          </ui:CardControl.Header>
+          <ComboBox x:Name="FastTravelModeCombo"
+                    Width="130"
+                    HorizontalAlignment="Left"
                     SelectionChanged="OnFastTravelModeChanged">
             <ComboBoxItem Content="自动传送" />
             <ComboBoxItem Content="按键传送" />
           </ComboBox>
-        </Grid>
-        <Grid x:Name="TriggerKeyRow" Margin="16,12,16,16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center" FontTypography="Body" Text="触发键" />
-          <ui:Button x:Name="FastTravelTriggerKeyButton" Grid.Column="1" Height="34" Width="130" />
-        </Grid>
+        </ui:CardControl>
+        <ui:CardControl x:Name="TriggerKeyRow" Margin="16">
+          <ui:CardControl.Header>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="触发键" TextWrapping="Wrap" />
+              <ui:TextBlock Grid.Row="1"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                            Text="按下后点击传送按钮的触发键"
+                            TextWrapping="Wrap" />
+            </Grid>
+          </ui:CardControl.Header>
+          <ui:Button x:Name="FastTravelTriggerKeyButton"
+                     Height="34"
+                     Width="130"
+                     HorizontalAlignment="Left" />
+        </ui:CardControl>
       </StackPanel>
     </ui:CardExpander>
 

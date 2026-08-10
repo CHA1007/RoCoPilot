@@ -32,5 +32,11 @@
                   Content="同时删除个人数据（设置、路线、脚本）"
                   FontSize="14"
                   HorizontalAlignment="Center" />
+
+        <CheckBox x:Name="UninstallDriverBox"
+                  Margin="0,12,0,0"
+                  Content="同时卸载内核驱动（Interception）"
+                  FontSize="14"
+                  HorizontalAlignment="Center" />
     </StackPanel>
 </UserControl>

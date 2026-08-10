@@ -7,17 +7,7 @@
 
     <ui:CardControl Margin="0,0,0,12" Icon="{ui:SymbolIcon Color24}">
       <ui:CardControl.Header>
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="主题" />
-          <ui:TextBlock Grid.Row="1"
-                        FontTypography="Caption"
-                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                        Text="切换后立即生效" />
-        </Grid>
+        <ui:TextBlock FontTypography="BodyStrong" Text="主题" />
       </ui:CardControl.Header>
       <ComboBox x:Name="ThemeCombo" Width="200" SelectionChanged="OnThemeSelectionChanged">
         <ComboBoxItem Content="跟随系统" />
@@ -33,11 +23,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="调试叠层" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="调试叠层" />
           <ui:TextBlock Grid.Row="1"
                         FontTypography="Caption"
-                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                        Text="在游戏画面上标出识别到的精灵，用于检查识别效果" />
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="在画面上标出识别结果" />
         </Grid>
       </ui:CardControl.Header>
       <ui:ToggleSwitch x:Name="DebugOverlayToggle" Checked="OnDebugOverlayChanged" Unchecked="OnDebugOverlayChanged" />
@@ -50,11 +40,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="开发者模式" />
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="开发者模式" />
           <ui:TextBlock Grid.Row="1"
                         FontTypography="Caption"
-                        Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                        Text="解锁「诊断调试」页面分组，重启后生效" />
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="解锁「诊断调试」页面，需重启" />
         </Grid>
       </ui:CardControl.Header>
       <ui:ToggleSwitch x:Name="DeveloperModeToggle" Checked="OnDeveloperModeChanged" Unchecked="OnDeveloperModeChanged" />
@@ -68,7 +58,7 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="关于" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="关于" />
             <ui:TextBlock FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                           Text="RocoPilot · 洛克工具箱" />
@@ -83,34 +73,22 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16,16,16,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="更新渠道" />
-            <ui:TextBlock FontTypography="Caption"
-                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="稳定版更稳；测试版抢先体验新功能" />
-          </StackPanel>
-          <ComboBox x:Name="UpdateChannelCombo" Grid.Column="1" Margin="0,0,36,0" Width="140"
+        <ui:CardControl Margin="16,16,16,0">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="更新渠道" />
+          </ui:CardControl.Header>
+          <ComboBox x:Name="UpdateChannelCombo" Width="140" HorizontalAlignment="Left"
                     SelectionChanged="OnUpdateChannelChanged">
             <ComboBoxItem Content="稳定版" />
             <ComboBoxItem Content="测试版" />
           </ComboBox>
-        </Grid>
-        <Grid Margin="16,12,16,16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Column="0"
-                        VerticalAlignment="Center"
-                        FontTypography="Body"
-                        Text="问题反馈" />
-          <ui:Button Grid.Column="1" Margin="0,0,36,0" Content="打开" Click="OnOpenIssuesClick" />
-        </Grid>
+        </ui:CardControl>
+        <ui:CardControl Margin="16">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="问题反馈" />
+          </ui:CardControl.Header>
+          <ui:Button HorizontalAlignment="Left" Content="打开" Click="OnOpenIssuesClick" />
+        </ui:CardControl>
         <ui:TextBlock x:Name="UpdateStatusText" Margin="16,12,16,16"
                       FontTypography="Caption"
                       Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"

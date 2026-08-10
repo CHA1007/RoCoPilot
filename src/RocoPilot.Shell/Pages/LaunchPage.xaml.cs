@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using RocoPilot.Capture;
 using RocoPilot.Input.Interception;
+using RocoPilot.Installer.Core;
 using RocoPilot.Loop;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
@@ -46,6 +48,7 @@ public partial class LaunchPage : Page
             _capture.Changed += OnStateChanged;
             RefreshButton();
             RefreshCaptureStatus();
+            RefreshDriverStatus();
             _statusTimer.Start();
             await LoadBannerAsync();
         };
@@ -102,7 +105,7 @@ public partial class LaunchPage : Page
         }
 
         CalibrateButton.IsEnabled = false;
-        CalibrateHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
+        CalibrateHint.Text = "校准中…勿动鼠标";
 
         WindowFinder.ActivateGameWindow();
 
@@ -128,7 +131,7 @@ public partial class LaunchPage : Page
             }
             else
             {
-                CalibrateHint.Text = "校准失败：未检测到足够的场景位移（场景纹理不足或镜头未转）";
+                CalibrateHint.Text = "校准失败：场景位移不足";
             }
         }
         catch (Exception ex)
@@ -171,6 +174,64 @@ public partial class LaunchPage : Page
         CaptureStatusText.Text =
             $"{source.SourceDescription} · {source.FrameWidth}×{source.FrameHeight} · {source.FramesPerSecond:F0} FPS";
         CaptureStatusRow.Visibility = Visibility.Visible;
+    }
+
+    private void RefreshDriverStatus()
+    {
+        var usable = InterceptionDriver.CanUse();
+        DriverOkText.Visibility = usable ? Visibility.Visible : Visibility.Collapsed;
+        DriverMissingText.Visibility = usable ? Visibility.Collapsed : Visibility.Visible;
+        InstallDriverButton.Visibility = usable ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private async void OnInstallDriverClick(object sender, RoutedEventArgs e)
+    {
+        InstallDriverButton.IsEnabled = false;
+        InstallDriverButton.Content = "安装中…";
+        try
+        {
+            await Task.Run(() => InterceptionDriverHelper.InstallAsync());
+            RefreshDriverStatus();
+
+            var choice = System.Windows.MessageBox.Show(
+                "Interception 内核驱动已安装，需要重启电脑后才能生效。是否立即重启？",
+                "RocoPilot",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question);
+            if (choice == System.Windows.MessageBoxResult.Yes)
+            {
+                var psi = new ProcessStartInfo("shutdown", "/r /t 0")
+                {
+                    UseShellExecute = true,
+                    Verb = "runas",
+                };
+                try
+                {
+                    Process.Start(psi);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"无法重启电脑：{ex.Message}",
+                        "RocoPilot",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"驱动安装失败：{ex.GetBaseException().Message}",
+                "RocoPilot",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+        finally
+        {
+            InstallDriverButton.IsEnabled = true;
+            InstallDriverButton.Content = "安装驱动";
+        }
     }
 
     private void RefreshButton()

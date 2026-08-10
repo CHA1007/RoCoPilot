@@ -82,6 +82,7 @@ public partial class RoutePage : Page
 
         _dispatcher.EventRaised += OnDispatcherEvent;
         _dispatcher.Changed += OnDispatcherChanged;
+        _capture.AutoStartFailed += OnAutoStartFailed;
 
         Unloaded += (_, _) =>
         {
@@ -623,7 +624,7 @@ public partial class RoutePage : Page
 
     private void BuildTeleportEditor(StackPanel panel, TeleportNode node)
     {
-        panel.Children.Add(ExpanderLabel("传送锚点"));
+        panel.Children.Add(ExpanderLabel("传送至"));
 
         var combo = new ComboBox
         {
@@ -1044,12 +1045,23 @@ public partial class RoutePage : Page
             return;
         }
 
-        if (_nodes.Count == 0 || !_capture.IsRunning) return;
+        if (_nodes.Count == 0) return;
 
         _ = SaveGraphAsync();
         _dispatcher.StartRouteExecution(startNodeId, singleNode);
         WindowFinder.ActivateGameWindow();
         UpdateRunPill();
+    }
+
+    private void OnAutoStartFailed(string reason)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_dispatcher.RouteExecutionEnabled) return;
+            _dispatcher.RouteExecutionEnabled = false;
+            _dispatcher.SyncEnables();
+            UpdateRunPill();
+        });
     }
 
     private void OnDispatcherChanged() => Dispatcher.BeginInvoke(UpdateRunPill);

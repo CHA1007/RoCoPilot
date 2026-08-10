@@ -3,22 +3,40 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d"
              d:DesignHeight="420" d:DesignWidth="560">
-    <StackPanel Margin="40,32">
-        <TextBlock Text="正在安装"
-                   FontSize="26" FontWeight="SemiBold"
-                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-        <TextBlock x:Name="StatusText"
-                   Margin="0,12,0,0"
-                   FontSize="14"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-
-        <ui:ProgressRing x:Name="Progress"
-                         Margin="0,32,0,0"
-                         IsIndeterminate="True"
-                         FontSize="64"
-                         HorizontalAlignment="Center" />
-    </StackPanel>
+    <Grid Margin="48,24">
+        <StackPanel VerticalAlignment="Center">
+            <Image Source="/icon.png"
+                   Width="72" Height="72"
+                   HorizontalAlignment="Center"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock Text="正在安装"
+                       Margin="0,20,0,0"
+                       FontSize="22" FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock x:Name="StatusText"
+                       Margin="0,8,0,0"
+                       FontSize="13"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Border x:Name="Track"
+                    Height="4"
+                    Margin="0,32,0,0"
+                    CornerRadius="2"
+                    ClipToBounds="True"
+                    Background="{DynamicResource ControlStrongStrokeColorDefaultBrush}">
+                <Border x:Name="Indicator"
+                        Width="64" Height="4"
+                        HorizontalAlignment="Left"
+                        CornerRadius="2"
+                        Background="{DynamicResource AccentFillColorDefaultBrush}">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="IndicatorTransform" X="-64" />
+                    </Border.RenderTransform>
+                </Border>
+            </Border>
+        </StackPanel>
+    </Grid>
 </UserControl>

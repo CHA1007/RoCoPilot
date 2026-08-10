@@ -4,6 +4,7 @@ using System.Windows.Input;
 using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Settings;
+using RocoPilot.Shell.Dialogs;
 using RocoPilot.Shell.Hotkeys;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoBattle;
@@ -72,9 +73,14 @@ public partial class RealtimePage : Page
             _ready = true;
             SyncToggleChecks();
             _dispatcher.EventRaised += OnDispatcherEvent;
+            _capture.AutoStartFailed += OnAutoStartFailed;
             RefreshCalibrationBanner();
         };
-        Unloaded += (_, _) => _dispatcher.EventRaised -= OnDispatcherEvent;
+        Unloaded += (_, _) =>
+        {
+            _dispatcher.EventRaised -= OnDispatcherEvent;
+            _capture.AutoStartFailed -= OnAutoStartFailed;
+        };
     }
 
     private void OnToggleChanged(object sender, RoutedEventArgs e)
@@ -121,7 +127,6 @@ public partial class RealtimePage : Page
     {
         var isKeyPress = _dispatcher.FastTravelTriggerMode == FastTravelTriggerMode.KeyPress;
         TriggerKeyRow.Visibility = isKeyPress ? Visibility.Visible : Visibility.Collapsed;
-        ModeRow.Margin = isKeyPress ? new Thickness(16, 16, 16, 0) : new Thickness(16);
     }
 
     private void OnTriggerKeyPreviewKeyDown(object sender, KeyEventArgs e)
@@ -170,6 +175,28 @@ public partial class RealtimePage : Page
     private static string DisplayTriggerKey(string triggerKey) =>
         string.IsNullOrWhiteSpace(triggerKey) ? UnspecifiedTriggerKey : triggerKey;
 
+    private void OnAutoStartFailed(string reason)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            ErrorBannerText.Text = reason;
+            PickWindowButton.Visibility = Visibility.Visible;
+            ErrorBanner.Visibility = Visibility.Visible;
+        });
+    }
+
+    private void OnPickWindowClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new WindowPickerDialog { Owner = Window.GetWindow(this) };
+        if (dialog.ShowDialog() != true || dialog.Picked is not { } picked)
+        {
+            return;
+        }
+
+        _capture.WindowTitleSubstring = picked.Title;
+        _capture.RetryStart();
+    }
+
     private void OnDispatcherEvent(object? sender, ToolEvent toolEvent) => Dispatcher.InvokeAsync(() =>
     {
         switch (toolEvent.Name)
@@ -203,15 +230,18 @@ public partial class RealtimePage : Page
 
     private async void OnCalibrateClick(object sender, RoutedEventArgs e)
     {
+        using var lease = _capture.Acquire("Calibrate");
+        await _capture.EnsureStartAsync();
+
         var source = _capture.CurrentSource;
         if (source is null)
         {
-            CalibrationHint.Text = "请先开启截图（启动页 → 截图器开关）";
+            CalibrationHint.Text = "未检测到游戏窗口，无法校准";
             return;
         }
 
         CalibrateButton.IsEnabled = false;
-        CalibrationHint.Text = "校准中…请保持游戏窗口聚焦，勿动鼠标";
+        CalibrationHint.Text = "校准中…勿动鼠标";
 
         WindowFinder.ActivateGameWindow();
 
@@ -231,12 +261,12 @@ public partial class RealtimePage : Page
                 shell.SensitivityPpcY = Math.Round(result.PpcY, 3);
                 _store.SetShellSettings(shell);
                 _store.Save();
-                CalibrationHint.Text = $"校准完成：X={result.PpcX:F3} Y={result.PpcY:F3}（已保存）";
+                CalibrationHint.Text = $"校准完成：X={result.PpcX:F3} Y={result.PpcY:F3}";
                 CalibrationBanner.Visibility = Visibility.Collapsed;
             }
             else
             {
-                CalibrationHint.Text = "校准失败：未检测到足够的场景位移";
+                CalibrationHint.Text = "校准失败：场景位移不足";
             }
         }
         catch (Exception ex)

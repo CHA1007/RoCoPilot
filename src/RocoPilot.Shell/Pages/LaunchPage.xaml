@@ -35,9 +35,10 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="截图器" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="截图器启动后才能使用各项功能，点击展开启动相关配置" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="截图器" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="为各种工具提供画面识别，功能启动后会自动启动截图器" />
           </StackPanel>
           <ui:Button x:Name="CaptureButton"
                      Grid.Column="1"
@@ -50,32 +51,44 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid x:Name="CaptureStatusRow" Margin="16" Visibility="Collapsed">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="Body" Text="捕获状态" />
+        <Grid x:Name="CaptureStatusRow" Margin="16,16,16,0" Visibility="Collapsed">
           <ui:TextBlock x:Name="CaptureStatusText"
-                        Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" />
         </Grid>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Column="0"
-                        VerticalAlignment="Center"
-                        FontTypography="Body"
-                        Text="截图模式" />
+        <ui:CardControl Margin="16,16,16,0">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="截图模式" />
+          </ui:CardControl.Header>
           <ComboBox x:Name="BackendCombo"
-                    Grid.Column="1"
-                    Width="280"
-                    Margin="0,0,36,0"
+                    Width="200"
+                    HorizontalAlignment="Left"
                     SelectionChanged="OnBackendChanged" />
-        </Grid>
+        </ui:CardControl>
+        <ui:CardControl Margin="16">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="输入驱动" />
+          </ui:CardControl.Header>
+          <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+            <ui:TextBlock x:Name="DriverOkText"
+                          VerticalAlignment="Center"
+                          FontTypography="Body"
+                          Foreground="{ui:ThemeResource SystemFillColorSuccessBrush}"
+                          Text="可用"
+                          Visibility="Collapsed" />
+            <ui:TextBlock x:Name="DriverMissingText"
+                          VerticalAlignment="Center"
+                          FontTypography="Body"
+                          Foreground="{ui:ThemeResource SystemFillColorCriticalBrush}"
+                          Text="不可用"
+                          Visibility="Collapsed" />
+            <ui:Button x:Name="InstallDriverButton"
+                       Margin="12,0,0,0"
+                       Content="安装驱动"
+                       Appearance="Primary"
+                       Visibility="Collapsed"
+                       Click="OnInstallDriverClick" />
+          </StackPanel>
+        </ui:CardControl>
       </StackPanel>
     </ui:CardExpander>
 
@@ -87,9 +100,10 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel Grid.Column="0">
-            <ui:TextBlock FontTypography="Body" Text="转向灵敏度" />
-            <ui:TextBlock Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="对中控制的核心参数，建议校准自动测量，不准会导致投掷偏移" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="转向灵敏度" />
+            <ui:TextBlock FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="如果转向目标出现较大偏差，可以手动进行校准操作" />
           </StackPanel>
           <ui:Button x:Name="CalibrateButton"
                      Grid.Column="1"
@@ -100,67 +114,39 @@
       </ui:CardExpander.Header>
       <StackPanel>
         <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="水平灵敏度" />
-          <ui:TextBlock Grid.Row="1"
-                        Grid.Column="0"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="0 = 用回退值估算" />
+        <ui:CardControl Margin="16,16,16,0">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="水平灵敏度" />
+          </ui:CardControl.Header>
           <ui:NumberBox x:Name="SensitivityPpcXBox"
-                        Grid.Row="0"
-                        Grid.RowSpan="2"
-                        Grid.Column="1"
                         Width="200"
-                        Margin="0,0,36,0"
+                        HorizontalAlignment="Left"
                         Minimum="0"
                         Maximum="100"
                         SmallChange="0.1"
                         MaxDecimalPlaces="3"
                         ValidationMode="InvalidInputOverwritten"
                         ValueChanged="OnSensitivityChanged" />
-        </Grid>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBlock Grid.Row="0" Grid.Column="0" FontTypography="Body" Text="垂直灵敏度" />
-          <ui:TextBlock Grid.Row="1"
-                        Grid.Column="0"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        Text="0 = 用回退值估算" />
+        </ui:CardControl>
+        <ui:CardControl Margin="16">
+          <ui:CardControl.Header>
+            <ui:TextBlock FontTypography="BodyStrong" Text="垂直灵敏度" />
+          </ui:CardControl.Header>
           <ui:NumberBox x:Name="SensitivityPpcYBox"
-                        Grid.Row="0"
-                        Grid.RowSpan="2"
-                        Grid.Column="1"
                         Width="200"
-                        Margin="0,0,36,0"
+                        HorizontalAlignment="Left"
                         Minimum="0"
                         Maximum="100"
                         SmallChange="0.1"
                         MaxDecimalPlaces="3"
                         ValidationMode="InvalidInputOverwritten"
                         ValueChanged="OnSensitivityChanged" />
-        </Grid>
-        <Separator Margin="-18,0" BorderThickness="0,1,0,0" />
-        <Grid Margin="16">
+        </ui:CardControl>
+        <Grid Margin="16,16,16,16">
           <ui:TextBlock x:Name="CalibrateHint"
                         FontTypography="Caption"
                         Foreground="{ui:ThemeResource TextFillColorSecondaryBrush}"
-                        Text="校准会短暂转动镜头，请先启动截图器并保持游戏窗口聚焦"
+                        Text="按下校准按钮后会自动聚焦游戏窗口进行灵敏度校准"
                         TextWrapping="Wrap" />
         </Grid>
       </StackPanel>

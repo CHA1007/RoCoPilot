@@ -10,12 +10,16 @@
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(PayloadSetup)' == ''">
+    <PayloadSetup>..\..\releases\RocoPilot-win-Setup.exe</PayloadSetup>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(PayloadZip)' != '' and Exists('$(PayloadZip)')">
-    <EmbeddedResource Include="$(PayloadZip)" LogicalName="RocoPilotAppPayload" />
+  <ItemGroup Condition="'$(PayloadSetup)' != '' and Exists('$(PayloadSetup)')">
+    <EmbeddedResource Include="$(PayloadSetup)" LogicalName="RocoPilotSetupPayload" />
   </ItemGroup>
 
   <ItemGroup>

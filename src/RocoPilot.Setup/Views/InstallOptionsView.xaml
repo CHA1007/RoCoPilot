@@ -41,6 +41,19 @@
                           Margin="0,12,0,0"
                           IsChecked="True"
                           FontSize="14" />
+                <CheckBox x:Name="InterceptionBox"
+                          Content="安装 Interception 内核驱动"
+                          Margin="0,12,0,0"
+                          IsChecked="True"
+                          FontSize="14"
+                          Visibility="Collapsed" />
+                <TextBlock x:Name="InterceptionHint"
+                           Margin="28,4,0,0"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="输入模拟需要，安装后重启生效"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed" />
             </StackPanel>
         </ui:Card>
     </StackPanel>

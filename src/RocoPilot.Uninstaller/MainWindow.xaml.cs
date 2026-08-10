@@ -61,11 +61,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void Uninstall_Click(object sender, RoutedEventArgs e)
     {
         _deleteUserData = _confirm!.DeleteUserData;
+        _uninstallDriver = _confirm.UninstallDriver;
         ShowStep(Step.Progress);
         RunUninstallAsync();
     }
 
     private bool _deleteUserData;
+
+    private bool _uninstallDriver;
 
     private async void RunUninstallAsync()
     {
@@ -73,7 +76,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             await Task.Run(() => Uninstall());
             _complete ??= new CompleteView();
-            _complete.ShowSuccess("RocoPilot 已从你的电脑中移除。");
+            var message = "RocoPilot 已从你的电脑中移除。";
+            if (_uninstallDriver)
+            {
+                message += "\n\n已卸载 Interception 内核驱动，请重启电脑以完成驱动的彻底移除。";
+            }
+
+            _complete.ShowSuccess(message);
             ShowStep(Step.Complete);
         }
         catch (Exception ex)
@@ -98,6 +107,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         Progress("正在清理注册表…");
         RegistryContract.RemoveUninstallEntry();
+
+        if (_uninstallDriver)
+        {
+            InterceptionDriverHelper.Uninstall(Progress);
+        }
 
         if (_deleteUserData)
         {

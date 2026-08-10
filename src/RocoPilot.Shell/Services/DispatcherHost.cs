@@ -22,6 +22,7 @@ public sealed class DispatcherHost : IDisposable
     private readonly ScriptStore _scriptStore;
 
     private readonly object _gate = new();
+    private IDisposable? _captureLease;
     private SceneDispatcherRunningTask? _task;
     private AutoThrowHandler? _throwHandler;
     private RouteExecutionHandler? _routeHandler;
@@ -53,6 +54,7 @@ public sealed class DispatcherHost : IDisposable
             ?.TriggerMode ?? FastTravelTriggerMode.Auto;
 
         _capture.Changed += OnCaptureChanged;
+        UpdateCaptureLease();
     }
 
     public GameScene CurrentScene { get; private set; } = GameScene.Unknown;
@@ -76,6 +78,7 @@ public sealed class DispatcherHost : IDisposable
         }
 
         RouteExecutionEnabled = true;
+        UpdateCaptureLease();
         SyncEnables();
     }
 
@@ -108,6 +111,7 @@ public sealed class DispatcherHost : IDisposable
             if (_openWorldModule == next) return;
             _openWorldModule = next;
             PersistEnables();
+            UpdateCaptureLease();
         }
     }
 
@@ -120,6 +124,7 @@ public sealed class DispatcherHost : IDisposable
             if (_openWorldModule == next) return;
             _openWorldModule = next;
             PersistEnables();
+            UpdateCaptureLease();
         }
     }
 
@@ -131,6 +136,7 @@ public sealed class DispatcherHost : IDisposable
             if (_autoBattleEnabled == value) return;
             _autoBattleEnabled = value;
             PersistEnables();
+            UpdateCaptureLease();
         }
     }
 
@@ -142,6 +148,21 @@ public sealed class DispatcherHost : IDisposable
             if (_fastTravelEnabled == value) return;
             _fastTravelEnabled = value;
             PersistEnables();
+            UpdateCaptureLease();
+        }
+    }
+
+    private void UpdateCaptureLease()
+    {
+        var armed = AutoThrowEnabled || AutoBattleEnabled || FastTravelEnabled || RouteExecutionEnabled;
+        if (armed && _captureLease is null)
+        {
+            _captureLease = _capture.Acquire(CaptureHost.DispatcherConsumer);
+        }
+        else if (!armed && _captureLease is not null)
+        {
+            _captureLease.Dispose();
+            _captureLease = null;
         }
     }
 
@@ -359,6 +380,8 @@ public sealed class DispatcherHost : IDisposable
     public void Dispose()
     {
         _capture.Changed -= OnCaptureChanged;
+        _captureLease?.Dispose();
+        _captureLease = null;
         Stop();
     }
 

@@ -11,4 +11,8 @@ public sealed class InstallSession
     public bool CreateDesktopShortcut { get; set; } = true;
 
     public bool LaunchOnExit { get; set; } = true;
+
+    public bool InstallInterceptionDriver { get; set; }
+
+    public bool InterceptionMissing { get; set; }
 }
