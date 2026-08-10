@@ -11,7 +11,7 @@ public partial class OverlayWindow : Window
 {
 
     private const double CompactWidth = 200, CompactHeight = 36, CompactRadius = 18;
-    private const double SceneExpandWidth = 170, SceneExpandHeight = 42, SceneExpandRadius = 21;
+    private const double SceneExpandWidth = 230, SceneExpandHeight = 46, SceneExpandRadius = 23;
     private const double StallWidth = 300, StallHeight = 72, StallRadius = 36;
     private const double MaxCompactWidth = 420;
 
@@ -44,8 +44,6 @@ public partial class OverlayWindow : Window
     private bool _stallActive;
     private string? _lastPhase;
     private string? _lastScene;
-    private string? _expandScene;
-    private bool _expandLeaving;
     private int _lastThrows;
     private double _compactWidth = CompactWidth;
 
@@ -79,23 +77,15 @@ public partial class OverlayWindow : Window
 
         if (!string.Equals(snapshot.Scene, _lastScene, StringComparison.Ordinal))
         {
-            var previous = _lastScene;
             _lastScene = snapshot.Scene;
-            var entering = IsKnownScene(snapshot.Scene);
-            var leaving = !entering && IsKnownScene(previous);
-            if (entering || leaving)
-            {
-                _expandScene = entering ? snapshot.Scene : previous;
-                _expandLeaving = leaving;
-                _sceneExpandActive = true;
-                _shrinkTimer.Stop();
-                _shrinkTimer.Start();
-                PlaySceneEffects();
-            }
+            SceneText.Text = SceneLabel(snapshot.Scene);
+            SceneText.Foreground = SceneBrush(snapshot.Scene);
+            _sceneExpandActive = true;
+            _shrinkTimer.Stop();
+            _shrinkTimer.Start();
+            AnimateSceneIn();
+            PlaySceneEffects();
         }
-
-        SceneText.Text = SceneLabel(snapshot.Scene);
-        SceneText.Foreground = SceneBrush(snapshot.Scene);
 
         var phase = snapshot.Phase;
         if (!string.Equals(phase, _lastPhase, StringComparison.Ordinal))
@@ -118,10 +108,6 @@ public partial class OverlayWindow : Window
         if (stalled)
         {
             FillStall(snapshot.StallMinutes);
-        }
-        else if (_sceneExpandActive)
-        {
-            FillSceneExpand();
         }
 
         MorphTo(stalled || _sceneExpandActive);
@@ -164,33 +150,6 @@ public partial class OverlayWindow : Window
         ExpSubtitle.Text = $"已 {minutes} 分钟无了结 · 仅通知，不停机";
     }
 
-    private void FillSceneExpand()
-    {
-
-        ExpandedLayer.HorizontalAlignment = HorizontalAlignment.Center;
-        ExpIcon.Visibility = Visibility.Collapsed;
-        ExpText.Margin = new Thickness(0);
-        ExpSubtitle.Visibility = Visibility.Collapsed;
-        ExpTitle.Foreground = Brushes.White;
-        if (_expandScene == "Battle")
-        {
-            ExpIcon.Text = "⚔️";
-            ExpTitle.Text = _expandLeaving ? "退出战斗" : "战斗";
-        }
-        else if (_expandScene == "WorldMap")
-        {
-            ExpIcon.Text = "🗺️";
-            ExpTitle.Text = _expandLeaving ? "退出地图" : "地图";
-        }
-        else
-        {
-            ExpIcon.Text = "🌍";
-            ExpTitle.Text = _expandLeaving ? "退出大世界" : "大世界";
-        }
-    }
-
-    private static bool IsKnownScene(string? scene) => scene is "Battle" or "OpenWorld" or "WorldMap";
-
     private void MorphTo(bool expanded)
     {
         if (_expanded == expanded) return;
@@ -198,29 +157,31 @@ public partial class OverlayWindow : Window
 
         double targetWidth, targetHeight, targetRadius;
         TimeSpan duration;
-        if (!expanded)
-        {
-            targetWidth = _compactWidth;
-            targetHeight = CompactHeight;
-            targetRadius = CompactRadius;
-            duration = SceneMorphDuration;
-        }
-        else if (_stallActive)
+        if (_stallActive)
         {
             targetWidth = StallWidth;
             targetHeight = StallHeight;
             targetRadius = StallRadius;
             duration = StallMorphDuration;
         }
-        else
+        else if (_sceneExpandActive)
         {
-            targetWidth = Math.Max(SceneExpandWidth, _compactWidth);
+            targetWidth = Math.Max(SceneExpandWidth, _compactWidth + 48);
             targetHeight = SceneExpandHeight;
             targetRadius = SceneExpandRadius;
             duration = SceneMorphDuration;
         }
+        else
+        {
+            targetWidth = _compactWidth;
+            targetHeight = CompactHeight;
+            targetRadius = CompactRadius;
+            duration = SceneMorphDuration;
+        }
 
-        var ease = new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut };
+        var ease = _stallActive
+            ? (EasingFunctionBase)new BackEase { Amplitude = 0.35, EasingMode = EasingMode.EaseOut }
+            : new CubicEase { EasingMode = EasingMode.EaseOut };
         Island.BeginAnimation(WidthProperty,
             new DoubleAnimation(targetWidth, duration) { EasingFunction = ease });
         Island.BeginAnimation(HeightProperty,
@@ -230,10 +191,16 @@ public partial class OverlayWindow : Window
 
         var fade = TimeSpan.FromMilliseconds(160);
         var stagger = TimeSpan.FromMilliseconds(150);
-        CompactLayer.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(expanded ? 0 : 1, fade) { BeginTime = expanded ? TimeSpan.Zero : stagger });
-        ExpandedLayer.BeginAnimation(OpacityProperty,
-            new DoubleAnimation(expanded ? 1 : 0, fade) { BeginTime = expanded ? stagger : TimeSpan.Zero });
+        if (_stallActive)
+        {
+            CompactLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(0, fade));
+            ExpandedLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(1, fade) { BeginTime = stagger });
+        }
+        else
+        {
+            CompactLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(1, fade));
+            ExpandedLayer.BeginAnimation(OpacityProperty, new DoubleAnimation(0, fade));
+        }
     }
 
     private void SyncDotPulse(bool running)
@@ -273,6 +240,46 @@ public partial class OverlayWindow : Window
             new DoubleAnimation(0.2, 1, TimeSpan.FromMilliseconds(160)) { EasingFunction = ease });
     }
 
+    private void AnimateSceneIn()
+    {
+        SceneShift.BeginAnimation(TranslateTransform.YProperty, null);
+        SceneScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        SceneScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        SceneText.BeginAnimation(OpacityProperty, null);
+
+        SceneShift.Y = -40;
+        SceneScale.ScaleX = 1.15;
+        SceneScale.ScaleY = 1.15;
+        SceneText.Opacity = 0;
+
+        var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var delay = TimeSpan.FromMilliseconds(150);
+
+        var shiftY = new DoubleAnimationUsingKeyFrames { BeginTime = delay };
+        shiftY.KeyFrames.Add(new EasingDoubleKeyFrame(-40, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        shiftY.KeyFrames.Add(new EasingDoubleKeyFrame(2, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(250))) { EasingFunction = easeIn });
+        shiftY.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(300))) { EasingFunction = easeOut });
+        SceneShift.BeginAnimation(TranslateTransform.YProperty, shiftY);
+
+        var scaleX = new DoubleAnimationUsingKeyFrames { BeginTime = delay };
+        scaleX.KeyFrames.Add(new EasingDoubleKeyFrame(1.15, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        scaleX.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(300))) { EasingFunction = easeOut });
+        var scaleY = new DoubleAnimationUsingKeyFrames { BeginTime = delay };
+        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.15, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        scaleY.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(300))) { EasingFunction = easeOut });
+        SceneScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+        SceneScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+
+        SceneText.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            {
+                BeginTime = delay,
+                EasingFunction = easeOut,
+            });
+    }
+
     private void AnimateIslandBulge()
     {
         var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -306,7 +313,7 @@ public partial class OverlayWindow : Window
 
     private void PlayShineSweep()
     {
-        var islandWidth = Math.Max(Island.ActualWidth, SceneExpandWidth);
+        var islandWidth = Math.Max(Island.ActualWidth, CompactWidth);
         var easeTravel = new CubicEase { EasingMode = EasingMode.EaseInOut };
         var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
         var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };

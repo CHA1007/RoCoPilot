@@ -24,13 +24,11 @@
           Width="200" Height="36" CornerRadius="18"
           Background="#FF000000"
           BorderBrush="#14FFFFFF" BorderThickness="1"
+          ClipToBounds="True"
           RenderTransformOrigin="0.5,0">
     <Border.RenderTransform>
       <ScaleTransform x:Name="IslandScale" ScaleX="1" ScaleY="1" />
     </Border.RenderTransform>
-    <Border.Effect>
-      <DropShadowEffect Color="#FF000000" BlurRadius="16" ShadowDepth="2" Opacity="0.45" Direction="270" />
-    </Border.Effect>
 
     <Grid>
 
@@ -54,7 +52,15 @@
         </StackPanel>
 
         <TextBlock x:Name="SceneText" Grid.Column="2" Text="—"
-                   FontSize="15" FontWeight="SemiBold" Foreground="#99FFFFFF" VerticalAlignment="Center" />
+                   FontSize="15" FontWeight="SemiBold" Foreground="#99FFFFFF" VerticalAlignment="Center"
+                   RenderTransformOrigin="0.5,0.5">
+          <TextBlock.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform x:Name="SceneScale" />
+              <TranslateTransform x:Name="SceneShift" />
+            </TransformGroup>
+          </TextBlock.RenderTransform>
+        </TextBlock>
       </Grid>
 
       <Grid x:Name="ExpandedLayer" Opacity="0" Margin="16,0">
