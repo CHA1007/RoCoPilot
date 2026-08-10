@@ -23,20 +23,19 @@
 - **Auto Throw** — Recognizes wild spirits in the open world, auto-centers the camera, aims and throws balls to keep catching
 - **Auto Battle** — Recognizes battle scenes and casts skills automatically to finish rounds
 - **Fast Travel** — Recognizes the teleport button on the world map with auto or custom key-press triggering; after picking a map element such as the Magic Source or Alchemy Cauldron, completes the teleport automatically
-- **Route Replay** — Compose and loop an execution chain of Teleport / Delay / Script Replay steps; teleport locates anchors by geometrically aligning the in-game map against the built-in Magic Source catalog, and a failed leg reruns from the nearest upstream teleport. Great for automating map runs
+- **Route Replay** — Compose and loop an execution chain of Teleport / Delay / Script Replay steps; teleport locates anchors by geometrically aligning the in-game map against the built-in Magic Source catalog, and a failed leg reruns from the nearest upstream teleport, enabling automated map runs and more
 - **Egg Query** — Ships with full spirit egg group data; look up a spirit's egg groups, or find all spirits that can breed together in a group
 - **Central Dispatch** — Detects the current game scene and switches tools automatically, no manual intervention
 - **Dynamic Island OSD** — A floating status window above the game screen showing live state and key readings
 - **Auto Pause on Focus Loss** — Suspends everything when the game window loses focus, resumes when it regains focus
-- **Auto Updates** — Velopack delta updates with stable / beta channels
 
-Computer vision + simulated mouse & keyboard only — no memory reading, no injection, no hooking
+Computer vision + simulated mouse & keyboard only
 
 ## Showcase
 
-Main window — tool overview:
+Launch screen:
 
-![Feature page showcase](assets/showcase/功能页面展示.png)
+![Launch screen showcase](assets/showcase/启动界面展示.png)
 
 Dynamic Island OSD — floating status window:
 
@@ -44,60 +43,23 @@ Dynamic Island OSD — floating status window:
 
 ## Getting the Software
 
-Only a **beta** channel exists for now; build it yourself: clone the repo and run one of the two commands below
+A **beta** is available now, download it from the [Releases page](https://github.com/CHA1007/RoCoPilot/releases):
 
-**Self-contained** — bundles the .NET Runtime, runs out of the box:
+- `RocoPilot-<version>-Setup.exe` — a single-file installer; download it and double-click to install
 
-```
-dotnet publish src/RocoPilot.Shell -c Release -r win-x64 --self-contained true -o publish
-```
-
-**Framework-dependent** — smaller, but requires the .NET 9 Desktop Runtime:
-
-```
-dotnet publish src/RocoPilot.Shell -c Release -r win-x64 --self-contained false -o publish
-```
-
-For both options the output lands in `publish/` at the repo root — run `RocoPilot.exe` there directly (keep the accompanying dlls next to the exe, do not copy the exe alone)
-
-A **stable** installer will be published later on the Releases page, with in-app delta upgrades
+A **stable** release will be published later, downloadable from the Releases page with in-app delta upgrades
 
 ## Requirements
 
 - Windows 10 / 11
-- [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) (only for the framework-dependent build; the self-contained build needs nothing)
-- **Interception driver** (kernel-level input simulation, one-time install):
-
-  1. Download the latest zip from [Interception Releases](https://github.com/oblitum/Interception/releases) and extract it
-  2. Open a command prompt **as administrator** and enter the `command line installer` folder:
-     ```
-     cd Interception\command line installer
-     ```
-  3. Install:
-     ```
-     install-interception.exe /install
-     ```
-  4. **Reboot** after the success message (the driver only loads after a reboot)
-  5. Verify the service state, the output must contain `STATE : 4 RUNNING`:
-     ```
-     sc query interception
-     ```
-  6. To uninstall:
-     ```
-     install-interception.exe /uninstall
-     ```
-     A reboot is required afterwards; if file deletion fails, reboot and run the uninstall once more
-
-  > If installation fails, check whether your antivirus blocked the driver from writing to `C:\Windows\System32\drivers`
 
 ## Quick Start
 
 1. Launch the **Roco Kingdom: World** PC client
-2. Install the Interception driver on first use and reboot (see Requirements)
-3. Run RocoPilot and click **Start Capturer** on the Launch page
-4. Toggle the tools you want on the Realtime page; the central dispatcher switches tools by game scene automatically
-5. To automate map runs, compose a route of Teleport / Delay / Script Replay steps on the Route page and run it
-6. Switching away from the game pauses everything; switching back resumes automatically
+2. On first use, install the Interception kernel driver (tick it in the installer, or install it from the **Launch** page of RocoPilot) and reboot for it to take effect
+3. Run RocoPilot and toggle the tools you want on the Realtime page; the capturer starts automatically and the central dispatcher switches tools by game scene
+4. To automate map runs, compose a route of Teleport / Delay / Script Replay steps on the Route page and run it
+5. Switching away from the game pauses everything; switching back resumes automatically
 
 ## Data Sources
 
