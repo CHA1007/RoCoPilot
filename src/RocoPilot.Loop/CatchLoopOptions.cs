@@ -16,6 +16,8 @@ public sealed record CatchLoopOptions
 
     public int ChargeJitterMs { get; init; }
 
+    public bool FastThrowEnabled { get; init; }
+
     public int StallAlertMs { get; init; } = 600_000;
 
     public int MaxAttempts { get; init; } = int.MaxValue;

@@ -77,6 +77,13 @@ public class CatchLoopOptionsTests
         Assert.Throws<LoopException>(() => new CatchLoopOptions { ChargeMs = chargeMs, ChargeJitterMs = jitterMs }.Normalized());
     }
 
+    [Fact]
+    public void FastThrowEnabledNormalizes()
+    {
+        var opts = new CatchLoopOptions { FastThrowEnabled = true }.Normalized();
+        Assert.True(opts.FastThrowEnabled);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

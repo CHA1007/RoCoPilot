@@ -109,6 +109,43 @@ public class CatchLoopEngineTests
     }
 
     [Fact]
+    public void LiveThrowChargesLeftButtonOnly()
+    {
+        var driver = new RecordingDriver();
+        var (engine, _, _) = CreateEngine(
+            new CatchLoopOptions { MaxAttempts = 1 },
+            mode: CatchLoopMode.Live,
+            sensor: new FixedTargetSensor(),
+            driver: driver);
+
+        engine.Run();
+
+        Assert.Equal(
+            [("down", InputKey.LeftMouse), ("up", InputKey.LeftMouse)],
+            driver.Log);
+    }
+
+    [Fact]
+    public void FastThrowPressesLeftAndRightTogether()
+    {
+        var driver = new RecordingDriver();
+        var (engine, _, _) = CreateEngine(
+            new CatchLoopOptions { MaxAttempts = 1, FastThrowEnabled = true },
+            mode: CatchLoopMode.Live,
+            sensor: new FixedTargetSensor(),
+            driver: driver);
+
+        engine.Run();
+
+        Assert.Equal(
+            [
+                ("down", InputKey.RightMouse),
+                ("up", InputKey.RightMouse),
+            ],
+            driver.Log);
+    }
+
+    [Fact]
     public async Task ApplyOptionsMidRunChangesStallThreshold()
     {
         long now = 0;
@@ -132,10 +169,12 @@ public class CatchLoopEngineTests
         CatchLoopOptions? options = null,
         CatchLoopMode mode = CatchLoopMode.DryRun,
         Func<long>? nowMs = null,
-        Func<bool>? inputGate = null)
+        Func<bool>? inputGate = null,
+        ICenteringSensor? sensor = null,
+        IInputDriver? driver = null)
     {
-        var sensor = new NoTargetSensor();
-        var driver = new NoopDriver();
+        sensor ??= new NoTargetSensor();
+        driver ??= new NoopDriver();
         var bus = new CatchEventBus(new CatchCounters());
         var events = new List<string>();
         bus.EventRaised += (_, e) => { lock (events) events.Add(e.Name); };
@@ -175,6 +214,51 @@ public class CatchLoopEngineTests
         public void ResumeSensing() { }
 
         public void ResetStability() { }
+    }
+
+    private sealed class FixedTargetSensor : ICenteringSensor
+    {
+        private static readonly DetectedBox Box = new(0, "demon_wolf", 0.9f, 910f, 490f, 1010f, 590f);
+
+        public IReadOnlyList<StableTarget> ObserveStable() =>
+            [new StableTarget(1, Box, (960f, 540f), 10)];
+
+        public (int Width, int Height) LatestFrameSize => (1920, 1080);
+
+        public void SuspendSensing() { }
+
+        public void ResumeSensing() { }
+
+        public void ResetStability() { }
+    }
+
+    private sealed class RecordingDriver : IInputDriver
+    {
+        public List<(string Action, InputKey Key)> Log { get; } = [];
+
+        public string BackendName => "recording";
+
+        public void Arm() { }
+
+        public void MoveRelative(int dx, int dy) { }
+
+        public void KeyDown(InputKey key)
+        {
+            lock (Log) Log.Add(("down", key));
+        }
+
+        public void KeyUp(InputKey key)
+        {
+            lock (Log) Log.Add(("up", key));
+        }
+
+        public void SendRawStroke(ReceivedStroke stroke) { }
+
+        public void StartStrokeRelay(Action<ReceivedStroke> onStroke) { }
+
+        public void StopStrokeRelay() { }
+
+        public void Dispose() { }
     }
 
     private sealed class NoopDriver : IInputDriver

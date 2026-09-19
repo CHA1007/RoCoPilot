@@ -8,6 +8,7 @@ public sealed class CatchLoopEngine : IDisposable
 {
     private const int SleepChunkMs = 100;
     private const int VerifySettleMs = 80;
+    private const int FastThrowPressMs = 200;
 
     private volatile CatchLoopOptions _options;
     private readonly CatchLoopMode _mode;
@@ -183,6 +184,7 @@ public sealed class CatchLoopEngine : IDisposable
                 WaitWhileGateClosed(cancellationToken);
                 SetPhase(CatchPhase.Throwing);
 
+                var throwStyle = "none";
                 if (_mode == CatchLoopMode.DryRun)
                 {
                     SleepInterruptible(_controller.AppliedOptions.RecheckMs, cancellationToken);
@@ -203,20 +205,37 @@ public sealed class CatchLoopEngine : IDisposable
                         SleepInterruptible(_controller.AppliedOptions.RecheckMs, cancellationToken);
                     }
 
-                    var chargeMs = _options.ChargeMs;
-                    if (_options.ChargeJitterMs > 0)
+                    if (_options.FastThrowEnabled)
                     {
-                        chargeMs += _random.Next(-_options.ChargeJitterMs, _options.ChargeJitterMs + 1);
+                        throwStyle = "fast";
+                        _driver.KeyDown(InputKey.RightMouse);
+                        try
+                        {
+                            SleepInterruptible(FastThrowPressMs, cancellationToken);
+                        }
+                        finally
+                        {
+                            _driver.KeyUp(InputKey.RightMouse);
+                        }
                     }
+                    else
+                    {
+                        throwStyle = "charge";
+                        var chargeMs = _options.ChargeMs;
+                        if (_options.ChargeJitterMs > 0)
+                        {
+                            chargeMs += _random.Next(-_options.ChargeJitterMs, _options.ChargeJitterMs + 1);
+                        }
 
-                    _driver.KeyDown(InputKey.LeftMouse);
-                    try
-                    {
-                        SleepInterruptible(chargeMs, cancellationToken);
-                    }
-                    finally
-                    {
-                        _driver.KeyUp(InputKey.LeftMouse);
+                        _driver.KeyDown(InputKey.LeftMouse);
+                        try
+                        {
+                            SleepInterruptible(chargeMs, cancellationToken);
+                        }
+                        finally
+                        {
+                            _driver.KeyUp(InputKey.LeftMouse);
+                        }
                     }
                 }
                 else if (_mode == CatchLoopMode.MoveOnly && needTurn)
@@ -232,6 +251,7 @@ public sealed class CatchLoopEngine : IDisposable
                     ["attempt"] = stats.Attempts,
                     ["offset_px"] = Math.Round(Math.Sqrt(offsetX * offsetX + offsetY * offsetY), 1),
                     ["ppc"] = ppc is { } p ? Math.Round(p, 3) : null,
+                    ["style"] = throwStyle,
                 });
 
                 SetPhase(CatchPhase.Settling);

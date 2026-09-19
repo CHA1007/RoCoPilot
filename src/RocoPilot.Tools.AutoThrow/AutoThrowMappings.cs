@@ -38,6 +38,7 @@ public static class AutoThrowMappings
         {
             ChargeMs = settings.ChargeMs,
             ChargeJitterMs = settings.ChargeJitterMs,
+            FastThrowEnabled = settings.FastThrowEnabled,
             PostSettleDelayMinMs = (int)Math.Round(settings.ThrowIntervalSeconds * 1000),
             PostSettleDelayMaxMs = (int)Math.Round(settings.ThrowIntervalSeconds * 1000),
             AimJitterPx = settings.AimJitterPx,

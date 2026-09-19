@@ -131,6 +131,24 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="快速丢球" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        FontTypography="Caption"
+                        Text="改为同时按下左键和右键短暂按住后松手丢球，替代蓄力投掷"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <ui:ToggleSwitch IsChecked="{Binding FastThrowEnabled}" />
+    </ui:CardControl>
+
+    <ui:CardControl Margin="0,0,0,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
           <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="投掷前灵敏度校准" TextWrapping="Wrap" />
           <ui:TextBlock Grid.Row="1"
                         Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"

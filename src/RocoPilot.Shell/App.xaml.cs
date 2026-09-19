@@ -82,6 +82,7 @@ public partial class App : Application
             captureHost.WindowTitleSubstring = throwSettings.WindowTitleSubstring ?? string.Empty;
         }
         captureHost.Backend = CaptureBackendCatalog.Parse(settingsStore.GetShellSettings().CaptureBackend);
+        AttachMouseWatch(captureHost);
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
         services.AddSingleton<GlobalHotkeyManager>();
@@ -108,6 +109,7 @@ public partial class App : Application
         services.AddTransient<HotkeysPage>();
         services.AddSingleton<EggQueryPage>();
         services.AddSingleton<RealtimePage>();
+        services.AddSingleton<HandpanPage>();
         services.AddSingleton<RoutePage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<DiagnosticsPage>();
@@ -132,5 +134,27 @@ public partial class App : Application
             var settings = store.GetToolSettings(tool.Id, tool.SettingsType, tool.CreateDefaultSettings);
             store.SetToolSettings(tool.Id, settings);
         }
+    }
+
+    private static void AttachMouseWatch(CaptureHost captureHost)
+    {
+        var watch = new MouseButtonMonitor();
+        captureHost.Changed += () =>
+        {
+            if (captureHost.IsRunning)
+            {
+                try
+                {
+                    watch.Start();
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+            else
+            {
+                watch.Stop();
+            }
+        };
     }
 }

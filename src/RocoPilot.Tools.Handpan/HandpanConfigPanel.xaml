@@ -1,0 +1,138 @@
+<UserControl x:Class="RocoPilot.Tools.Handpan.HandpanConfigPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+  <StackPanel>
+
+    <ui:CardControl Margin="0,0,0,12" VerticalContentAlignment="Top" Padding="16,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="手碟谱" TextWrapping="Wrap" />
+          <ui:TextBlock Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        FontTypography="Caption"
+                        Text="1~7 唱名，# b 升降，' 高八度 , 低八度，- 延长 _ 缩短，0 休止，title/bpm/1=C 头部指令"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <TextBox x:Name="ScoreBox"
+               Height="160"
+               AcceptsReturn="True"
+               VerticalScrollBarVisibility="Auto"
+               FontFamily="Consolas"
+               Text="{Binding ScoreText, UpdateSourceTrigger=Explicit}" />
+    </ui:CardControl>
+
+    <Grid Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="24" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <ui:CardControl Grid.Column="0" VerticalContentAlignment="Top" Padding="16,12">
+        <ui:CardControl.Header>
+          <ui:TextBlock FontTypography="BodyStrong" Text="演奏参数" TextWrapping="Wrap" />
+        </ui:CardControl.Header>
+        <StackPanel>
+          <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" SharedSizeGroup="Labels" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,8" Text="BPM 覆盖" />
+            <ui:NumberBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Width="120" HorizontalAlignment="Left"
+                          Minimum="0" Maximum="600" MaxDecimalPlaces="2" SmallChange="5"
+                          ValidationMode="InvalidInputOverwritten"
+                          Value="{Binding BpmOverride}" />
+            <ui:TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,8" Text="移调" />
+            <ui:NumberBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Width="120" HorizontalAlignment="Left"
+                          Minimum="-11" Maximum="11" SmallChange="1"
+                          ValidationMode="InvalidInputOverwritten"
+                          Value="{Binding Transpose}" />
+            <ui:TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0" Text="呼吸（拍）" />
+            <ui:NumberBox Grid.Row="2" Grid.Column="1" Width="120" HorizontalAlignment="Left"
+                          Minimum="0" Maximum="4" MaxDecimalPlaces="2" SmallChange="0.25"
+                          ValidationMode="InvalidInputOverwritten"
+                          Value="{Binding GapBeats}" />
+          </Grid>
+          <ui:ToggleSwitch x:Name="AutoFitSwitch" Margin="0,0,0,8" Content="自动移调" IsChecked="{Binding AutoFit}" />
+          <ui:ToggleSwitch x:Name="FoldSwitch" Margin="0,0,0,8" Content="八度折回" IsChecked="{Binding Fold}" />
+          <ui:ToggleSwitch x:Name="SnapSwitch" Margin="0,0,0,8" Content="缺音吸附" IsChecked="{Binding Snap}" />
+          <ui:ToggleSwitch x:Name="LoopSwitch" Content="循环演奏" IsChecked="{Binding Loop}" />
+        </StackPanel>
+      </ui:CardControl>
+
+      <ui:CardControl Grid.Column="2" VerticalContentAlignment="Top" Padding="16,12">
+        <ui:CardControl.Header>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="键位" TextWrapping="Wrap" />
+            <ui:TextBlock Grid.Row="1"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          FontTypography="Caption"
+                          Text="音名 → 游戏按键，改完用「键位自检」复核"
+                          TextWrapping="Wrap" />
+          </Grid>
+        </ui:CardControl.Header>
+        <ItemsControl x:Name="KeyChipsHost" ItemsSource="{Binding KeyMapEntries}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" Margin="0,0,14,6">
+                <TextBlock Text="{Binding Note}" FontFamily="Consolas" Width="34" VerticalAlignment="Center" />
+                <TextBox Width="34" Text="{Binding Key, UpdateSourceTrigger=LostFocus}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ui:CardControl>
+
+    </Grid>
+
+    <ui:CardControl VerticalContentAlignment="Top" Padding="16,12">
+      <ui:CardControl.Header>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="按键谱与演奏" TextWrapping="Wrap" />
+          <ui:TextBlock x:Name="StatusText" Grid.Row="1"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        FontTypography="Caption"
+                        Text="开始演奏后有 3 秒倒计时，切到游戏手碟自由演奏界面即可"
+                        TextWrapping="Wrap" />
+        </Grid>
+      </ui:CardControl.Header>
+      <StackPanel>
+        <TextBox x:Name="ChartBox"
+                 Height="180"
+                 Margin="0,0,0,10"
+                 IsReadOnly="True"
+                 VerticalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal">
+          <ui:Button x:Name="GenerateButton" Content="生成按键谱" Margin="0,0,8,0" Click="OnGenerateClick" />
+          <ui:Button x:Name="ProbeButton" Content="键位自检" Margin="0,0,8,0" Click="OnProbeClick" />
+          <ui:Button x:Name="PlayButton" Content="开始演奏" Appearance="Primary" Margin="0,0,8,0" Click="OnPlayClick" />
+          <ui:Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="OnStopClick" />
+        </StackPanel>
+      </StackPanel>
+    </ui:CardControl>
+
+  </StackPanel>
+</UserControl>

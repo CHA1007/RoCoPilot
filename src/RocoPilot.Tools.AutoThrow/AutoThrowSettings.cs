@@ -34,6 +34,8 @@ public sealed class AutoThrowSettings
 
     public int ChargeJitterMs { get; set; }
 
+    public bool FastThrowEnabled { get; set; }
+
     public double ThrowIntervalSeconds { get; set; } = 0.2;
 
     public double AimJitterPx { get; set; }

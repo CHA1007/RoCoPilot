@@ -2,6 +2,7 @@ using RocoPilot.Core;
 using RocoPilot.Settings;
 using RocoPilot.Shell.Services;
 using RocoPilot.Tools.AutoThrow;
+using RocoPilot.Tools.Handpan;
 
 namespace RocoPilot.Shell.Tools;
 
@@ -15,6 +16,7 @@ internal static class ToolRegistry
         _cached =
         [
             new AutoThrowTool(() => captureHost.CurrentSource, store),
+            new HandpanTool(),
         ];
         return _cached;
     }
