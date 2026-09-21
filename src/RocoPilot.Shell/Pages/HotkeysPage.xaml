@@ -104,7 +104,7 @@
 
         <Separator Margin="16,0" BorderThickness="0,1,0,0" />
 
-        <Grid Margin="16,10,16,12">
+        <Grid Margin="16,10">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
@@ -122,6 +122,28 @@
           <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="DebugOverlayToggleButton"
                      Height="34" Width="130" Content="未指定"
                      ToolTip="点击后按下组合键录入，Esc 清除" />
+        </Grid>
+
+        <Separator Margin="16,0" BorderThickness="0,1,0,0" />
+
+        <Grid Margin="16,10,16,12">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="{StaticResource ScopeColumnWidth}" />
+            <ColumnDefinition Width="{StaticResource KeyColumnWidth}" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBlock Grid.Column="0" VerticalAlignment="Center"
+                        FontTypography="Body"
+                        Foreground="{ui:ThemeResource TextFillColorPrimaryBrush}"
+                        Text="停止当前任务" />
+          <ComboBox Grid.Column="1" Margin="24,0,0,0" x:Name="TaskStopScopeBox"
+                    Height="34" Width="130" SelectedIndex="0">
+            <ComboBoxItem Content="全局热键" />
+            <ComboBoxItem Content="游戏内热键" />
+          </ComboBox>
+          <ui:Button Grid.Column="2" Margin="8,0,0,0" x:Name="TaskStopToggleButton"
+                     Height="34" Width="130" Content="未指定"
+                     ToolTip="点击后按下组合键录入，Esc 清除；仅在有任务运行时注册" />
         </Grid>
 
       </StackPanel>

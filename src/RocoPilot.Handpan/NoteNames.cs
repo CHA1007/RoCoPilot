@@ -1,63 +1,71 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
-
 namespace RocoPilot.Handpan;
 
-public static partial class NoteNames
+public static class NoteNames
 {
-    private static readonly string[] Names =
-        ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    private static readonly string[] SharpNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-    private static readonly Dictionary<int, int> SemitoneToDegree = new()
+    public static string Of(int midi)
     {
-        [0] = 1, [2] = 2, [4] = 3, [5] = 4, [7] = 5, [9] = 6, [11] = 7,
-    };
-
-    public static string Of(int midi) => $"{Names[Wrap(midi)]}{midi / 12 - 1}";
-
-    public static int ToMidi(string name)
-    {
-        var m = NameRegex().Match(name.Trim());
-        if (!m.Success)
-        {
-            throw new FormatException($"无法识别的音名: {name}");
-        }
-
-        var baseIndex = Array.IndexOf(Names, m.Groups[1].Value.ToUpperInvariant());
-        var accidental = m.Groups[2].Value;
-        var shift = accidental == "#" ? 1 : accidental.Length > 0 ? -1 : 0;
-        return 12 * (int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture) + 1) + baseIndex + shift;
+        var clamped = Math.Clamp(midi, 0, 127);
+        return $"{SharpNames[clamped % 12]}{clamped / 12 - 1}";
     }
 
-    public static bool TryToMidi(string name, out int midi)
+    public static string PitchClassName(int pitchClass) => SharpNames[((pitchClass % 12) + 12) % 12];
+
+    public static bool TryPitchClassOf(string? name, out int pitchClass)
     {
-        try
+        pitchClass = 0;
+        return TryToMidi(name + "4", out var midi) && (pitchClass = midi % 12) >= 0;
+    }
+
+    public static bool TryToMidi(string? name, out int midi)
+    {
+        midi = 0;
+        var text = name?.Trim();
+        if (string.IsNullOrEmpty(text) || !char.IsAsciiLetter(text[0]))
         {
-            midi = ToMidi(name);
-            return true;
-        }
-        catch (FormatException)
-        {
-            midi = 0;
             return false;
         }
-    }
 
-    public static string? DegreeZh(int midi)
-    {
-        var diff = midi - 60;
-        var semi = ((diff % 12) + 12) % 12;
-        if (!SemitoneToDegree.TryGetValue(semi, out var degree))
+        var letter = char.ToUpperInvariant(text[0]);
+        if (letter is not ('A' or 'B' or 'C' or 'D' or 'E' or 'F' or 'G'))
         {
-            return null;
+            return false;
         }
 
-        var octaves = (diff - semi) / 12;
-        return octaves > 0 ? $"高音{degree}" : octaves < 0 ? $"低音{degree}" : $"中音{degree}";
+        var pitchClass = letter switch
+        {
+            'C' => 0, 'D' => 2, 'E' => 4, 'F' => 5, 'G' => 7, 'A' => 9, _ => 11,
+        };
+
+        var index = 1;
+        if (index < text.Length && text[index] is '#' or 'b')
+        {
+            var sharp = text[index] == '#';
+            var allowed = sharp
+                ? letter is 'C' or 'D' or 'F' or 'G' or 'A'
+                : letter is 'D' or 'E' or 'G' or 'A' or 'B';
+            if (!allowed)
+            {
+                return false;
+            }
+
+            pitchClass = (pitchClass + (sharp ? 1 : 11)) % 12;
+            index++;
+        }
+
+        if (!int.TryParse(text.AsSpan(index), out var octave))
+        {
+            return false;
+        }
+
+        var value = (octave + 1) * 12 + pitchClass;
+        if (value is < 0 or > 127)
+        {
+            return false;
+        }
+
+        midi = value;
+        return true;
     }
-
-    private static int Wrap(int midi) => ((midi % 12) + 12) % 12;
-
-    [GeneratedRegex(@"^([A-Ga-g])([#bB]?)(-?\d+)$")]
-    private static partial Regex NameRegex();
 }

@@ -8,6 +8,19 @@ public static class WindowFinder
 {
     public const string GameProcessName = "NRC-Win64-Shipping";
 
+    private static readonly (double X, double Y)[] ClickPointRatios =
+    [
+        (0.5, 0.5),
+        (0.25, 0.25),
+        (0.75, 0.25),
+        (0.25, 0.75),
+        (0.75, 0.75),
+        (0.1, 0.1),
+        (0.9, 0.1),
+        (0.1, 0.9),
+        (0.9, 0.9),
+    ];
+
     public static IReadOnlyList<CaptureWindow> ListAppWindows()
     {
         var windows = new List<CaptureWindow>();
@@ -198,16 +211,100 @@ public static class WindowFinder
         return 0;
     }
 
-    public static bool ActivateWindow(IntPtr hwnd) =>
-        hwnd != IntPtr.Zero && NativeMethods.SetForegroundWindow(hwnd);
+    public static bool ActivateWindow(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !NativeMethods.IsWindow(hwnd))
+        {
+            return false;
+        }
 
-    public static void ActivateGameWindow()
+        if (IsWindowActive(hwnd))
+        {
+            return true;
+        }
+
+        var targetThread = NativeMethods.GetWindowThreadProcessId(hwnd, out _);
+        var currentThread = NativeMethods.GetCurrentThreadId();
+        var attached = targetThread != 0
+            && targetThread != currentThread
+            && NativeMethods.AttachThreadInput(currentThread, targetThread, true);
+        try
+        {
+            NativeMethods.BringWindowToTop(hwnd);
+            NativeMethods.SetForegroundWindow(hwnd);
+            NativeMethods.SetFocus(hwnd);
+        }
+        finally
+        {
+            if (attached)
+            {
+                NativeMethods.AttachThreadInput(currentThread, targetThread, false);
+            }
+        }
+
+        if (IsWindowActive(hwnd))
+        {
+            return true;
+        }
+
+        NativeMethods.SwitchToThisWindow(hwnd, true);
+        return IsWindowActive(hwnd);
+    }
+
+    public static bool IsWindowActive(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || NativeMethods.GetForegroundWindow() != hwnd)
+        {
+            return false;
+        }
+
+        var active = NativeMethods.GetActiveWindowOfThread(NativeMethods.GetWindowThreadProcessId(hwnd, out _));
+        return active == IntPtr.Zero || active == hwnd;
+    }
+
+    public static bool TryGetClickPoint(IntPtr hwnd, out int screenX, out int screenY)
+    {
+        screenX = 0;
+        screenY = 0;
+        if (hwnd == IntPtr.Zero || !NativeMethods.GetClientRect(hwnd, out var client))
+        {
+            return false;
+        }
+
+        foreach (var (ratioX, ratioY) in ClickPointRatios)
+        {
+            var point = new NativeMethods.POINT(
+                client.Left + (int)((client.Right - client.Left) * ratioX),
+                client.Top + (int)((client.Bottom - client.Top) * ratioY));
+            if (!NativeMethods.ClientToScreen(hwnd, ref point))
+            {
+                return false;
+            }
+
+            var hit = NativeMethods.GetAncestor(NativeMethods.WindowFromPoint(point), NativeMethods.GA_ROOT);
+            if (hit != hwnd)
+            {
+                continue;
+            }
+
+            screenX = point.x;
+            screenY = point.y;
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool ActivateGameWindow()
     {
         var hwnd = FindByProcessName(GameProcessName);
-        if (hwnd != IntPtr.Zero)
-        {
-            ActivateWindow(hwnd);
-        }
+        return ActivateWindow(hwnd);
+    }
+
+    public static (int X, int Y)? GetGameClickPoint()
+    {
+        var hwnd = FindByProcessName(GameProcessName);
+        return TryGetClickPoint(hwnd, out var x, out var y) ? (x, y) : null;
     }
 
     private static IntPtr FindMainWindowByProcessName(string processName)

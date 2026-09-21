@@ -86,6 +86,8 @@ public partial class App : Application
         services.AddSingleton(captureHost);
         services.AddSingleton<OverlayController>();
         services.AddSingleton<GlobalHotkeyManager>();
+        services.AddSingleton<IHotkeyRegistry>(provider => provider.GetRequiredService<GlobalHotkeyManager>());
+        services.AddSingleton<TaskStopHotkey>();
         services.AddSingleton<ShellHotkeys>();
         var routeStore = new RouteStore();
         services.AddSingleton(routeStore);

@@ -3,110 +3,163 @@ using System.Text;
 
 namespace RocoPilot.Handpan;
 
-public sealed record ChartResult(string Text, int MissingCount);
-
 public static class ChartBuilder
 {
-    public static ChartResult Build(IReadOnlyList<HandpanEvent> events, ScoreMeta meta, KeyMap keyMap)
+    private const long RestThresholdUnits = 4;
+    private const int MissingPreviewLimit = 12;
+    private const string UntitledScore = "未命名";
+    private const string UnmappedKey = "??";
+    private const string UnmappedKeyMark = "  ← 手碟上没有这个音";
+
+    public static HandpanChart Build(
+        IReadOnlyList<MidiNote> notes,
+        MidiMeta meta,
+        KeyMap keyMap,
+        string? title = null)
     {
-        var secondsPerBeat = 60.0 / meta.Bpm;
-        var lines = new List<string>();
-        var missing = new List<(string Token, string NoteName)>();
-        var used = new SortedDictionary<int, string>();
+        var secondsPerBeat = 60 / meta.Bpm;
+        var totalBeats = MelodyLine.TotalBeats(notes);
+        var tokens = Tokens(MelodyLine.OnsetGroups(notes));
+        var missing = Missing(tokens, keyMap);
 
-        foreach (var e in events)
+        var lines = new List<string>
         {
-            if (e.Kind != HandpanEventKind.Note)
-            {
-                continue;
-            }
-
-            used[e.Midi] = keyMap.TryGet(e.Midi, out var key) ? key : "??";
-        }
-
-        var title = string.IsNullOrEmpty(meta.Title) ? "(未命名)" : meta.Title;
-        lines.Add($"《{title}》 手碟按键谱");
-        lines.Add($"调号 1={meta.Key}  BPM={Fmt(meta.Bpm)}  1拍={Fmt(secondsPerBeat)}秒  总时长≈{Fmt(TotalBeats(events) * secondsPerBeat)}秒");
-        lines.Add(string.Empty);
-        lines.Add("【音名 -> 按键 对照】");
-        foreach (var (midi, key) in used)
-        {
-            var degree = NoteNames.DegreeZh(midi);
-            var degreeText = degree is null ? string.Empty : $"   唱名 {degree}";
-            var mark = key == "??" ? "  ← 游戏里没有这个音！" : string.Empty;
-            lines.Add($"  {NoteNames.Of(midi),4} : {key}{degreeText}{mark}");
-        }
-
-        lines.Add(string.Empty);
-        lines.Add("【演奏序列】(括号内为拍数，0 = 休止)");
-        var bars = new List<List<string>>();
-        var currentBar = new List<string>();
-        foreach (var e in events)
-        {
-            switch (e.Kind)
-            {
-                case HandpanEventKind.Bar:
-                    if (currentBar.Count > 0)
-                    {
-                        bars.Add(currentBar);
-                        currentBar = [];
-                    }
-
-                    break;
-                case HandpanEventKind.Note:
-                    if (keyMap.TryGet(e.Midi, out var key))
-                    {
-                        var token = key;
-                        if (e.Extras is { Count: > 0 })
-                        {
-                            foreach (var extra in e.Extras)
-                            {
-                                if (keyMap.TryGet(extra, out var extraKey))
-                                {
-                                    token += "+" + extraKey;
-                                }
-                            }
-                        }
-
-                        currentBar.Add($"{token}({Fmt(e.Beats)})");
-                    }
-                    else
-                    {
-                        missing.Add((e.Token, e.NoteName));
-                        currentBar.Add($"[{e.NoteName}缺失]({Fmt(e.Beats)})");
-                    }
-
-                    break;
-                default:
-                    currentBar.Add(Math.Abs(e.Beats - 1) < 1e-9 ? "0" : $"0({Fmt(e.Beats)})");
-                    break;
-            }
-        }
-
-        if (currentBar.Count > 0)
-        {
-            bars.Add(currentBar);
-        }
-
-        for (var i = 0; i < bars.Count; i++)
-        {
-            lines.Add($"  |{i + 1,3}| " + string.Join(" ", bars[i]));
-        }
-
-        if (missing.Count > 0)
-        {
-            lines.Add(string.Empty);
-            var preview = missing.Take(12).Select(m => $"{m.Token}({m.NoteName})");
-            lines.Add($"警告：有 {missing.Count} 个音在手碟音域之外: " + string.Join("、", preview) +
-                      (missing.Count > 12 ? "..." : string.Empty));
-        }
-
-        return new ChartResult(string.Join("\n", lines), missing.Count);
+            $"《{(string.IsNullOrWhiteSpace(title) ? UntitledScore : title)}》 手碟按键谱",
+            Header(meta, secondsPerBeat, totalBeats),
+        };
+        lines.AddRange(KeyLegend(tokens, keyMap));
+        lines.AddRange(Bars(tokens, meta.TimeSignature.BeatsPerBar, keyMap));
+        lines.AddRange(MissingWarning(missing));
+        return new HandpanChart(lines, missing, totalBeats, secondsPerBeat);
     }
 
-    public static double TotalBeats(IReadOnlyList<HandpanEvent> events) =>
-        events.Sum(e => e.Beats);
+    private sealed record Token(long StartUnits, long BeatUnits, IReadOnlyList<MidiNote> Notes)
+    {
+        public bool IsRest => Notes.Count == 0;
 
-    private static string Fmt(double value) =>
-        value.ToString("G6", CultureInfo.InvariantCulture);
+        public double Beats => BeatGrid.ToBeats(BeatUnits);
+    }
+
+    private static IReadOnlyList<Token> Tokens(IReadOnlyList<IReadOnlyList<MidiNote>> groups)
+    {
+        var tokens = new List<Token>();
+        for (var index = 0; index < groups.Count; index++)
+        {
+            var group = groups[index];
+            var start = BeatGrid.ToUnits(group[0].StartBeat);
+            var end = group.Max(note => BeatGrid.ToUnits(note.EndBeat));
+            var next = index + 1 < groups.Count ? BeatGrid.ToUnits(groups[index + 1][0].StartBeat) : end;
+            if (tokens.Count == 0 && start >= RestThresholdUnits)
+            {
+                tokens.Add(new Token(0, start, []));
+            }
+
+            var gapUnits = next - end;
+            var beatUnits = gapUnits >= RestThresholdUnits
+                ? Math.Max(1, end - start)
+                : Math.Max(1, next - start);
+            tokens.Add(new Token(start, beatUnits, group));
+            if (gapUnits >= RestThresholdUnits)
+            {
+                tokens.Add(new Token(start + beatUnits, next - start - beatUnits, []));
+            }
+        }
+
+        return tokens;
+    }
+
+    private static IReadOnlyList<MissingNote> Missing(IReadOnlyList<Token> tokens, KeyMap keyMap) =>
+        [.. tokens
+            .Where(token => !token.IsRest)
+            .SelectMany(token => token.Notes
+                .Where(note => !keyMap.Contains(note.Pitch))
+                .Select(note => new MissingNote(note.Pitch, note.StartBeat, token.Beats)))];
+
+    private static IEnumerable<string> KeyLegend(IReadOnlyList<Token> tokens, KeyMap keyMap)
+    {
+        var pitches = tokens
+            .Where(token => !token.IsRest)
+            .SelectMany(token => token.Notes)
+            .Select(note => note.Pitch)
+            .Distinct()
+            .OrderBy(pitch => pitch)
+            .ToList();
+        if (pitches.Count == 0)
+        {
+            return [];
+        }
+
+        var lines = new List<string> { string.Empty, "【音名 → 按键】" };
+        foreach (var pitch in pitches)
+        {
+            lines.Add(keyMap.TryGet(pitch, out var key)
+                ? $"  {NoteNames.Of(pitch),4} : {key}"
+                : $"  {NoteNames.Of(pitch),4} : {UnmappedKey}{UnmappedKeyMark}");
+        }
+
+        return lines;
+    }
+
+    private static IEnumerable<string> Bars(IReadOnlyList<Token> tokens, double beatsPerBar, KeyMap keyMap)
+    {
+        if (tokens.Count == 0)
+        {
+            return [];
+        }
+
+        var barUnits = Math.Max(1, (long)Math.Round(beatsPerBar * BeatGrid.UnitsPerBeat));
+        var lines = new List<string> { string.Empty, "【演奏序列】(括号内为拍数，0 = 休止)" };
+        foreach (var bar in tokens.GroupBy(token => token.StartUnits / barUnits))
+        {
+            lines.Add($"  |{bar.Key + 1,3}| " + string.Join(" ", bar.Select(token => Render(token, keyMap))));
+        }
+
+        return lines;
+    }
+
+    private static IEnumerable<string> MissingWarning(IReadOnlyList<MissingNote> missing)
+    {
+        if (missing.Count == 0)
+        {
+            return [];
+        }
+
+        var preview = string.Join(
+            "、",
+            missing.Take(MissingPreviewLimit)
+                .Select(note => $"{note.NoteName}({Format(note.StartBeat)}拍)"));
+        return
+        [
+            string.Empty,
+            $"警告：{missing.Count} 个音不在手碟音域内：{preview}"
+            + (missing.Count > MissingPreviewLimit ? "…" : string.Empty),
+        ];
+    }
+
+    private static string Render(Token token, KeyMap keyMap) => token.IsRest
+        ? token.BeatUnits == BeatGrid.UnitsPerBeat ? "0" : $"0({Format(token.Beats)})"
+        : $"{string.Join("+", token.Notes.Select(note => Key(note, keyMap)))}({Format(token.Beats)})";
+
+    private static string Key(MidiNote note, KeyMap keyMap) => keyMap.TryGet(note.Pitch, out var key)
+        ? key
+        : $"[{NoteNames.Of(note.Pitch)}缺失]";
+
+    private static string Header(MidiMeta meta, double secondsPerBeat, double totalBeats)
+    {
+        var header = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(meta.Tonic))
+        {
+            header.Append($"调号 1={meta.Tonic}  ");
+        }
+
+        return header
+            .Append($"BPM={Format(meta.Bpm, "0")}  ")
+            .Append($"拍号 {meta.TimeSignature.Numerator}/{meta.TimeSignature.Denominator}  ")
+            .Append($"1拍={Format(secondsPerBeat, "0.000")}秒  ")
+            .Append($"总时长≈{Format(totalBeats * secondsPerBeat, "0.#")}秒")
+            .ToString();
+    }
+
+    private static string Format(double value, string format = "0.###") =>
+        value.ToString(format, CultureInfo.InvariantCulture);
 }

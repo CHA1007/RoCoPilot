@@ -5,48 +5,60 @@ namespace RocoPilot.Handpan.Tests;
 public class NoteNamesTests
 {
     [Theory]
-    [InlineData("C4", 60)]
-    [InlineData("A3", 57)]
-    [InlineData("c4", 60)]
-    [InlineData("C#4", 61)]
-    [InlineData("Db4", 61)]
-    [InlineData("C-1", 0)]
-    [InlineData("E5", 76)]
-    [InlineData("B4", 71)]
-    public void ToMidi_ParsesNames(string name, int midi)
+    [InlineData(60, "C4")]
+    [InlineData(61, "C#4")]
+    [InlineData(64, "E4")]
+    [InlineData(69, "A4")]
+    [InlineData(71, "B4")]
+    [InlineData(72, "C5")]
+    [InlineData(57, "A3")]
+    [InlineData(21, "A0")]
+    [InlineData(108, "C8")]
+    [InlineData(0, "C-1")]
+    public void Of_returns_scientific_pitch_name(int midi, string expected)
     {
-        Assert.Equal(midi, NoteNames.ToMidi(name));
-    }
-
-    [Fact]
-    public void ToMidi_RejectsInvalidName()
-    {
-        Assert.Throws<FormatException>(() => NoteNames.ToMidi("H4"));
-        Assert.Throws<FormatException>(() => NoteNames.ToMidi("4"));
-    }
-
-    [Fact]
-    public void TryToMidi_ReportsFailure()
-    {
-        Assert.False(NoteNames.TryToMidi("xx", out _));
-        Assert.True(NoteNames.TryToMidi("A3", out var midi));
-        Assert.Equal(57, midi);
+        Assert.Equal(expected, NoteNames.Of(midi));
     }
 
     [Theory]
-    [InlineData(60, "中音1")]
-    [InlineData(64, "中音3")]
-    [InlineData(57, "低音6")]
-    [InlineData(72, "高音1")]
-    [InlineData(73, null)]
-    public void DegreeZh_MapsSemitones(int midi, string? expected)
+    [InlineData("C4", 60)]
+    [InlineData("c4", 60)]
+    [InlineData(" E4 ", 64)]
+    [InlineData("F#4", 66)]
+    [InlineData("Gb4", 66)]
+    [InlineData("Bb3", 58)]
+    [InlineData("A#3", 58)]
+    [InlineData("A3", 57)]
+    [InlineData("C-1", 0)]
+    public void TryToMidi_parses_names_case_insensitive(string name, int expected)
     {
-        Assert.Equal(expected, NoteNames.DegreeZh(midi));
+        Assert.True(NoteNames.TryToMidi(name, out var midi));
+        Assert.Equal(expected, midi);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("H4")]
+    [InlineData("C")]
+    [InlineData("4")]
+    [InlineData("C##4")]
+    [InlineData("Cb4")]
+    [InlineData("C10")]
+    [InlineData("C4x")]
+    public void TryToMidi_rejects_malformed_names(string name)
+    {
+        Assert.False(NoteNames.TryToMidi(name, out _));
     }
 
     [Fact]
-    public void Of_RoundTrips()
+    public void Name_round_trips_through_midi()
     {
-        Assert.Equal("A3", NoteNames.Of(NoteNames.ToMidi("A3")));
+        for (var midi = 0; midi <= 127; midi++)
+        {
+            var name = NoteNames.Of(midi);
+            Assert.True(NoteNames.TryToMidi(name, out var back));
+            Assert.Equal(midi, back);
+        }
     }
 }

@@ -6,7 +6,7 @@ using RocoPilot.Settings;
 
 namespace RocoPilot.Shell.Hotkeys;
 
-public sealed class GlobalHotkeyManager : IDisposable
+public sealed class GlobalHotkeyManager : IHotkeyRegistry, IDisposable
 {
     private const int WhKeyboardLl = 13;
 

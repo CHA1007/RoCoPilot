@@ -1,3 +1,5 @@
+using RocoPilot.Input;
+
 namespace RocoPilot.Handpan;
 
 public sealed record KeyMapEntry(string Note, string Key);
@@ -22,21 +24,34 @@ public sealed class KeyMap
         new("E5", "U"),
     ];
 
-    private readonly Dictionary<int, string> _byMidi;
+    private readonly List<KeyMapEntry> _invalidEntries = [];
+    private readonly Dictionary<int, string> _byMidi = [];
 
-    public KeyMap(IEnumerable<KeyMapEntry> entries)
+    public KeyMap(IEnumerable<KeyMapEntry?> entries)
     {
-        _byMidi = [];
         foreach (var entry in entries)
         {
-            if (!NoteNames.TryToMidi(entry.Note, out var midi) || string.IsNullOrWhiteSpace(entry.Key))
+            if (entry is null || !NoteNames.TryToMidi(entry.Note, out var midi))
             {
+                if (entry is not null)
+                {
+                    _invalidEntries.Add(entry);
+                }
                 continue;
             }
 
-            _byMidi[midi] = entry.Key.Trim();
+            var key = entry.Key?.Trim() ?? string.Empty;
+            if (key.Length == 0 || !KeyNames.Supported.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                _invalidEntries.Add(entry);
+                continue;
+            }
+
+            _byMidi[midi] = key;
         }
     }
+
+    public IReadOnlyList<KeyMapEntry> InvalidEntries => _invalidEntries;
 
     public IReadOnlyCollection<int> MidiNotes => _byMidi.Keys;
 

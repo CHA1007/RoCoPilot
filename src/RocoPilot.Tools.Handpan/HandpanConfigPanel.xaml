@@ -3,136 +3,301 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-  <StackPanel>
+  <Grid>
 
-    <ui:CardControl Margin="0,0,0,12" VerticalContentAlignment="Top" Padding="16,12">
-      <ui:CardControl.Header>
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="手碟谱" TextWrapping="Wrap" />
-          <ui:TextBlock Grid.Row="1"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        FontTypography="Caption"
-                        Text="1~7 唱名，# b 升降，' 高八度 , 低八度，- 延长 _ 缩短，0 休止，title/bpm/1=C 头部指令"
-                        TextWrapping="Wrap" />
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="252" />
+      <ColumnDefinition Width="12" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <Border Grid.Column="0"
+            Padding="12"
+            Background="{ui:ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ui:ThemeResource ControlStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+      <DockPanel>
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ui:TextBox x:Name="ScoreSearchBox"
+                      PlaceholderText="搜索曲谱"
+                      TextChanged="OnSearchTextChanged" />
+          <ui:Button x:Name="ImportButton"
+                     Grid.Column="1"
+                     Width="34" Height="34" Margin="8,0,0,0" Padding="0"
+                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                     Appearance="Transparent"
+                     Icon="{ui:SymbolIcon ArrowImport24}"
+                     ToolTip="导入 MIDI"
+                     Click="OnImportClick" />
+          <ui:Button x:Name="OpenFolderButton"
+                     Grid.Column="2"
+                     Width="34" Height="34" Margin="8,0,0,0" Padding="0"
+                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                     Appearance="Transparent"
+                     Icon="{ui:SymbolIcon Folder24}"
+                     ToolTip="打开曲谱目录"
+                     Click="OnOpenFolderClick" />
         </Grid>
-      </ui:CardControl.Header>
-      <TextBox x:Name="ScoreBox"
-               Height="160"
-               AcceptsReturn="True"
-               VerticalScrollBarVisibility="Auto"
-               FontFamily="Consolas"
-               Text="{Binding ScoreText, UpdateSourceTrigger=Explicit}" />
-    </ui:CardControl>
 
-    <Grid Margin="0,0,0,12">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="24" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
+        <Grid>
+          <ui:ListView x:Name="ScoreList"
+                       SelectionChanged="OnScoreSelectionChanged"
+                       MouseDoubleClick="OnScoreDoubleClick" />
+          <ui:TextBlock x:Name="EmptyHint"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontTypography="Caption"
+                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                        Text="曲谱库为空"
+                        TextAlignment="Center"
+                        Visibility="Collapsed" />
+        </Grid>
+      </DockPanel>
+    </Border>
 
-      <ui:CardControl Grid.Column="0" VerticalContentAlignment="Top" Padding="16,12">
-        <ui:CardControl.Header>
-          <ui:TextBlock FontTypography="BodyStrong" Text="演奏参数" TextWrapping="Wrap" />
-        </ui:CardControl.Header>
-        <StackPanel>
-          <Grid Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="Auto" SharedSizeGroup="Labels" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,8" Text="BPM 覆盖" />
-            <ui:NumberBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Width="120" HorizontalAlignment="Left"
-                          Minimum="0" Maximum="600" MaxDecimalPlaces="2" SmallChange="5"
-                          ValidationMode="InvalidInputOverwritten"
-                          Value="{Binding BpmOverride}" />
-            <ui:TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,8" Text="移调" />
-            <ui:NumberBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Width="120" HorizontalAlignment="Left"
-                          Minimum="-11" Maximum="11" SmallChange="1"
-                          ValidationMode="InvalidInputOverwritten"
-                          Value="{Binding Transpose}" />
-            <ui:TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0" Text="呼吸（拍）" />
-            <ui:NumberBox Grid.Row="2" Grid.Column="1" Width="120" HorizontalAlignment="Left"
-                          Minimum="0" Maximum="4" MaxDecimalPlaces="2" SmallChange="0.25"
-                          ValidationMode="InvalidInputOverwritten"
-                          Value="{Binding GapBeats}" />
-          </Grid>
-          <ui:ToggleSwitch x:Name="AutoFitSwitch" Margin="0,0,0,8" Content="自动移调" IsChecked="{Binding AutoFit}" />
-          <ui:ToggleSwitch x:Name="FoldSwitch" Margin="0,0,0,8" Content="八度折回" IsChecked="{Binding Fold}" />
-          <ui:ToggleSwitch x:Name="SnapSwitch" Margin="0,0,0,8" Content="缺音吸附" IsChecked="{Binding Snap}" />
-          <ui:ToggleSwitch x:Name="LoopSwitch" Content="循环演奏" IsChecked="{Binding Loop}" />
-        </StackPanel>
-      </ui:CardControl>
+    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="0,0,12,0">
 
-      <ui:CardControl Grid.Column="2" VerticalContentAlignment="Top" Padding="16,12">
-        <ui:CardControl.Header>
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="键位" TextWrapping="Wrap" />
-            <ui:TextBlock Grid.Row="1"
-                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+        <ui:Card Padding="20,16,20,16">
+          <StackPanel>
+            <ui:TextBlock x:Name="SongTitleText"
+                          FontTypography="Subtitle"
+                          Text="未选择曲谱"
+                          TextTrimming="CharacterEllipsis" />
+            <ui:TextBlock x:Name="StatusText"
+                          Margin="0,2,0,0"
                           FontTypography="Caption"
-                          Text="音名 → 游戏按键，改完用「键位自检」复核"
-                          TextWrapping="Wrap" />
-          </Grid>
-        </ui:CardControl.Header>
-        <ItemsControl x:Name="KeyChipsHost" ItemsSource="{Binding KeyMapEntries}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <StackPanel Orientation="Horizontal" Margin="0,0,14,6">
-                <TextBlock Text="{Binding Note}" FontFamily="Consolas" Width="34" VerticalAlignment="Center" />
-                <TextBox Width="34" Text="{Binding Key, UpdateSourceTrigger=LostFocus}" VerticalAlignment="Center" />
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="导入 .mid 文件加入曲谱库"
+                          TextTrimming="CharacterEllipsis" />
+
+            <ProgressBar x:Name="ProgressTrack"
+                         Height="4"
+                         Margin="0,16,0,6"
+                         Maximum="1"
+                         BorderThickness="0"
+                         Background="{ui:ThemeResource ControlStrokeColorSecondaryBrush}"
+                         Foreground="{ui:ThemeResource SystemAccentColorPrimaryBrush}" />
+            <Grid x:Name="ProgressTimeRow" Visibility="Collapsed">
+              <ui:TextBlock x:Name="ProgressTimeText"
+                            HorizontalAlignment="Left"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" />
+              <ui:TextBlock x:Name="ProgressRoundText"
+                            HorizontalAlignment="Right"
+                            FontTypography="Caption"
+                            Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}" />
+            </Grid>
+
+            <Grid Margin="0,18,0,0">
+              <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                <ui:Button x:Name="PrevButton"
+                           Width="40" Height="40" Padding="0"
+                           HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                           Appearance="Secondary"
+                           Icon="{ui:SymbolIcon ChevronLeft24}"
+                           ToolTip="上一曲"
+                           Click="OnPrevClick" />
+                <ui:Button x:Name="PlayButton"
+                           Width="52" Height="52" Margin="12,0,12,0" Padding="0"
+                           HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                           Appearance="Primary"
+                           Icon="{ui:SymbolIcon Play24}"
+                           ToolTip="开始演奏"
+                           Click="OnPlayClick" />
+                <ui:Button x:Name="NextButton"
+                           Width="40" Height="40" Padding="0"
+                           HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                           Appearance="Secondary"
+                           Icon="{ui:SymbolIcon ChevronRight24}"
+                           ToolTip="下一曲"
+                           Click="OnNextClick" />
               </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ui:CardControl>
+              <ui:Button x:Name="StopButton"
+                         Width="40" Height="40" Padding="0"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"
+                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                         Appearance="Danger"
+                         Icon="{ui:SymbolIcon Stop24}"
+                         ToolTip="停止"
+                         Visibility="Collapsed"
+                         Click="OnStopClick" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
 
-    </Grid>
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="移调（半音）" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="把整曲升高或降低若干半音；正数更高、负数更低"
+                          TextWrapping="Wrap" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="TransposeSlider"
+                      Grid.Column="0"
+                      Minimum="-11" Maximum="11"
+                      TickFrequency="1" IsSnapToTickEnabled="True"
+                      Value="{Binding Transpose}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,6,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=TransposeSlider, StringFormat={}{0:+0;-0;0}}" />
+              <ui:Button x:Name="AutoFitButton"
+                         Grid.Column="2"
+                         VerticalAlignment="Center"
+                         Content="自动适配"
+                         Icon="{ui:SymbolIcon ArrowBidirectionalUpDown24}"
+                         ToolTip="按当前曲谱计算最优移调并填入"
+                         Click="OnAutoFitClick" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
 
-    <ui:CardControl VerticalContentAlignment="Top" Padding="16,12">
-      <ui:CardControl.Header>
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-          </Grid.RowDefinitions>
-          <ui:TextBlock Grid.Row="0" FontTypography="BodyStrong" Text="按键谱与演奏" TextWrapping="Wrap" />
-          <ui:TextBlock x:Name="StatusText" Grid.Row="1"
-                        Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                        FontTypography="Caption"
-                        Text="开始演奏后有 3 秒倒计时，切到游戏手碟自由演奏界面即可"
-                        TextWrapping="Wrap" />
-        </Grid>
-      </ui:CardControl.Header>
-      <StackPanel>
-        <TextBox x:Name="ChartBox"
-                 Height="180"
-                 Margin="0,0,0,10"
-                 IsReadOnly="True"
-                 VerticalScrollBarVisibility="Auto"
-                 FontFamily="Consolas"
-                 TextWrapping="Wrap" />
-        <StackPanel Orientation="Horizontal">
-          <ui:Button x:Name="GenerateButton" Content="生成按键谱" Margin="0,0,8,0" Click="OnGenerateClick" />
-          <ui:Button x:Name="ProbeButton" Content="键位自检" Margin="0,0,8,0" Click="OnProbeClick" />
-          <ui:Button x:Name="PlayButton" Content="开始演奏" Appearance="Primary" Margin="0,0,8,0" Click="OnPlayClick" />
-          <ui:Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="OnStopClick" />
-        </StackPanel>
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="垫拍空隙（拍）" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="在每个音符之间垫入的空拍，整曲节奏随之放慢；0 为照原谱"
+                          TextWrapping="Wrap" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="GapBeatsSlider"
+                      Grid.Column="0"
+                      Minimum="0" Maximum="4"
+                      TickFrequency="0.25" IsSnapToTickEnabled="True"
+                      Value="{Binding GapBeats}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=GapBeatsSlider, StringFormat={}{0:0.##}}" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="BPM 覆盖" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="固定整曲速度；0 表示按曲谱自带速度"
+                          TextWrapping="Wrap" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="BpmSlider"
+                      Grid.Column="0"
+                      Minimum="0" Maximum="600"
+                      TickFrequency="5" IsSnapToTickEnabled="True"
+                      Value="{Binding BpmOverride}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=BpmSlider, StringFormat={}{0:0}}" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="倒计时（秒）" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="按下开始后、第一个音出来前的缓冲时间"
+                          TextWrapping="Wrap" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="CountdownSlider"
+                      Grid.Column="0"
+                      Minimum="0" Maximum="10"
+                      TickFrequency="1" IsSnapToTickEnabled="True"
+                      Value="{Binding CountdownSeconds}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=CountdownSlider, StringFormat={}{0:0}}" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="循环演奏" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="整曲结束后自动从头再来，直到手动停止"
+                          TextWrapping="Wrap" />
+            <ui:ToggleSwitch HorizontalAlignment="Left" IsChecked="{Binding Loop}" />
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="键位自检" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="按键位表逐个按键试音，用来确认音名与按键对应得上"
+                          TextWrapping="Wrap" />
+            <ui:Button x:Name="ProbeButton"
+                       HorizontalAlignment="Left"
+                       Content="开始自检"
+                       Icon="{ui:SymbolIcon Play24}"
+                       Click="OnProbeClick" />
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="导出按键谱" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="把当前曲谱的演奏按键序列存成文本"
+                          TextWrapping="Wrap" />
+            <ui:Button x:Name="ExportButton"
+                       HorizontalAlignment="Left"
+                       Content="导出"
+                       Icon="{ui:SymbolIcon ArrowExportUp24}"
+                       Click="OnExportClick" />
+          </StackPanel>
+        </ui:Card>
+
       </StackPanel>
-    </ui:CardControl>
+    </ScrollViewer>
 
-  </StackPanel>
+  </Grid>
 </UserControl>

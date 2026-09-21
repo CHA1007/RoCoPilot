@@ -45,6 +45,8 @@ public sealed class ShellSettings
 
     public string DebugOverlayHotkey { get; set; } = "";
 
+    public string TaskStopHotkey { get; set; } = "F8";
+
     public HotkeyScope CaptureHotkeyScope { get; set; } = HotkeyScope.Global;
 
     public HotkeyScope AutoThrowHotkeyScope { get; set; } = HotkeyScope.Global;
@@ -54,6 +56,8 @@ public sealed class ShellSettings
     public HotkeyScope FastTravelHotkeyScope { get; set; } = HotkeyScope.Global;
 
     public HotkeyScope DebugOverlayHotkeyScope { get; set; } = HotkeyScope.Global;
+
+    public HotkeyScope TaskStopHotkeyScope { get; set; } = HotkeyScope.Global;
 
     public bool DebugOverlay { get; set; }
 

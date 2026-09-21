@@ -1,12 +1,9 @@
 <Page x:Class="RocoPilot.Shell.Pages.HandpanPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-      Title="手碟">
+      Title="演奏">
 
-  <Grid Margin="16,12,16,16">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <ContentControl x:Name="ConfigHost" />
-    </ScrollViewer>
+  <Grid x:Name="RootGrid" Margin="24,16,24,16">
+    <ContentControl x:Name="ConfigHost" />
   </Grid>
 </Page>

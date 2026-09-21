@@ -11,6 +11,8 @@ public static class RocoPaths
 
     public static string ScriptsRoot => Path.Combine(AppDataRoot, "scripts");
 
+    public static string ScoresRoot => Path.Combine(AppDataRoot, "scores");
+
     public static string LocalAppDataRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RocoPilot");
 

@@ -25,6 +25,7 @@ public partial class MainWindow : FluentWindow
     private readonly OverlayController _overlay;
     private readonly CaptureHost _capture;
     private readonly ShellHotkeys _hotkeys;
+    private readonly TaskStopHotkey _taskStopHotkey;
     private readonly DispatcherHost _dispatcher;
     private readonly System.Windows.Threading.DispatcherTimer _brandTimer;
     private readonly DoubleAnimation _breath = new(1.0, 0.2, TimeSpan.FromMilliseconds(900))
@@ -59,6 +60,7 @@ public partial class MainWindow : FluentWindow
         OverlayController overlay,
         CaptureHost capture,
         ShellHotkeys hotkeys,
+        TaskStopHotkey taskStopHotkey,
         DispatcherHost dispatcher)
     {
         InitializeComponent();
@@ -72,6 +74,7 @@ public partial class MainWindow : FluentWindow
         _overlay = overlay;
         _capture = capture;
         _hotkeys = hotkeys;
+        _taskStopHotkey = taskStopHotkey;
         _dispatcher = dispatcher;
 
         var shellSettings = _store.GetShellSettings();
@@ -131,6 +134,7 @@ public partial class MainWindow : FluentWindow
         };
 
         _hotkeys.Start();
+        _taskStopHotkey.Start();
 
         _overlay.Start();
     }
@@ -169,7 +173,7 @@ public partial class MainWindow : FluentWindow
         NavigationView.MenuItems.Add(new NavigationViewItem("启动", SymbolRegular.Rocket24, typeof(LaunchPage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("实时", SymbolRegular.TargetArrow24, typeof(RealtimePage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("孵蛋", SymbolRegular.FoodEgg24, typeof(EggQueryPage)));
-        NavigationView.MenuItems.Add(new NavigationViewItem("手碟", SymbolRegular.MusicNote224, typeof(HandpanPage)));
+        NavigationView.MenuItems.Add(new NavigationViewItem("演奏", SymbolRegular.MusicNote224, typeof(HandpanPage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("流程", SymbolRegular.BranchFork24, typeof(RoutePage)));
         NavigationView.MenuItems.Add(new NavigationViewItem("热键", SymbolRegular.Keyboard24, typeof(HotkeysPage)));
 

@@ -1,56 +1,36 @@
 using System.Windows;
 using RocoPilot.Core;
-using RocoPilot.Handpan;
 using RocoPilot.Input;
-using RocoPilot.Settings;
 using RocoPilot.ToolUi;
 using Wpf.Ui.Controls;
 
 namespace RocoPilot.Tools.Handpan;
-
-public enum HandpanTaskMode
-{
-    Chart,
-    Play,
-    Probe,
-}
 
 public sealed class HandpanTool : IToolUi
 {
     public const string ToolId = "handpan";
 
     private readonly Func<IInputDriver> _driverFactory;
+    private readonly HandpanScoreStore _scores;
 
-    public HandpanTool(Func<IInputDriver>? driverFactory = null)
+    public HandpanTool(Func<IInputDriver>? driverFactory = null, HandpanScoreStore? scores = null)
     {
         _driverFactory = driverFactory ?? InputDriverFactory.Create;
+        _scores = scores ?? new HandpanScoreStore();
     }
 
     public string Id => ToolId;
 
     public SymbolRegular Icon => SymbolRegular.MusicNote224;
 
+    public HandpanScoreStore Scores => _scores;
+
     public Type SettingsType => typeof(HandpanSettings);
 
     public object CreateDefaultSettings() => new HandpanSettings();
 
-    public IRunningTask Run(object settings)
-    {
-        var typed = CastSettings(settings);
-        return new HandpanRunningTask(typed, HandpanTaskMode.Play, _driverFactory);
-    }
-
-    public IRunningTask RunChart(object settings)
-    {
-        var typed = CastSettings(settings);
-        return new HandpanRunningTask(typed, HandpanTaskMode.Chart, _driverFactory);
-    }
-
-    public IRunningTask RunProbe(object settings)
-    {
-        var typed = CastSettings(settings);
-        return new HandpanRunningTask(typed, HandpanTaskMode.Probe, _driverFactory);
-    }
+    public IRunningTask Run(object settings) => new HandpanRunningTask(
+        CastSettings(settings), _driverFactory, scores: _scores);
 
     public FrameworkElement CreateConfigPanel(object settings, Action persist)
     {

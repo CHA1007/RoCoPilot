@@ -1,59 +1,102 @@
 namespace RocoPilot.Handpan;
 
-public sealed record PlannedNote(double AtSeconds, IReadOnlyList<string> Keys, double HoldSeconds);
-
-public sealed record PlaybackPlan(
-    double SecondsPerBeat,
-    double TotalSeconds,
-    IReadOnlyList<PlannedNote> Notes,
-    int MissingCount);
-
 public static class PlaybackPlanner
 {
     public static PlaybackPlan Plan(
-        IReadOnlyList<HandpanEvent> events,
+        IReadOnlyList<MidiNote> notes,
         double bpm,
         KeyMap keyMap,
-        double holdSeconds = 0.05,
-        double chordHoldSeconds = 0.06)
+        PlaybackTiming? timing = null)
     {
-        var secondsPerBeat = 60.0 / bpm;
-        var notes = new List<PlannedNote>();
+        var secondsPerBeat = 60 / bpm;
+        var holds = timing ?? new PlaybackTiming();
+        var planned = new List<PlannedNote>();
         var missing = 0;
-        var t = 0.0;
-
-        foreach (var e in events)
+        foreach (var group in MelodyLine.OnsetGroups(notes))
         {
-            if (e.Kind == HandpanEventKind.Note)
+            missing += group.Count(note => !keyMap.Contains(note.Pitch));
+            var keys = Keys(group, keyMap);
+            if (keys.Count == 0)
             {
-                if (keyMap.Contains(e.Midi))
-                {
-                    var keys = new List<string>();
-                    keyMap.TryGet(e.Midi, out var main);
-                    keys.Add(main);
-                    if (e.Extras is { Count: > 0 })
-                    {
-                        foreach (var extra in e.Extras)
-                        {
-                            if (keyMap.TryGet(extra, out var extraKey))
-                            {
-                                keys.Add(extraKey);
-                            }
-                        }
-                    }
-
-                    notes.Add(new PlannedNote(t, keys,
-                        keys.Count > 1 ? chordHoldSeconds : holdSeconds));
-                }
-                else
-                {
-                    missing++;
-                }
+                continue;
             }
 
-            t += e.Beats * secondsPerBeat;
+            planned.Add(new PlannedNote(
+                group[0].StartBeat * secondsPerBeat,
+                keys,
+                keys.Count > 1 ? Math.Max(0, holds.ChordHoldSeconds) : Math.Max(0, holds.HoldSeconds)));
         }
 
-        return new PlaybackPlan(secondsPerBeat, t, notes, missing);
+        var presses = ClampRepeatedKeys(Presses(planned, Math.Max(0, holds.ChordStaggerSeconds)));
+        return new PlaybackPlan(planned, presses, KeyEvents(presses), secondsPerBeat, EndsAt(presses), missing);
     }
+
+    private static IReadOnlyList<string> Keys(IReadOnlyList<MidiNote> group, KeyMap keyMap)
+    {
+        var keys = new List<string>(group.Count);
+        foreach (var note in group)
+        {
+            if (keyMap.TryGet(note.Pitch, out var key) && !keys.Contains(key))
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
+    }
+
+    private static List<KeyPress> Presses(IReadOnlyList<PlannedNote> notes, double stagger)
+    {
+        var presses = new List<KeyPress>();
+        foreach (var note in notes)
+        {
+            var release = note.AtSeconds + stagger * (note.Keys.Count - 1) + note.HoldSeconds;
+            for (var index = 0; index < note.Keys.Count; index++)
+            {
+                var down = note.AtSeconds + stagger * index;
+                var hold = index == note.Keys.Count - 1 ? note.HoldSeconds : release - down;
+                presses.Add(new KeyPress(note.Keys[index], down, hold));
+            }
+        }
+
+        return presses;
+    }
+
+    private static IReadOnlyList<KeyPress> ClampRepeatedKeys(List<KeyPress> presses)
+    {
+        var ordered = presses
+            .OrderBy(press => press.DownAtSeconds)
+            .ThenBy(press => press.Key, StringComparer.Ordinal)
+            .ToList();
+        var previousOfKey = new Dictionary<string, int>();
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            if (previousOfKey.TryGetValue(ordered[index].Key, out var previous))
+            {
+                var held = ordered[previous];
+                ordered[previous] = held with
+                {
+                    HoldSeconds = Math.Max(0, Math.Min(held.HoldSeconds, ordered[index].DownAtSeconds - held.DownAtSeconds)),
+                };
+            }
+
+            previousOfKey[ordered[index].Key] = index;
+        }
+
+        return ordered;
+    }
+
+    private static IReadOnlyList<KeyEvent> KeyEvents(IReadOnlyList<KeyPress> presses) =>
+        [.. presses
+            .SelectMany(press => new[]
+            {
+                new KeyEvent(press.Key, press.DownAtSeconds, true),
+                new KeyEvent(press.Key, press.UpAtSeconds, false),
+            })
+            .OrderBy(keyEvent => keyEvent.AtSeconds)
+            .ThenBy(keyEvent => keyEvent.IsDown)
+            .ThenBy(keyEvent => keyEvent.Key, StringComparer.Ordinal)];
+
+    private static double EndsAt(IReadOnlyList<KeyPress> presses) =>
+        presses.Count == 0 ? 0 : presses.Max(press => press.UpAtSeconds);
 }

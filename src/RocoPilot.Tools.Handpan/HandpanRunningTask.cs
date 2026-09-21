@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using System.IO;
+using RocoPilot.Capture;
 using RocoPilot.Core;
 using RocoPilot.Handpan;
 using RocoPilot.Input;
@@ -7,285 +8,474 @@ namespace RocoPilot.Tools.Handpan;
 
 public sealed class HandpanRunningTask : RunningTaskBase
 {
-    private const int SleepSliceMs = 20;
+    private const double LoopIntervalSeconds = 1.5;
+    private const double ProgressIntervalSeconds = 0.1;
+    private const int FocusPollMs = 250;
+    private const int WaitSliceMs = 1;
+    private const int CoarseWaitSliceMs = 8;
+    private const double CoarseWaitFloorSeconds = 0.02;
 
     private readonly HandpanSettings _settings;
-    private readonly HandpanTaskMode _mode;
     private readonly Func<IInputDriver> _driverFactory;
-    private readonly ManualResetEventSlim _resumeGate = new(true);
-    private IInputDriver? _driver;
+    private readonly Func<bool> _gameFocused;
+    private readonly Func<bool> _activateGameWindow;
+    private readonly Func<(int X, int Y)?> _wakePoint;
+    private readonly HandpanScoreStore _scores;
+    private readonly PauseGate _pauseGate = new();
+    private readonly object _heldGate = new();
+    private readonly HashSet<string> _heldKeys = [];
 
-    public HandpanRunningTask(HandpanSettings settings, HandpanTaskMode mode, Func<IInputDriver> driverFactory)
+    private IInputDriver? _driver;
+    private Thread? _focusWatcher;
+    private HandpanArrangement? _arrangement;
+    private double _progressTotalSeconds;
+    private double _lastProgressSeconds;
+    private int _round;
+
+    public HandpanRunningTask(
+        HandpanSettings settings,
+        Func<IInputDriver>? driverFactory = null,
+        Func<bool>? gameFocused = null,
+        Func<bool>? activateGameWindow = null,
+        HandpanScoreStore? scores = null,
+        Func<(int X, int Y)?>? wakePoint = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _mode = mode;
-        _driverFactory = driverFactory ?? throw new ArgumentNullException(nameof(driverFactory));
+        _driverFactory = driverFactory ?? InputDriverFactory.Create;
+        _gameFocused = gameFocused ?? (() => WindowFinder.IsForegroundProcess(WindowFinder.GameProcessName));
+        _activateGameWindow = activateGameWindow ?? WindowFinder.ActivateGameWindow;
+        _scores = scores ?? new HandpanScoreStore();
+        _wakePoint = wakePoint ?? WindowFinder.GetGameClickPoint;
     }
 
     public override string ToolId => HandpanTool.ToolId;
 
+    public override object? DiagnosticsContext => _arrangement;
+
+    public event Action<HandpanProgress>? ProgressChanged;
+
     public override void RequestPause(string source = "manual")
     {
-        lock (Gate)
-        {
-            if (CurrentState != TaskState.Running)
-            {
-                return;
-            }
-
-            CurrentState = TaskState.Paused;
-        }
-
-        _resumeGate.Reset();
-        RaiseStateChanged(TaskState.Paused);
+        _pauseGate.HoldManually();
+        SyncState(PauseSource.Manual);
     }
 
     public override void RequestResume(string source = "manual")
     {
-        lock (Gate)
+        _pauseGate.ReleaseManually();
+        SyncState(PauseSource.Manual);
+    }
+
+    protected override async Task RunWorkerAsync(CancellationToken cancellationToken)
+    {
+        try
         {
-            if (CurrentState != TaskState.Paused)
+            _settings.SanitizeInPlace();
+            if (!await Arming.ExecuteAsync(ArmingSteps(), RaiseEvent, cancellationToken))
             {
                 return;
             }
 
-            CurrentState = TaskState.Running;
-        }
-
-        _resumeGate.Set();
-        RaiseStateChanged(TaskState.Running);
-    }
-
-    protected override async Task RunWorkerAsync(CancellationToken ct)
-    {
-        try
-        {
             if (!TryEnterRunning())
             {
                 return;
             }
 
             RaiseStateChanged(TaskState.Running);
-            await Task.Run(() =>
+            StartFocusWatcher(cancellationToken);
+            if (_settings.Mode == HandpanMode.Probe)
             {
-                switch (_mode)
-                {
-                    case HandpanTaskMode.Chart: RunChartOnly(ct); break;
-                    case HandpanTaskMode.Probe: RunProbe(ct); break;
-                    default: RunPlay(ct); break;
-                }
-            }, ct);
+                await Task.Run(() => Probe(cancellationToken), cancellationToken);
+            }
+            else
+            {
+                await Task.Run(() => Perform(_arrangement!.Plan, cancellationToken), cancellationToken);
+            }
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
         {
-            RaiseEvent(new ToolEvent("error", new Dictionary<string, object?> { ["message"] = ex.Message }));
+            Raise(new HandpanFaulted(ex.GetBaseException().Message));
         }
         finally
         {
+            StopFocusWatcher();
+            ReleaseHeldKeys();
+            DisposeDriver();
             FinishStopped();
         }
     }
 
     protected override void DisposeCore()
     {
-        _driver?.Dispose();
-        _driver = null;
-        _resumeGate.Dispose();
+        _pauseGate.Dispose();
+        DisposeDriver();
     }
 
-    private HandpanPipelineResult? BuildPipeline()
+    private IReadOnlyList<ArmingStep> ArmingSteps()
     {
-        try
+        List<ArmingStep> steps = [ActivateGameWindowStep(), MountDriverStep()];
+        if (_settings.Mode != HandpanMode.Probe)
         {
-            var score = ScoreParser.Parse(_settings.ScoreText);
-            var options = new HandpanOptions
+            steps.Add(ArrangeScoreStep());
+        }
+
+        steps.Add(WakeGameStep());
+        return steps;
+    }
+
+    private ArmingStep ActivateGameWindowStep() =>
+        new("激活游戏窗口", "把《洛克王国：世界》切到前台", cancellationToken =>
+        {
+            if (!_activateGameWindow())
             {
-                BpmOverride = _settings.BpmOverride,
-                Transpose = _settings.Transpose,
-                AutoFit = _settings.AutoFit,
-                Fold = _settings.Fold,
-                Snap = _settings.Snap,
-                GapBeats = _settings.GapBeats,
-            };
-            return HandpanPipeline.Run(score, _settings.ToKeyMap(), options);
-        }
-        catch (ScoreParseException ex)
-        {
-            RaiseEvent(new ToolEvent("error", new Dictionary<string, object?> { ["message"] = ex.Message }));
-            return null;
-        }
-    }
-
-    private void RunChartOnly(CancellationToken ct)
-    {
-        var result = BuildPipeline();
-        if (result is null)
-        {
-            return;
-        }
-
-        PublishResult(result);
-        Log("按键谱已生成。");
-    }
-
-    private void RunPlay(CancellationToken ct)
-    {
-        var result = BuildPipeline();
-        if (result is null)
-        {
-            return;
-        }
-
-        PublishResult(result);
-        if (result.Plan.Notes.Count == 0)
-        {
-            Log("没有可演奏的音符。");
-            return;
-        }
-
-        Log($"准备演奏：{result.Plan.Notes.Count} 个音符，BPM={result.Meta.Bpm:0.##}，时长≈{result.Plan.TotalSeconds:0.#} 秒");
-        Countdown(ct);
-
-        var round = 0;
-        while (true)
-        {
-            var clock = Stopwatch.StartNew();
-            foreach (var note in result.Plan.Notes)
-            {
-                ct.ThrowIfCancellationRequested();
-                var wait = note.AtSeconds - clock.Elapsed.TotalSeconds;
-                if (wait > 0)
-                {
-                    Sleep(wait, ct);
-                }
-
-                PressKeys(note.Keys, note.HoldSeconds);
+                throw new InvalidOperationException("游戏窗口没有被真正激活");
             }
 
+            return Task.CompletedTask;
+        })
+        {
+            Remedy = _ => "确认游戏未最小化；手动点一下游戏窗口后重试，若游戏以管理员运行则本程序也须以管理员运行",
+        };
+
+    private ArmingStep WakeGameStep() =>
+        new("点击唤醒游戏", "在游戏画面上点一下，让游戏接管键盘输入", cancellationToken =>
+        {
+            if (_wakePoint() is not { } point)
+            {
+                throw new InvalidOperationException("游戏画面上找不到没被遮住的落点");
+            }
+
+            var driver = _driver ?? throw new InvalidOperationException("输入驱动未挂载");
+            driver.ClickAt(point.X, point.Y);
+            if (!_gameFocused())
+            {
+                throw new InvalidOperationException("点完之后游戏窗口没回到前台");
+            }
+
+            return Task.CompletedTask;
+        })
+        {
+            Remedy = _ => "把本程序窗口移开或最小化，别遮住游戏画面；游戏窗口也不能最小化",
+        };
+
+    private ArmingStep MountDriverStep() =>
+        new("挂载输入驱动", "挂载 Interception 键盘驱动", cancellationToken =>
+        {
+            var driver = _driverFactory();
+            driver.Arm();
+            _driver = driver;
+            return Task.CompletedTask;
+        })
+        {
+            Remedy = _ => "以管理员身份运行安装器安装 Interception 驱动后重试",
+        };
+
+    private ArmingStep ArrangeScoreStep() =>
+        new("扒谱并生成演奏计划", "解析 MIDI 并适配到手碟音域", cancellationToken =>
+        {
+            _arrangement = Arrange();
+            return Task.CompletedTask;
+        })
+        {
+            Remedy = _ => "确认曲谱已导入且未损坏，或换一个曲谱",
+        };
+
+    private HandpanArrangement Arrange()
+    {
+        var path = _scores.Resolve(_settings.ScoreName)
+            ?? throw new FileNotFoundException($"曲谱库里没有「{_settings.ScoreName}」", _settings.ScoreName);
+
+        var score = MidiParser.Parse(File.ReadAllBytes(path));
+        return HandpanArranger.Arrange(
+            score,
+            _settings.ToKeyMap(),
+            _settings.ScoreName,
+            _settings.ToArrangement());
+    }
+
+    private void PublishArrangement()
+    {
+        var arrangement = _arrangement!;
+        Raise(new HandpanArranged(
+            arrangement.Plan.NoteCount,
+            arrangement.Chart.MissingCount,
+            arrangement.Fit.Semitones,
+            arrangement.Fit.ExactCoverage,
+            arrangement.Chart.TotalSeconds));
+    }
+
+    private void Probe(CancellationToken cancellationToken)
+    {
+        var probeKeys = ProbePlanner.Plan(_settings.ToKeyMap());
+        if (probeKeys.Count == 0)
+        {
+            Raise(new HandpanFaulted("键位表没有可用条目", "检查键位表的音名与按键写法后重试"));
+            return;
+        }
+
+        var clock = new PlaybackClock();
+        clock.Start();
+        foreach (var probeKey in probeKeys)
+        {
+            WaitUntil(clock, probeKey.DownAtSeconds, cancellationToken);
+            Raise(new HandpanProbeKey(probeKey.Key, probeKey.Note));
+            Send(new KeyEvent(probeKey.Key, probeKey.DownAtSeconds, IsDown: true));
+            WaitUntil(clock, probeKey.UpAtSeconds, cancellationToken);
+            Send(new KeyEvent(probeKey.Key, probeKey.UpAtSeconds, IsDown: false));
+        }
+
+        Raise(new HandpanProbeCompleted(probeKeys.Count));
+    }
+
+    private void Perform(PlaybackPlan plan, CancellationToken cancellationToken)
+    {
+        if (plan.KeyEvents.Count == 0)
+        {
+            Raise(new HandpanFaulted("没有可演奏的音符", "换一个 MIDI 文件，或检查键位表是否覆盖了旋律音域"));
+            return;
+        }
+
+        Countdown(cancellationToken);
+        PublishArrangement();
+        var round = 0;
+        var clock = new PlaybackClock();
+        _progressTotalSeconds = plan.EndsAtSeconds;
+        while (true)
+        {
+            clock.Start();
+            _lastProgressSeconds = double.NegativeInfinity;
+            foreach (var keyEvent in plan.KeyEvents)
+            {
+                WaitUntil(clock, keyEvent.AtSeconds, cancellationToken);
+                Send(keyEvent);
+            }
+
+            PublishRoundEnd();
             if (!_settings.Loop)
             {
                 break;
             }
 
             round++;
-            Log($"第 {round} 遍完成，继续循环…");
-            Sleep(1.5, ct);
+            _round = round;
+            Raise(new HandpanRoundCompleted(round));
+            WaitUntil(clock, clock.Elapsed + LoopIntervalSeconds, cancellationToken);
         }
 
-        Log("演奏完成。");
+        Raise(new HandpanCompleted());
     }
 
-    private void RunProbe(CancellationToken ct)
+    private void Countdown(CancellationToken cancellationToken)
     {
-        var keyMap = _settings.ToKeyMap();
-        Log("键位自检：每 0.9 秒自动按一个键，请切到游戏窗口听声音。");
-        Countdown(ct);
-
-        foreach (var midi in keyMap.SortedMidiNotes)
-        {
-            ct.ThrowIfCancellationRequested();
-            keyMap.TryGet(midi, out var key);
-            var degree = NoteNames.DegreeZh(midi);
-            Log($"按键 [{key}] → 应该发出 {NoteNames.Of(midi)}{(degree is null ? string.Empty : $"（{degree}）")}");
-            PressKeys([key], 0.12);
-            Sleep(0.9, ct);
-        }
-
-        Log("自检完成。如映射不对，请在键位卡片里修改后重试。");
-    }
-
-    private void PublishResult(HandpanPipelineResult result)
-    {
-        RaiseEvent(new ToolEvent("chart", new Dictionary<string, object?>
-        {
-            ["text"] = result.Chart.Text,
-            ["missing"] = result.MissingCount,
-            ["notes"] = result.Plan.Notes.Count,
-        }));
-        foreach (var line in result.ReportLines)
-        {
-            Log(line);
-        }
-    }
-
-    private void Countdown(CancellationToken ct)
-    {
-        var seconds = Math.Clamp(_settings.CountdownSeconds, 0, 10);
-        if (seconds == 0)
+        var seconds = _settings.CountdownSeconds;
+        if (seconds <= 0)
         {
             return;
         }
 
-        Log($"{seconds} 秒后开始，请切到游戏窗口…");
-        for (var i = seconds; i > 0; i--)
+        var clock = new PlaybackClock();
+        clock.Start();
+        for (var left = seconds; left > 0; left--)
         {
-            Log($"  {i}…");
-            Sleep(1.0, ct);
+            Raise(new HandpanCountdown(left));
+            WaitUntil(clock, seconds - left + 1, cancellationToken);
         }
     }
 
-    private void Sleep(double seconds, CancellationToken ct)
+    private void WaitUntil(PlaybackClock clock, double atSeconds, CancellationToken cancellationToken)
     {
-        var clock = Stopwatch.StartNew();
-        while (clock.Elapsed.TotalSeconds < seconds)
+        while (true)
         {
-            ct.ThrowIfCancellationRequested();
-            if (!_resumeGate.IsSet)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!_pauseGate.IsOpen)
             {
-                _resumeGate.Wait(ct);
+                ReleaseHeldKeys();
+                clock.Pause();
+                _pauseGate.WaitUntilOpen(cancellationToken);
+                clock.Resume();
                 continue;
             }
 
-            Thread.Sleep(SleepSliceMs);
+            var remaining = atSeconds - clock.Elapsed;
+            if (remaining <= 0)
+            {
+                return;
+            }
+
+            PublishProgress(clock);
+            Thread.Sleep(remaining > CoarseWaitFloorSeconds
+                ? Math.Min(CoarseWaitSliceMs, (int)((remaining - CoarseWaitFloorSeconds) * 1000))
+                : WaitSliceMs);
         }
     }
 
-    private void PressKeys(IReadOnlyList<string> keys, double holdSeconds)
+    private void PublishProgress(PlaybackClock clock)
     {
-        if (keys.Count == 0)
+        if (_progressTotalSeconds <= 0)
         {
             return;
         }
 
-        var driver = _driver ??= _driverFactory();
-        var inputs = keys.Select(ToInputKey).ToList();
-        if (inputs.Count == 1)
+        var elapsed = clock.Elapsed;
+        if (elapsed - _lastProgressSeconds < ProgressIntervalSeconds)
         {
-            driver.KeyDown(inputs[0]);
-            Thread.Sleep((int)(holdSeconds * 1000));
-            driver.KeyUp(inputs[0]);
             return;
         }
 
-        var stagger = _settings.ChordStaggerMs;
-        var pressed = new List<InputKey>(inputs.Count);
-        foreach (var input in inputs)
+        _lastProgressSeconds = elapsed;
+        PublishProgressAt(elapsed);
+    }
+
+    private void PublishRoundEnd()
+    {
+        _lastProgressSeconds = _progressTotalSeconds;
+        PublishProgressAt(_progressTotalSeconds);
+    }
+
+    private void PublishProgressAt(double elapsedSeconds) =>
+        ProgressChanged?.Invoke(new HandpanProgress(
+            Math.Clamp(elapsedSeconds, 0, _progressTotalSeconds),
+            _progressTotalSeconds,
+            _round));
+
+    private void Send(KeyEvent keyEvent)
+    {
+        var driver = _driver ?? throw new InvalidOperationException("输入驱动未挂载");
+        var key = InputKey.Parse(keyEvent.Key);
+        if (keyEvent.IsDown)
         {
-            driver.KeyDown(input);
-            pressed.Add(input);
-            if (stagger > 0)
+            driver.KeyDown(key);
+            lock (_heldGate)
             {
-                Thread.Sleep(stagger);
+                _heldKeys.Add(keyEvent.Key);
+            }
+
+            return;
+        }
+
+        lock (_heldGate)
+        {
+            if (!_heldKeys.Remove(keyEvent.Key))
+            {
+                return;
             }
         }
 
-        Thread.Sleep((int)(holdSeconds * 1000));
-        foreach (var input in Enumerable.Reverse(pressed))
+        driver.KeyUp(key);
+    }
+
+    private void ReleaseHeldKeys()
+    {
+        string[] held;
+        lock (_heldGate)
         {
-            driver.KeyUp(input);
+            held = [.. _heldKeys];
+            _heldKeys.Clear();
+        }
+
+        var driver = _driver;
+        if (driver is null)
+        {
+            return;
+        }
+
+        foreach (var name in held)
+        {
+            try
+            {
+                driver.KeyUp(InputKey.Parse(name));
+            }
+            catch (Exception)
+            {
+            }
         }
     }
 
-    private static InputKey ToInputKey(string key)
+    private void StartFocusWatcher(CancellationToken cancellationToken)
     {
-        var ch = key.Length > 0 ? key[0] : ' ';
-        var vk = char.IsAsciiDigit(ch) ? ch : char.ToUpperInvariant(ch);
-        return InputKey.Keyboard(vk);
+        _focusWatcher = new Thread(() => WatchFocus(cancellationToken))
+        {
+            IsBackground = true,
+            Name = "手碟焦点门",
+        };
+        _focusWatcher.Start();
     }
 
-    private void Log(string text) =>
-        RaiseEvent(new ToolEvent("log", new Dictionary<string, object?> { ["text"] = text }));
+    private void WatchFocus(CancellationToken cancellationToken)
+    {
+        var focused = true;
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (cancellationToken.WaitHandle.WaitOne(FocusPollMs))
+            {
+                return;
+            }
+
+            var nowFocused = _gameFocused();
+            if (nowFocused == focused)
+            {
+                continue;
+            }
+
+            focused = nowFocused;
+            if (nowFocused)
+            {
+                _pauseGate.ReleaseForFocusRegain();
+            }
+            else
+            {
+                _pauseGate.HoldForFocusLoss();
+            }
+
+            SyncState(PauseSource.FocusLost);
+        }
+    }
+
+    private void StopFocusWatcher()
+    {
+        var watcher = _focusWatcher;
+        _focusWatcher = null;
+        if (watcher is { IsAlive: true })
+        {
+            watcher.Join(TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private void SyncState(PauseSource source)
+    {
+        TaskState? entered = null;
+        lock (Gate)
+        {
+            if (!_pauseGate.IsOpen && CurrentState == TaskState.Running)
+            {
+                CurrentState = TaskState.Paused;
+                entered = TaskState.Paused;
+            }
+            else if (_pauseGate.IsOpen && CurrentState == TaskState.Paused)
+            {
+                CurrentState = TaskState.Running;
+                entered = TaskState.Running;
+            }
+        }
+
+        if (entered is null)
+        {
+            return;
+        }
+
+        RaiseStateChanged(entered.Value);
+        Raise(entered == TaskState.Paused ? new HandpanPaused(source) : new HandpanResumed(source));
+    }
+
+    private void Raise(HandpanTaskEvent taskEvent) => SafeRaiseEvent(taskEvent.AsToolEvent());
+
+    private void DisposeDriver()
+    {
+        var driver = _driver;
+        _driver = null;
+        driver?.Dispose();
+    }
 }

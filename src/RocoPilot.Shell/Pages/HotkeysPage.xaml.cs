@@ -14,13 +14,15 @@ public partial class HotkeysPage : Page
 
     private readonly ISettingsStore _store;
     private readonly ShellHotkeys _hotkeys;
+    private readonly TaskStopHotkey _taskStop;
     private readonly HashSet<Button> _listening = [];
 
-    public HotkeysPage(ISettingsStore store, ShellHotkeys hotkeys)
+    public HotkeysPage(ISettingsStore store, ShellHotkeys hotkeys, TaskStopHotkey taskStop)
     {
         InitializeComponent();
         _store = store;
         _hotkeys = hotkeys;
+        _taskStop = taskStop;
 
         AttachScope(CaptureScopeBox,
             s => s.CaptureHotkeyScope, (s, v) => s.CaptureHotkeyScope = v,
@@ -37,6 +39,9 @@ public partial class HotkeysPage : Page
         AttachScope(DebugOverlayScopeBox,
             s => s.DebugOverlayHotkeyScope, (s, v) => s.DebugOverlayHotkeyScope = v,
             () => _hotkeys.ApplyDebugOverlayToggle());
+        AttachScope(TaskStopScopeBox,
+            s => s.TaskStopHotkeyScope, (s, v) => s.TaskStopHotkeyScope = v,
+            () => _taskStop.Apply());
 
         AttachBinding(CaptureToggleButton,
             s => s.CaptureToggleHotkey, (s, v) => s.CaptureToggleHotkey = v,
@@ -53,6 +58,9 @@ public partial class HotkeysPage : Page
         AttachBinding(DebugOverlayToggleButton,
             s => s.DebugOverlayHotkey, (s, v) => s.DebugOverlayHotkey = v,
             () => _hotkeys.ApplyDebugOverlayToggle());
+        AttachBinding(TaskStopToggleButton,
+            s => s.TaskStopHotkey, (s, v) => s.TaskStopHotkey = v,
+            () => _taskStop.Apply());
 
         Loaded += (_, _) => _hotkeys.ApplyAll();
     }

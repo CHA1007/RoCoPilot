@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RocoPilot.Capture\RocoPilot.Capture.csproj" />
     <ProjectReference Include="..\RocoPilot.Core\RocoPilot.Core.csproj" />
     <ProjectReference Include="..\RocoPilot.Handpan\RocoPilot.Handpan.csproj" />
     <ProjectReference Include="..\RocoPilot.Input\RocoPilot.Input.csproj" />
