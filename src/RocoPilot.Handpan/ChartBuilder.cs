@@ -27,6 +27,11 @@ public static class ChartBuilder
             $"《{(string.IsNullOrWhiteSpace(title) ? UntitledScore : title)}》 手碟按键谱",
             Header(meta, secondsPerBeat, totalBeats),
         };
+        if (meta.TempoChanges > 0)
+        {
+            lines.Add($"警告：检测到 {meta.TempoChanges} 处速度变化，已统一为 {Format(meta.Bpm, "0")} BPM");
+        }
+
         lines.AddRange(KeyLegend(tokens, keyMap));
         lines.AddRange(Bars(tokens, meta.TimeSignature.BeatsPerBar, keyMap));
         lines.AddRange(MissingWarning(missing));

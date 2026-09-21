@@ -2,6 +2,8 @@ namespace RocoPilot.Handpan;
 
 public static class MelodyLine
 {
+    private const int OnsetToleranceUnits = 2;
+
     public static IReadOnlyList<MidiNote> InTimeOrder(IReadOnlyList<MidiNote> notes) =>
         [.. notes.OrderBy(note => note.StartBeat).ThenByDescending(note => note.Pitch)];
 
@@ -10,7 +12,9 @@ public static class MelodyLine
         var groups = new List<List<MidiNote>>();
         foreach (var note in InTimeOrder(notes))
         {
-            if (groups.Count > 0 && BeatGrid.SameOnset(groups[^1][0].StartBeat, note.StartBeat))
+            if (groups.Count > 0
+                && Math.Abs(BeatGrid.ToUnits(note.StartBeat) - BeatGrid.ToUnits(groups[^1][0].StartBeat))
+                    <= OnsetToleranceUnits)
             {
                 groups[^1].Add(note);
                 continue;

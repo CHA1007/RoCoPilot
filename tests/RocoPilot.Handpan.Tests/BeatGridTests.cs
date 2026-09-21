@@ -30,12 +30,4 @@ public class BeatGridTests
         Assert.Equal(expected, BeatGrid.ToBeats(units));
     }
 
-    [Theory]
-    [InlineData(1, 1, true)]
-    [InlineData(1, 1.005, true)]
-    [InlineData(1, 1.02, false)]
-    public void Onsets_within_a_grid_unit_are_the_same(double left, double right, bool expected)
-    {
-        Assert.Equal(expected, BeatGrid.SameOnset(left, right));
-    }
 }

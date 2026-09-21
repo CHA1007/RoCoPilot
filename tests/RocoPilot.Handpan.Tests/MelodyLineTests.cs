@@ -31,6 +31,33 @@ public class MelodyLineTests
     }
 
     [Fact]
+    public void Notes_within_the_tolerance_join_the_earlier_group()
+    {
+        var groups = MelodyLine.OnsetGroups([Note(0, 1, 60), Note(0.03, 1, 64), Note(1, 2, 67)]);
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal([64, 60], groups[0].Select(note => note.Pitch));
+        Assert.Equal([67], groups[1].Select(note => note.Pitch));
+    }
+
+    [Fact]
+    public void Notes_beyond_the_tolerance_start_a_new_group()
+    {
+        var groups = MelodyLine.OnsetGroups([Note(0, 1, 60), Note(0.07, 1, 64)]);
+
+        Assert.Equal(2, groups.Count);
+    }
+
+    [Fact]
+    public void The_tolerance_is_anchored_to_the_first_note_of_the_group()
+    {
+        var groups = MelodyLine.OnsetGroups([Note(0, 1, 60), Note(0.02, 1, 64), Note(0.06, 1, 67)]);
+
+        Assert.Equal(2, groups.Count);
+        Assert.Equal([67], groups[1].Select(note => note.Pitch));
+    }
+
+    [Fact]
     public void Groups_are_ordered_by_onset()
     {
         var groups = MelodyLine.OnsetGroups([Note(2, 3, 60), Note(0, 1, 64)]);

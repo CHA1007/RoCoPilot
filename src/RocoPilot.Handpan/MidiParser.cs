@@ -77,6 +77,7 @@ public static class MidiParser
 
         var tempoUs = PickMainTempo(tempos);
         var bpm = 60_000_000.0 / tempoUs;
+        var tempoChanges = Math.Max(0, tempos.Count - 1);
         var key = KeyFromSignature(keySignatures.Count > 0 ? keySignatures[0] : null);
         var timeSignature = timeSignatures.Count > 0 ? timeSignatures[0] : new TimeSignature(4, 4);
 
@@ -86,7 +87,7 @@ public static class MidiParser
                 [.. track.Notes.Select(n => ToBeatNote(n, division, bpm))]))
             .ToList();
 
-        return new MidiScore(parts, new MidiMeta(bpm, key, timeSignature));
+        return new MidiScore(parts, new MidiMeta(bpm, key, timeSignature, tempoChanges));
     }
 
     private static RawTrack ParseTrack(

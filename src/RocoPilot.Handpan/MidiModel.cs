@@ -33,7 +33,7 @@ public sealed record MusicKey(string Tonic, bool IsMinor)
     }
 }
 
-public sealed record MidiMeta(double Bpm, MusicKey? Key, TimeSignature TimeSignature);
+public sealed record MidiMeta(double Bpm, MusicKey? Key, TimeSignature TimeSignature, int TempoChanges = 0);
 
 public sealed record MidiScore(IReadOnlyList<MidiPart> Parts, MidiMeta Meta);
 

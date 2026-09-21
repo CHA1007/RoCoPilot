@@ -92,10 +92,10 @@ public class PlaybackPlannerTests
     [Fact]
     public void Overlapping_holds_on_different_keys_are_kept_whole()
     {
-        var plan = Plan([Note(0, 1, 72), Note(0.02, 1, 74)]);
+        var plan = Plan([Note(0, 1, 72), Note(0.1, 1, 74)]);
 
         Assert.Equal([0.05, 0.05], plan.Presses.Select(press => press.HoldSeconds));
-        Assert.Equal(0.06, plan.EndsAtSeconds, 10);
+        Assert.Equal(0.1, plan.EndsAtSeconds, 10);
     }
 
     [Fact]
@@ -148,34 +148,34 @@ public class PlaybackPlannerTests
     [Fact]
     public void Presses_are_ordered_by_time_then_by_key()
     {
-        var plan = Plan([Note(0, 1, 76), Note(0, 1, 72), Note(0.021, 1, 65)]);
+        var plan = Plan([Note(0.08, 1, 72), Note(0, 1, 65), Note(0, 1, 76)]);
 
         Assert.Equal(["U", "G", "T"], plan.Presses.Select(press => press.Key));
-        AssertTimes([0, 0.0105, 0.012], plan.Presses.Select(press => press.DownAtSeconds));
+        AssertTimes([0, 0.012, 0.04], plan.Presses.Select(press => press.DownAtSeconds));
     }
 
     [Fact]
     public void The_same_key_pressed_again_shortens_the_previous_hold()
     {
-        var plan = Plan([Note(0, 1, 72), Note(0.04, 1, 72)]);
+        var plan = Plan([Note(0, 1, 72), Note(0.08, 1, 72)]);
 
-        AssertTimes([0, 0.02], plan.Presses.Select(press => press.DownAtSeconds));
-        AssertTimes([0.02, 0.05], plan.Presses.Select(press => press.HoldSeconds));
-        Assert.Equal(0.07, plan.EndsAtSeconds, 10);
+        AssertTimes([0, 0.04], plan.Presses.Select(press => press.DownAtSeconds));
+        AssertTimes([0.04, 0.05], plan.Presses.Select(press => press.HoldSeconds));
+        Assert.Equal(0.09, plan.EndsAtSeconds, 10);
     }
 
     [Fact]
     public void Holds_never_shift_later_notes()
     {
-        var line = Enumerable.Range(0, 10).Select(index => Note(index * 0.04, index * 0.04 + 1, 72)).ToList();
+        var line = Enumerable.Range(0, 10).Select(index => Note(index * 0.08, index * 0.08 + 1, 72)).ToList();
 
         var plan = Plan(line);
 
-        AssertTimes([0.18], plan.Notes.Select(note => note.AtSeconds).TakeLast(1));
+        AssertTimes([0.36], plan.Notes.Select(note => note.AtSeconds).TakeLast(1));
         AssertTimes(
-            [.. Enumerable.Repeat(0.02, 9).Append(0.05)],
+            [.. Enumerable.Repeat(0.04, 9).Append(0.05)],
             plan.Presses.Select(press => press.HoldSeconds));
-        Assert.Equal(0.23, plan.EndsAtSeconds, 9);
+        Assert.Equal(0.41, plan.EndsAtSeconds, 9);
     }
 
     [Fact]
@@ -201,10 +201,10 @@ public class PlaybackPlannerTests
     [Fact]
     public void A_release_comes_before_a_repress_of_the_same_key()
     {
-        var plan = Plan([Note(0, 1, 72), Note(0.04, 1, 72)]);
+        var plan = Plan([Note(0, 1, 72), Note(0.08, 1, 72)]);
 
         Assert.Equal([true, false, true, false], plan.KeyEvents.Select(keyEvent => keyEvent.IsDown));
-        AssertTimes([0, 0.02, 0.02, 0.07], plan.KeyEvents.Select(keyEvent => keyEvent.AtSeconds));
+        AssertTimes([0, 0.04, 0.04, 0.09], plan.KeyEvents.Select(keyEvent => keyEvent.AtSeconds));
     }
 
     [Fact]

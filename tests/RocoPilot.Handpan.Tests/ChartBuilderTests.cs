@@ -11,8 +11,9 @@ public class ChartBuilderTests
     private static MidiMeta Meta(
         double bpm = 120,
         MusicKey? tonic = null,
-        TimeSignature? timeSignature = null) =>
-        new(bpm, tonic, timeSignature ?? new TimeSignature(4, 4));
+        TimeSignature? timeSignature = null,
+        int tempoChanges = 0) =>
+        new(bpm, tonic, timeSignature ?? new TimeSignature(4, 4), tempoChanges);
 
     private static string Sequence(HandpanChart chart) =>
         string.Join(" / ", chart.Lines.Where(line => line.StartsWith("  |")));
@@ -46,6 +47,22 @@ public class ChartBuilderTests
 
         Assert.Equal("《晴天》 手碟按键谱", chart.Lines[0]);
         Assert.Equal("调号 1=F#  BPM=120  拍号 4/4  1拍=0.500秒  总时长≈1.5秒", chart.Lines[1]);
+    }
+
+    [Fact]
+    public void A_flattened_tempo_map_warns_after_the_header()
+    {
+        var chart = ChartBuilder.Build([Note(0, 1, 72)], Meta(tempoChanges: 2), DefaultMap);
+
+        Assert.Equal("警告：检测到 2 处速度变化，已统一为 120 BPM", chart.Lines[2]);
+    }
+
+    [Fact]
+    public void A_single_tempo_never_warns()
+    {
+        var chart = ChartBuilder.Build([Note(0, 1, 72)], Meta(), DefaultMap);
+
+        Assert.Equal("", chart.Lines[2]);
     }
 
     [Fact]

@@ -7,6 +7,4 @@ public static class BeatGrid
     public static long ToUnits(double beats) => (long)Math.Round(beats * UnitsPerBeat);
 
     public static double ToBeats(long units) => (double)units / UnitsPerBeat;
-
-    public static bool SameOnset(double left, double right) => ToUnits(left) == ToUnits(right);
 }

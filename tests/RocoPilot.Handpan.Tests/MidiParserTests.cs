@@ -242,6 +242,7 @@ public class MidiParserTests
             new TrackBuilder().At(0).NoteOn(0, 60).At(480).NoteOff(0, 60));
 
         Assert.Equal(100, Parse(data).Meta.Bpm);
+        Assert.Equal(0, Parse(data).Meta.TempoChanges);
     }
 
     [Fact]
@@ -256,6 +257,22 @@ public class MidiParserTests
                 .At(1920).NoteOff(0, 60));
 
         Assert.Equal(60, Parse(data).Meta.Bpm);
+        Assert.Equal(1, Parse(data).Meta.TempoChanges);
+    }
+
+    [Fact]
+    public void Every_tempo_event_beyond_the_first_counts_as_a_change()
+    {
+        var data = MidiBytes.File(1, 480,
+            new TrackBuilder()
+                .At(0).Tempo(500_000)
+                .At(480).Tempo(400_000)
+                .At(960).Tempo(600_000),
+            new TrackBuilder()
+                .At(0).NoteOn(0, 60)
+                .At(1920).NoteOff(0, 60));
+
+        Assert.Equal(2, Parse(data).Meta.TempoChanges);
     }
 
     [Fact]
