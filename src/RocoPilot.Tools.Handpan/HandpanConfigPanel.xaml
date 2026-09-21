@@ -204,6 +204,34 @@
 
         <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
           <StackPanel>
+            <ui:TextBlock FontTypography="BodyStrong" Text="补击间隔（拍）" />
+            <ui:TextBlock Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="长音每过几拍补敲一次，补击落在拍上；0 为不补"
+                          TextWrapping="Wrap" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="RestrikeSlider"
+                      Grid.Column="0"
+                      Minimum="0" Maximum="4"
+                      TickFrequency="0.25" IsSnapToTickEnabled="True"
+                      Value="{Binding RestrikeIntervalBeats}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=RestrikeSlider, StringFormat={}{0:0.##}}" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />

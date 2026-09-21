@@ -6,6 +6,7 @@ namespace RocoPilot.Tools.Handpan;
 public sealed record ScoreProfile(
     int Transpose = 0,
     int MinIntervalMs = 0,
+    double RestrikeIntervalBeats = 0,
     bool SpeedByPercent = false,
     double SpeedPercent = 100,
     double BpmOverride = 0);
@@ -43,9 +44,15 @@ public sealed class HandpanSettings
 
     public int ChordStaggerMs { get; set; } = 12;
 
+    public double RestrikeIntervalBeats { get; set; }
+
     public KeyMap ToKeyMap() => new(KeyMapEntries);
 
-    public PlaybackTiming ToTiming() => new(HoldMs / 1000.0, ChordHoldMs / 1000.0, ChordStaggerMs / 1000.0);
+    public PlaybackTiming ToTiming() => new(
+        HoldMs / 1000.0,
+        ChordHoldMs / 1000.0,
+        ChordStaggerMs / 1000.0,
+        RestrikeIntervalBeats);
 
     public ArrangementOptions ToArrangement() =>
         new(
@@ -77,6 +84,7 @@ public sealed class HandpanSettings
         ScoreProfiles[scoreName] = new ScoreProfile(
             Transpose,
             MinIntervalMs,
+            RestrikeIntervalBeats,
             SpeedByPercent,
             SpeedPercent,
             BpmOverride);
@@ -94,6 +102,7 @@ public sealed class HandpanSettings
         HoldMs = (int)Clamp(HoldMs, 20, 500);
         ChordHoldMs = (int)Clamp(ChordHoldMs, 20, 500);
         ChordStaggerMs = (int)Clamp(ChordStaggerMs, 0, 200);
+        RestrikeIntervalBeats = FiniteOrBaseline(RestrikeIntervalBeats, Baseline.RestrikeIntervalBeats, 0, 8);
         ScoreProfiles = SanitizeProfiles(ScoreProfiles);
     }
 
@@ -110,6 +119,7 @@ public sealed class HandpanSettings
     private static ScoreProfile SanitizeProfile(ScoreProfile profile) => new(
         (int)Clamp(profile.Transpose, -11, 11),
         (int)Clamp(profile.MinIntervalMs, 0, 300),
+        FiniteOrBaseline(profile.RestrikeIntervalBeats, 0, 0, 8),
         profile.SpeedByPercent,
         FiniteOrBaseline(profile.SpeedPercent, 100, 50, 200),
         FiniteOrBaseline(profile.BpmOverride, 0, 0, 240));

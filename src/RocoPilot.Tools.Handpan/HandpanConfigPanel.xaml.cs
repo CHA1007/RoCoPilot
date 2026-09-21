@@ -116,11 +116,13 @@ public partial class HandpanConfigPanel : UserControl
         {
             _settings.Transpose = profile.Transpose;
             _settings.MinIntervalMs = profile.MinIntervalMs;
+            _settings.RestrikeIntervalBeats = profile.RestrikeIntervalBeats;
             _settings.SpeedByPercent = profile.SpeedByPercent;
             _settings.SpeedPercent = profile.SpeedPercent;
             _settings.BpmOverride = profile.BpmOverride;
             TransposeSlider.Value = profile.Transpose;
             MinIntervalSlider.Value = profile.MinIntervalMs;
+            RestrikeSlider.Value = profile.RestrikeIntervalBeats;
             SpeedModeToggle.IsChecked = profile.SpeedByPercent;
             SpeedPercentSlider.Value = profile.SpeedPercent;
             BpmSlider.Value = profile.BpmOverride;

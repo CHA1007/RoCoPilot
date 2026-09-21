@@ -2,6 +2,8 @@ namespace RocoPilot.Handpan;
 
 public static class PlaybackPlanner
 {
+    private const double RestrikeTailSeconds = 0.3;
+
     public static PlaybackPlan Plan(
         IReadOnlyList<MidiNote> notes,
         double bpm,
@@ -21,14 +23,33 @@ public static class PlaybackPlanner
                 continue;
             }
 
-            planned.Add(new PlannedNote(
-                group[0].StartBeat * secondsPerBeat,
-                keys,
-                keys.Count > 1 ? Math.Max(0, holds.ChordHoldSeconds) : Math.Max(0, holds.HoldSeconds)));
+            var hold = keys.Count > 1 ? Math.Max(0, holds.ChordHoldSeconds) : Math.Max(0, holds.HoldSeconds);
+            var start = group[0].StartBeat;
+            var end = group.Max(note => note.EndBeat);
+            foreach (var at in StrikeTimes(start, end, holds.RestrikeIntervalBeats, secondsPerBeat))
+            {
+                planned.Add(new PlannedNote(at * secondsPerBeat, keys, hold));
+            }
         }
 
+        planned = [.. planned.OrderBy(note => note.AtSeconds)];
         var presses = ClampRepeatedKeys(Presses(planned, Math.Max(0, holds.ChordStaggerSeconds)));
         return new PlaybackPlan(planned, presses, KeyEvents(presses), secondsPerBeat, EndsAt(presses), missing);
+    }
+
+    private static IEnumerable<double> StrikeTimes(double start, double end, double intervalBeats, double secondsPerBeat)
+    {
+        yield return start;
+        if (intervalBeats <= 0)
+        {
+            yield break;
+        }
+
+        var tailBeats = RestrikeTailSeconds / secondsPerBeat;
+        for (var at = start + intervalBeats; at + tailBeats <= end; at += intervalBeats)
+        {
+            yield return at;
+        }
     }
 
     private static IReadOnlyList<string> Keys(IReadOnlyList<MidiNote> group, KeyMap keyMap)

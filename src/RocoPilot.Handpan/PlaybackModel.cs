@@ -3,7 +3,8 @@ namespace RocoPilot.Handpan;
 public sealed record PlaybackTiming(
     double HoldSeconds = 0.05,
     double ChordHoldSeconds = 0.06,
-    double ChordStaggerSeconds = 0.012);
+    double ChordStaggerSeconds = 0.012,
+    double RestrikeIntervalBeats = 0);
 
 public sealed record KeyPress(string Key, double DownAtSeconds, double HoldSeconds)
 {

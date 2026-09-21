@@ -128,7 +128,66 @@ public class PlaybackPlannerTests
     [Fact]
     public void The_measured_constants_are_the_defaults()
     {
-        Assert.Equal(new PlaybackTiming(0.05, 0.06, 0.012), new PlaybackTiming());
+        Assert.Equal(new PlaybackTiming(0.05, 0.06, 0.012, 0), new PlaybackTiming());
+    }
+
+    [Fact]
+    public void A_long_note_is_restruck_on_the_beat_until_its_tail()
+    {
+        var plan = Plan([Note(0, 4, 72)], timing: new PlaybackTiming(RestrikeIntervalBeats: 1));
+
+        Assert.Equal(4, plan.NoteCount);
+        Assert.Equal(["T", "T", "T", "T"], plan.Presses.Select(press => press.Key));
+        AssertTimes([0, 0.5, 1, 1.5], plan.Presses.Select(press => press.DownAtSeconds));
+        AssertTimes([0.05, 0.05, 0.05, 0.05], plan.Presses.Select(press => press.HoldSeconds));
+    }
+
+    [Fact]
+    public void A_note_shorter_than_the_interval_strikes_once()
+    {
+        var plan = Plan([Note(0, 1, 72)], timing: new PlaybackTiming(RestrikeIntervalBeats: 1));
+
+        Assert.Equal(1, plan.NoteCount);
+    }
+
+    [Fact]
+    public void A_zero_interval_disables_restrikes()
+    {
+        var plan = Plan([Note(0, 4, 72)], timing: new PlaybackTiming(RestrikeIntervalBeats: 0));
+
+        Assert.Equal(1, plan.NoteCount);
+    }
+
+    [Fact]
+    public void A_fractional_interval_restrikes_on_subdivisions()
+    {
+        var plan = Plan([Note(0, 4, 72)], timing: new PlaybackTiming(RestrikeIntervalBeats: 0.5));
+
+        AssertTimes(
+            [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5],
+            plan.Presses.Select(press => press.DownAtSeconds));
+    }
+
+    [Fact]
+    public void A_long_chord_restrikes_with_the_same_stagger()
+    {
+        var plan = Plan([Note(0, 4, 72), Note(0, 4, 76)], timing: new PlaybackTiming(RestrikeIntervalBeats: 1));
+
+        Assert.Equal(
+            ["U", "T", "U", "T", "U", "T", "U", "T"],
+            plan.Presses.Select(press => press.Key));
+        AssertTimes(
+            [0, 0.012, 0.5, 0.512, 1, 1.012, 1.5, 1.512],
+            plan.Presses.Select(press => press.DownAtSeconds));
+    }
+
+    [Fact]
+    public void Restrikes_interleave_with_later_notes_in_time_order()
+    {
+        var plan = Plan([Note(0, 2.5, 72), Note(2.5, 3, 74)], timing: new PlaybackTiming(RestrikeIntervalBeats: 1));
+
+        AssertTimes([0, 0.5, 1.25], plan.Notes.Select(note => note.AtSeconds));
+        Assert.Equal(["T", "T", "Y"], plan.Notes.Select(note => Assert.Single(note.Keys)));
     }
 
     [Fact]

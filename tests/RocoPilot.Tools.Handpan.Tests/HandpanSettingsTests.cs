@@ -21,6 +21,7 @@ public class HandpanSettingsTests
         Assert.Equal(50, settings.HoldMs);
         Assert.Equal(60, settings.ChordHoldMs);
         Assert.Equal(12, settings.ChordStaggerMs);
+        Assert.Equal(0, settings.RestrikeIntervalBeats);
         Assert.Equal(string.Empty, settings.ScoreName);
         Assert.Equal(HandpanMode.Play, settings.Mode);
     }
@@ -38,9 +39,15 @@ public class HandpanSettingsTests
     [Fact]
     public void Timing_converts_milliseconds_to_seconds()
     {
-        var settings = new HandpanSettings { HoldMs = 80, ChordHoldMs = 90, ChordStaggerMs = 20 };
+        var settings = new HandpanSettings
+        {
+            HoldMs = 80,
+            ChordHoldMs = 90,
+            ChordStaggerMs = 20,
+            RestrikeIntervalBeats = 1.5,
+        };
 
-        Assert.Equal(new PlaybackTiming(0.08, 0.09, 0.02), settings.ToTiming());
+        Assert.Equal(new PlaybackTiming(0.08, 0.09, 0.02, 1.5), settings.ToTiming());
     }
 
     [Fact]
@@ -229,17 +236,20 @@ public class HandpanSettingsTests
             ScoreName = "晴天",
             Transpose = 2,
             MinIntervalMs = 120,
+            RestrikeIntervalBeats = 2,
             SpeedByPercent = true,
             SpeedPercent = 85,
         };
 
         settings.SaveProfile(settings.ScoreName);
         settings.Transpose = -5;
+        settings.RestrikeIntervalBeats = 0.5;
         settings.SpeedPercent = 100;
 
         var profile = settings.ProfileOf("晴天");
         Assert.Equal(2, profile.Transpose);
         Assert.Equal(120, profile.MinIntervalMs);
+        Assert.Equal(2, profile.RestrikeIntervalBeats);
         Assert.True(profile.SpeedByPercent);
         Assert.Equal(85, profile.SpeedPercent);
     }
@@ -262,7 +272,7 @@ public class HandpanSettingsTests
         {
             ScoreProfiles = new Dictionary<string, ScoreProfile>
             {
-                ["晴天"] = new(40, 600, true, 999, 1e6),
+                ["晴天"] = new(40, 600, 12, true, 999, 1e6),
                 ["  "] = new(),
             },
         };
@@ -270,7 +280,7 @@ public class HandpanSettingsTests
         settings.SanitizeInPlace();
 
         var profile = Assert.Single(settings.ScoreProfiles);
-        Assert.Equal(new ScoreProfile(11, 300, true, 200, 240), profile.Value);
+        Assert.Equal(new ScoreProfile(11, 300, 8, true, 200, 240), profile.Value);
     }
 
     [Fact]
