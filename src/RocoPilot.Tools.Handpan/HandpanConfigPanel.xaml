@@ -75,7 +75,7 @@
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
                           Text="导入 .mid 文件加入曲谱库"
-                          TextTrimming="CharacterEllipsis" />
+                          TextWrapping="Wrap" />
 
             <ProgressBar x:Name="ProgressTrack"
                          Height="4"
@@ -226,6 +226,36 @@
                             HorizontalAlignment="Right"
                             FontTypography="Body"
                             Text="{Binding Value, ElementName=RestrikeSlider, StringFormat={}{0:0.##}}" />
+            </Grid>
+          </StackPanel>
+        </ui:Card>
+
+        <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
+          <StackPanel>
+            <ui:ToggleSwitch x:Name="AccompanyToggle"
+                             Content="和弦伴奏"
+                             IsChecked="{Binding Accompany}" />
+            <ui:TextBlock Margin="0,6,0,8"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="复用曲谱自带的和弦声部，量化到固定拍距后垫在旋律下方；单轨曲谱没有可用伴奏"
+                          TextWrapping="Wrap" />
+            <Grid x:Name="AccompanyRow" Visibility="Collapsed">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="AccompanyEverySlider"
+                      Grid.Column="0"
+                      Minimum="0.5" Maximum="4"
+                      TickFrequency="0.5" IsSnapToTickEnabled="True"
+                      Value="{Binding AccompanyEveryBeats}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=AccompanyEverySlider, StringFormat={}{0:0.#}拍}" />
             </Grid>
           </StackPanel>
         </ui:Card>

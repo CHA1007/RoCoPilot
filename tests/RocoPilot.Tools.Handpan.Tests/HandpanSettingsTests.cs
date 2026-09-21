@@ -22,6 +22,8 @@ public class HandpanSettingsTests
         Assert.Equal(60, settings.ChordHoldMs);
         Assert.Equal(12, settings.ChordStaggerMs);
         Assert.Equal(0, settings.RestrikeIntervalBeats);
+        Assert.False(settings.Accompany);
+        Assert.Equal(2, settings.AccompanyEveryBeats);
         Assert.Equal(string.Empty, settings.ScoreName);
         Assert.Equal(HandpanMode.Play, settings.Mode);
     }
@@ -237,6 +239,8 @@ public class HandpanSettingsTests
             Transpose = 2,
             MinIntervalMs = 120,
             RestrikeIntervalBeats = 2,
+            Accompany = true,
+            AccompanyEveryBeats = 1,
             SpeedByPercent = true,
             SpeedPercent = 85,
         };
@@ -244,12 +248,16 @@ public class HandpanSettingsTests
         settings.SaveProfile(settings.ScoreName);
         settings.Transpose = -5;
         settings.RestrikeIntervalBeats = 0.5;
+        settings.Accompany = false;
+        settings.AccompanyEveryBeats = 4;
         settings.SpeedPercent = 100;
 
         var profile = settings.ProfileOf("晴天");
         Assert.Equal(2, profile.Transpose);
         Assert.Equal(120, profile.MinIntervalMs);
         Assert.Equal(2, profile.RestrikeIntervalBeats);
+        Assert.True(profile.Accompany);
+        Assert.Equal(1, profile.AccompanyEveryBeats);
         Assert.True(profile.SpeedByPercent);
         Assert.Equal(85, profile.SpeedPercent);
     }
@@ -272,7 +280,7 @@ public class HandpanSettingsTests
         {
             ScoreProfiles = new Dictionary<string, ScoreProfile>
             {
-                ["晴天"] = new(40, 600, 12, true, 999, 1e6),
+                ["晴天"] = new(40, 600, 12, true, 30, true, 999, 1e6),
                 ["  "] = new(),
             },
         };
@@ -280,7 +288,7 @@ public class HandpanSettingsTests
         settings.SanitizeInPlace();
 
         var profile = Assert.Single(settings.ScoreProfiles);
-        Assert.Equal(new ScoreProfile(11, 300, 8, true, 200, 240), profile.Value);
+        Assert.Equal(new ScoreProfile(11, 300, 8, true, 8, true, 200, 240), profile.Value);
     }
 
     [Fact]

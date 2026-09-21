@@ -5,6 +5,8 @@ public sealed record ArrangementOptions(
     double MinIntervalSeconds = 0,
     double BpmOverride = 0,
     double SpeedPercent = 100,
+    bool Accompany = false,
+    double AccompanyEveryBeats = 2,
     PlaybackTiming? Timing = null);
 
 public sealed record HandpanArrangement(
@@ -31,15 +33,42 @@ public static class HandpanArranger
             ? chosen.BpmOverride
             : score.Meta.Bpm * chosen.SpeedPercent / 100.0;
         var meta = score.Meta with { Bpm = bpm };
-        var line = MelodyPicker.Pick(score).Line;
-        var fit = MelodyFitting.Fit(line, keyMap, meta.Key, chosen.Transpose);
-        var notes = MelodyFitting.Spacing(fit.Notes, chosen.MinIntervalSeconds * meta.Bpm / 60.0);
+        var selection = MelodyPicker.Pick(score);
+        var fit = MelodyFitting.Fit(selection.Line, keyMap, meta.Key, chosen.Transpose);
+        var fitted = chosen.Accompany
+            ? WithAccompaniment(selection, fit, keyMap, meta.Key, chosen.AccompanyEveryBeats)
+            : fit.Notes;
+        var notes = MelodyFitting.Spacing(fitted, chosen.MinIntervalSeconds * meta.Bpm / 60.0);
         return new HandpanArrangement(
             meta,
-            line,
+            selection.Line,
             fit,
             notes,
             ChartBuilder.Build(notes, meta, keyMap, title),
             PlaybackPlanner.Plan(notes, meta.Bpm, keyMap, chosen.Timing));
+    }
+
+    private static IReadOnlyList<MidiNote> WithAccompaniment(
+        MelodySelection selection,
+        MelodyFit fit,
+        KeyMap keyMap,
+        MusicKey? key,
+        double everyBeats)
+    {
+        var track = Accompaniment.PickTrack(selection);
+        if (track is null)
+        {
+            return fit.Notes;
+        }
+
+        var line = Accompaniment.Extract(track, everyBeats);
+        if (line.Count == 0)
+        {
+            return fit.Notes;
+        }
+
+        var accompaniment = MelodyFitting.Fit(line, keyMap, key, fit.Semitones);
+        return [.. MelodyLine.InTimeOrder(
+            [.. fit.Notes, .. accompaniment.Notes.Where(note => keyMap.Contains(note.Pitch))])];
     }
 }

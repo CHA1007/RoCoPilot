@@ -8,17 +8,24 @@ public class HandpanArrangerTests
 
     private static MidiNote Note(double start, double end, int pitch) => new(0, pitch, start, end);
 
-    private static MidiScore Score(
-        double bpm = 120,
-        MusicKey? key = null,
-        params MidiNote[] notes) =>
-        new([new MidiPart("主旋律", notes)], new MidiMeta(bpm, key, new TimeSignature(4, 4)));
+    private static MidiScore Score(params MidiPart[] parts) =>
+        new([.. parts], new MidiMeta(120, null, new TimeSignature(4, 4)));
+
+    private static MidiScore AtBpm(double bpm, params MidiPart[] parts) =>
+        new([.. parts], new MidiMeta(bpm, null, new TimeSignature(4, 4)));
+
+    private static MidiScore InKey(MusicKey key, params MidiPart[] parts) =>
+        new([.. parts], new MidiMeta(120, key, new TimeSignature(4, 4)));
+
+    private static MidiPart Melody(params MidiNote[] notes) => new("主旋律", notes);
+
+    private static MidiPart Pads(params MidiNote[] notes) => new("和弦", notes);
 
     [Fact]
     public void A_line_inside_the_key_range_is_planned_as_is()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 72), Note(1, 2, 74)]),
+            Score(Melody([Note(0, 1, 72), Note(1, 2, 74)])),
             DefaultMap);
 
         Assert.Equal(0, arrangement.Fit.Semitones);
@@ -30,7 +37,7 @@ public class HandpanArrangerTests
     [Fact]
     public void Best_transposition_finds_the_shift_for_a_line_outside_the_key_range()
     {
-        var score = Score(notes: [Note(0, 1, 62), Note(1, 2, 65), Note(2, 3, 67)]);
+        var score = Score(Melody([Note(0, 1, 62), Note(1, 2, 65), Note(2, 3, 67)]));
 
         Assert.Equal(2, HandpanArranger.BestTransposition(score, DefaultMap));
     }
@@ -39,7 +46,7 @@ public class HandpanArrangerTests
     public void The_computed_transposition_reaches_the_arrangement()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 62), Note(1, 2, 65), Note(2, 3, 67)]),
+            Score(Melody([Note(0, 1, 62), Note(1, 2, 65), Note(2, 3, 67)])),
             DefaultMap,
             options: new ArrangementOptions(Transpose: 2));
 
@@ -51,7 +58,7 @@ public class HandpanArrangerTests
     public void An_explicit_transposition_is_applied_as_given()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 72)]),
+            Score(Melody([Note(0, 1, 72)])),
             DefaultMap,
             options: new ArrangementOptions(Transpose: -5));
 
@@ -62,7 +69,7 @@ public class HandpanArrangerTests
     [Fact]
     public void Best_transposition_keeps_zero_for_a_line_already_in_range()
     {
-        var score = Score(notes: [Note(0, 1, 72), Note(1, 2, 74)]);
+        var score = Score(Melody([Note(0, 1, 72), Note(1, 2, 74)]));
 
         Assert.Equal(0, HandpanArranger.BestTransposition(score, DefaultMap));
     }
@@ -71,11 +78,77 @@ public class HandpanArrangerTests
     public void A_minor_key_snaps_chromatic_notes_to_the_minor_scale()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(key: new MusicKey("A", true), notes: [Note(0, 1, 73)]),
+            InKey(new MusicKey("A", true), Melody([Note(0, 1, 73)])),
             DefaultMap);
 
         Assert.Equal([72], arrangement.Notes.Select(note => note.Pitch));
         Assert.StartsWith("调号 1=C（A 小调）", arrangement.Chart.Lines[1]);
+    }
+
+    [Fact]
+    public void The_accompaniment_is_off_by_default()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(
+                Melody([Note(0, 1, 72), Note(1, 2, 74)]),
+                Pads([Note(0, 4, 57), Note(0, 4, 64)])),
+            DefaultMap);
+
+        Assert.Equal([72, 74], arrangement.Notes.Select(note => note.Pitch));
+    }
+
+    [Fact]
+    public void An_accompaniment_stab_lands_under_the_melody()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(
+                Melody([Note(0, 1, 72)]),
+                Pads([Note(0.1, 4, 57), Note(0.1, 4, 64)])),
+            DefaultMap,
+            options: new ArrangementOptions(Accompany: true));
+
+        Assert.Equal([72, 64, 57], arrangement.Notes.Select(note => note.Pitch));
+        var note = Assert.Single(arrangement.Plan.Notes);
+        Assert.Equal(["T", "F", "B"], note.Keys);
+        Assert.True(note.IsChord);
+    }
+
+    [Fact]
+    public void The_accompaniment_follows_the_transposition()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(
+                Melody([Note(0, 1, 72)]),
+                Pads([Note(0.1, 4, 55)])),
+            DefaultMap,
+            options: new ArrangementOptions(Transpose: 2, Accompany: true));
+
+        Assert.Equal([74, 57], arrangement.Notes.Select(note => note.Pitch));
+    }
+
+    [Fact]
+    public void Accompaniment_notes_outside_the_range_are_dropped()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(
+                Melody([Note(0, 1, 72)]),
+                Pads([Note(0.1, 4, 2)])),
+            DefaultMap,
+            options: new ArrangementOptions(Accompany: true));
+
+        Assert.Equal([72], arrangement.Notes.Select(note => note.Pitch));
+        Assert.Equal(0, arrangement.Chart.MissingCount);
+    }
+
+    [Fact]
+    public void A_melody_only_score_plays_without_accompaniment()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(Melody([Note(0, 1, 72)])),
+            DefaultMap,
+            options: new ArrangementOptions(Accompany: true));
+
+        Assert.Equal([72], arrangement.Notes.Select(note => note.Pitch));
     }
 
     [Fact]
@@ -88,7 +161,7 @@ public class HandpanArrangerTests
     public void A_dense_line_is_spaced_in_seconds()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 0.1, 72), Note(0.1, 0.2, 74), Note(0.2, 0.3, 76)]),
+            Score(Melody([Note(0, 0.1, 72), Note(0.1, 0.2, 74), Note(0.2, 0.3, 76)])),
             DefaultMap,
             options: new ArrangementOptions(MinIntervalSeconds: 0.15));
 
@@ -100,7 +173,7 @@ public class HandpanArrangerTests
     public void A_sparse_line_is_left_alone_by_the_interval()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 72), Note(2, 3, 74)]),
+            Score(Melody([Note(0, 1, 72), Note(2, 3, 74)])),
             DefaultMap,
             options: new ArrangementOptions(MinIntervalSeconds: 0.15));
 
@@ -111,7 +184,7 @@ public class HandpanArrangerTests
     public void A_speed_percent_scales_the_score_tempo()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(bpm: 90, notes: [Note(0, 1, 72)]),
+            AtBpm(90, Melody([Note(0, 1, 72)])),
             DefaultMap,
             options: new ArrangementOptions(SpeedPercent: 50));
 
@@ -123,7 +196,7 @@ public class HandpanArrangerTests
     public void An_absolute_override_wins_over_the_percent()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(bpm: 90, notes: [Note(0, 1, 72)]),
+            AtBpm(90, Melody([Note(0, 1, 72)])),
             DefaultMap,
             options: new ArrangementOptions(BpmOverride: 60, SpeedPercent: 50));
 
@@ -134,7 +207,7 @@ public class HandpanArrangerTests
     public void A_tempo_override_rescales_the_timeline_and_the_header()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(bpm: 120, notes: [Note(0, 1, 72), Note(2, 3, 74)]),
+            AtBpm(120, Melody([Note(0, 1, 72), Note(2, 3, 74)])),
             DefaultMap,
             options: new ArrangementOptions(BpmOverride: 60));
 
@@ -147,7 +220,7 @@ public class HandpanArrangerTests
     [Fact]
     public void The_score_tempo_is_kept_without_an_override()
     {
-        var arrangement = HandpanArranger.Arrange(Score(bpm: 90, notes: [Note(0, 1, 72)]), DefaultMap);
+        var arrangement = HandpanArranger.Arrange(AtBpm(90, Melody([Note(0, 1, 72)])), DefaultMap);
 
         Assert.Equal(90, arrangement.Meta.Bpm);
         Assert.Equal(60.0 / 90, arrangement.Plan.SecondsPerBeat);
@@ -157,7 +230,7 @@ public class HandpanArrangerTests
     public void Timing_options_reach_the_plan()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 72)]),
+            Score(Melody([Note(0, 1, 72)])),
             DefaultMap,
             options: new ArrangementOptions(Timing: new PlaybackTiming(HoldSeconds: 0.2)));
 
@@ -167,7 +240,7 @@ public class HandpanArrangerTests
     [Fact]
     public void The_title_reaches_the_chart()
     {
-        var arrangement = HandpanArranger.Arrange(Score(notes: [Note(0, 1, 72)]), DefaultMap, title: "晴天");
+        var arrangement = HandpanArranger.Arrange(Score(Melody([Note(0, 1, 72)])), DefaultMap, title: "晴天");
 
         Assert.Equal("《晴天》 手碟按键谱", arrangement.Chart.Lines[0]);
     }
@@ -176,7 +249,7 @@ public class HandpanArrangerTests
     public void The_chart_and_the_plan_share_one_timeline()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(bpm: 60, notes: [Note(0, 1, 72), Note(4, 5, 74)]),
+            AtBpm(60, Melody([Note(0, 1, 72), Note(4, 5, 74)])),
             DefaultMap);
 
         Assert.Equal(5, arrangement.Chart.TotalBeats);
@@ -193,7 +266,7 @@ public class HandpanArrangerTests
     public void The_picked_line_is_kept_before_fitting()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 62), Note(1, 2, 65)]),
+            Score(Melody([Note(0, 1, 62), Note(1, 2, 65)])),
             DefaultMap);
 
         Assert.Equal([62, 65], arrangement.Line.Select(note => note.Pitch));

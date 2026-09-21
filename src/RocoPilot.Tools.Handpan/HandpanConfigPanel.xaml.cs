@@ -64,6 +64,7 @@ public partial class HandpanConfigPanel : UserControl
         _ready = true;
         RefreshScores();
         SyncSpeedRows();
+        SyncAccompanyRow();
         foreach (var slider in FindAllChildren<Slider>(this))
         {
             slider.ValueChanged += OnSliderValueChanged;
@@ -105,7 +106,13 @@ public partial class HandpanConfigPanel : UserControl
         }
 
         SyncSpeedRows();
+        SyncAccompanyRow();
         Commit();
+    }
+
+    private void SyncAccompanyRow()
+    {
+        AccompanyRow.Visibility = _settings.Accompany ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ApplyScoreProfile()
@@ -117,12 +124,16 @@ public partial class HandpanConfigPanel : UserControl
             _settings.Transpose = profile.Transpose;
             _settings.MinIntervalMs = profile.MinIntervalMs;
             _settings.RestrikeIntervalBeats = profile.RestrikeIntervalBeats;
+            _settings.Accompany = profile.Accompany;
+            _settings.AccompanyEveryBeats = profile.AccompanyEveryBeats;
             _settings.SpeedByPercent = profile.SpeedByPercent;
             _settings.SpeedPercent = profile.SpeedPercent;
             _settings.BpmOverride = profile.BpmOverride;
             TransposeSlider.Value = profile.Transpose;
             MinIntervalSlider.Value = profile.MinIntervalMs;
             RestrikeSlider.Value = profile.RestrikeIntervalBeats;
+            AccompanyToggle.IsChecked = profile.Accompany;
+            AccompanyEverySlider.Value = profile.AccompanyEveryBeats;
             SpeedModeToggle.IsChecked = profile.SpeedByPercent;
             SpeedPercentSlider.Value = profile.SpeedPercent;
             BpmSlider.Value = profile.BpmOverride;
