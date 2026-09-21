@@ -212,6 +212,68 @@ public class HandpanSettingsTests
     }
 
     [Fact]
+    public void An_unknown_score_reads_the_default_profile()
+    {
+        var settings = new HandpanSettings();
+
+        Assert.Equal(new ScoreProfile(), settings.ProfileOf("晴天"));
+        Assert.Equal(new ScoreProfile(), settings.ProfileOf(null));
+        Assert.Equal(new ScoreProfile(), settings.ProfileOf("  "));
+    }
+
+    [Fact]
+    public void Saving_a_profile_round_trips_the_knobs()
+    {
+        var settings = new HandpanSettings
+        {
+            ScoreName = "晴天",
+            Transpose = 2,
+            MinIntervalMs = 120,
+            SpeedByPercent = true,
+            SpeedPercent = 85,
+        };
+
+        settings.SaveProfile(settings.ScoreName);
+        settings.Transpose = -5;
+        settings.SpeedPercent = 100;
+
+        var profile = settings.ProfileOf("晴天");
+        Assert.Equal(2, profile.Transpose);
+        Assert.Equal(120, profile.MinIntervalMs);
+        Assert.True(profile.SpeedByPercent);
+        Assert.Equal(85, profile.SpeedPercent);
+    }
+
+    [Fact]
+    public void Saving_without_a_score_name_keeps_the_map_empty()
+    {
+        var settings = new HandpanSettings { Transpose = 2 };
+
+        settings.SaveProfile("");
+        settings.SaveProfile(null);
+
+        Assert.Empty(settings.ScoreProfiles);
+    }
+
+    [Fact]
+    public void Sanitizing_clamps_profile_values_and_drops_broken_entries()
+    {
+        var settings = new HandpanSettings
+        {
+            ScoreProfiles = new Dictionary<string, ScoreProfile>
+            {
+                ["晴天"] = new(40, 600, true, 999, 1e6),
+                ["  "] = new(),
+            },
+        };
+
+        settings.SanitizeInPlace();
+
+        var profile = Assert.Single(settings.ScoreProfiles);
+        Assert.Equal(new ScoreProfile(11, 300, true, 200, 240), profile.Value);
+    }
+
+    [Fact]
     public void Sanitizing_clamps_the_speed_and_spacing_knobs()
     {
         var settings = new HandpanSettings
@@ -223,7 +285,7 @@ public class HandpanSettingsTests
 
         settings.SanitizeInPlace();
 
-        Assert.Equal(500, settings.MinIntervalMs);
+        Assert.Equal(300, settings.MinIntervalMs);
         Assert.Equal(240, settings.BpmOverride);
         Assert.Equal(50, settings.SpeedPercent);
     }

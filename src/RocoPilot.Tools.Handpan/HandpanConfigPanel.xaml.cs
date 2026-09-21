@@ -25,6 +25,7 @@ public partial class HandpanConfigPanel : UserControl
     private bool _paused;
     private bool _busy;
     private bool _handpanRunning;
+    private bool _loadingProfile;
     private string? _scoreCacheName;
     private MidiScore? _scoreCache;
 
@@ -98,13 +99,37 @@ public partial class HandpanConfigPanel : UserControl
             return;
         }
 
-        if (ReferenceEquals(sender, SpeedModeToggle))
+        if (!_loadingProfile && ReferenceEquals(sender, SpeedModeToggle))
         {
             ConvertSpeedForModeSwitch();
         }
 
         SyncSpeedRows();
         Commit();
+    }
+
+    private void ApplyScoreProfile()
+    {
+        var profile = _settings.ProfileOf(_settings.ScoreName);
+        _loadingProfile = true;
+        try
+        {
+            _settings.Transpose = profile.Transpose;
+            _settings.MinIntervalMs = profile.MinIntervalMs;
+            _settings.SpeedByPercent = profile.SpeedByPercent;
+            _settings.SpeedPercent = profile.SpeedPercent;
+            _settings.BpmOverride = profile.BpmOverride;
+            TransposeSlider.Value = profile.Transpose;
+            MinIntervalSlider.Value = profile.MinIntervalMs;
+            SpeedModeToggle.IsChecked = profile.SpeedByPercent;
+            SpeedPercentSlider.Value = profile.SpeedPercent;
+            BpmSlider.Value = profile.BpmOverride;
+            SyncSpeedRows();
+        }
+        finally
+        {
+            _loadingProfile = false;
+        }
     }
 
     private void ConvertSpeedForModeSwitch()
@@ -226,6 +251,7 @@ public partial class HandpanConfigPanel : UserControl
 
         _settings.ScoreName = score;
         SongTitleText.Text = score;
+        ApplyScoreProfile();
         _ = UpdateTransposeSummaryAsync();
         Commit();
         SyncTransport();
@@ -649,6 +675,7 @@ public partial class HandpanConfigPanel : UserControl
     private void Commit()
     {
         _settings.SanitizeInPlace();
+        _settings.SaveProfile(_settings.ScoreName);
         _persist();
     }
 

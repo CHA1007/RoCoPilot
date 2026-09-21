@@ -3,6 +3,13 @@ using RocoPilot.Handpan;
 
 namespace RocoPilot.Tools.Handpan;
 
+public sealed record ScoreProfile(
+    int Transpose = 0,
+    int MinIntervalMs = 0,
+    bool SpeedByPercent = false,
+    double SpeedPercent = 100,
+    double BpmOverride = 0);
+
 public sealed class HandpanSettings
 {
     private static readonly HandpanSettings Baseline = new();
@@ -11,6 +18,8 @@ public sealed class HandpanSettings
     public HandpanMode Mode { get; set; } = HandpanMode.Play;
 
     public string ScoreName { get; set; } = string.Empty;
+
+    public Dictionary<string, ScoreProfile> ScoreProfiles { get; set; } = [];
 
     public List<KeyMapEntry> KeyMapEntries { get; set; } = [.. KeyMap.DefaultEntries];
 
@@ -52,19 +61,58 @@ public sealed class HandpanSettings
     public double BpmOverrideFor(double scoreBpm) =>
         Math.Abs(SpeedPercent - 100) > 1e-9 && scoreBpm > 0 ? Math.Round(scoreBpm * SpeedPercent / 100.0) : 0;
 
+    public ScoreProfile ProfileOf(string? scoreName) =>
+        !string.IsNullOrWhiteSpace(scoreName)
+            && ScoreProfiles.TryGetValue(scoreName, out var profile)
+            ? profile
+            : new ScoreProfile();
+
+    public void SaveProfile(string? scoreName)
+    {
+        if (string.IsNullOrWhiteSpace(scoreName))
+        {
+            return;
+        }
+
+        ScoreProfiles[scoreName] = new ScoreProfile(
+            Transpose,
+            MinIntervalMs,
+            SpeedByPercent,
+            SpeedPercent,
+            BpmOverride);
+    }
+
     public void SanitizeInPlace()
     {
         ScoreName = (ScoreName ?? string.Empty).Trim();
         KeyMapEntries = SanitizeKeyMap(KeyMapEntries);
         Transpose = (int)Clamp(Transpose, -11, 11);
-        MinIntervalMs = (int)Clamp(MinIntervalMs, 0, 500);
+        MinIntervalMs = (int)Clamp(MinIntervalMs, 0, 300);
         SpeedPercent = FiniteOrBaseline(SpeedPercent, Baseline.SpeedPercent, 50, 200);
         BpmOverride = FiniteOrBaseline(BpmOverride, Baseline.BpmOverride, 0, 240);
         CountdownSeconds = (int)Clamp(CountdownSeconds, 0, 10);
         HoldMs = (int)Clamp(HoldMs, 20, 500);
         ChordHoldMs = (int)Clamp(ChordHoldMs, 20, 500);
         ChordStaggerMs = (int)Clamp(ChordStaggerMs, 0, 200);
+        ScoreProfiles = SanitizeProfiles(ScoreProfiles);
     }
+
+    private static Dictionary<string, ScoreProfile> SanitizeProfiles(Dictionary<string, ScoreProfile>? profiles) =>
+        profiles?
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key) && entry.Value is not null)
+            .GroupBy(entry => entry.Key.Trim(), StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => SanitizeProfile(group.First().Value),
+                StringComparer.Ordinal)
+        ?? [];
+
+    private static ScoreProfile SanitizeProfile(ScoreProfile profile) => new(
+        (int)Clamp(profile.Transpose, -11, 11),
+        (int)Clamp(profile.MinIntervalMs, 0, 300),
+        profile.SpeedByPercent,
+        FiniteOrBaseline(profile.SpeedPercent, 100, 50, 200),
+        FiniteOrBaseline(profile.BpmOverride, 0, 0, 240));
 
     private static List<KeyMapEntry> SanitizeKeyMap(List<KeyMapEntry>? entries) =>
         entries?
