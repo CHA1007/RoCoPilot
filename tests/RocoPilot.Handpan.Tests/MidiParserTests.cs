@@ -268,26 +268,26 @@ public class MidiParserTests
     }
 
     [Theory]
-    [InlineData(0, 0, "C")]
-    [InlineData(3, 0, "A")]
-    [InlineData(-2, 0, "Bb")]
-    [InlineData(0, 1, "A")]
-    [InlineData(2, 1, "B")]
-    public void Key_signature_meta_derives_tonic(int sf, int minor, string expected)
+    [InlineData(0, 0, "C", false)]
+    [InlineData(3, 0, "A", false)]
+    [InlineData(-2, 0, "Bb", false)]
+    [InlineData(0, 1, "A", true)]
+    [InlineData(2, 1, "B", true)]
+    public void Key_signature_meta_derives_key(int sf, int minor, string tonic, bool isMinor)
     {
         var data = MidiBytes.File(0, 480,
             new TrackBuilder().At(0).KeySignature(sf, minor).NoteOn(0, 60).At(480).NoteOff(0, 60));
 
-        Assert.Equal(expected, Parse(data).Meta.Tonic);
+        Assert.Equal(new MusicKey(tonic, isMinor), Parse(data).Meta.Key);
     }
 
     [Fact]
-    public void Missing_key_signature_leaves_tonic_null()
+    public void Missing_key_signature_leaves_key_null()
     {
         var data = MidiBytes.File(0, 480,
             new TrackBuilder().At(0).NoteOn(0, 60).At(480).NoteOff(0, 60));
 
-        Assert.Null(Parse(data).Meta.Tonic);
+        Assert.Null(Parse(data).Meta.Key);
     }
 
     [Fact]

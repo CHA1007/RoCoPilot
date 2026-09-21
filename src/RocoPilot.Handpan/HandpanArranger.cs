@@ -17,7 +17,7 @@ public sealed record HandpanArrangement(
 public static class HandpanArranger
 {
     public static int BestTransposition(MidiScore score, KeyMap keyMap) =>
-        MelodyFitting.BestTransposition(MelodyLine.InTimeOrder(MelodyPicker.Pick(score).Line), keyMap);
+        MelodyFitting.BestTransposition(MelodyLine.InTimeOrder(MelodyPicker.Pick(score).Line), keyMap, score.Meta.Key);
 
     public static HandpanArrangement Arrange(
         MidiScore score,
@@ -28,7 +28,7 @@ public static class HandpanArranger
         var chosen = options ?? new ArrangementOptions();
         var meta = chosen.BpmOverride > 0 ? score.Meta with { Bpm = chosen.BpmOverride } : score.Meta;
         var line = MelodyPicker.Pick(score).Line;
-        var fit = MelodyFitting.Fit(line, keyMap, meta.Tonic, chosen.Transpose);
+        var fit = MelodyFitting.Fit(line, keyMap, meta.Key, chosen.Transpose);
         var notes = MelodyFitting.Gap(fit.Notes, chosen.GapBeats);
         return new HandpanArrangement(
             meta,

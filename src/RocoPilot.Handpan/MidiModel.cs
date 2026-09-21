@@ -16,7 +16,14 @@ public sealed record TimeSignature(int Numerator, int Denominator)
         : 4;
 }
 
-public sealed record MidiMeta(double Bpm, string? Tonic, TimeSignature TimeSignature);
+public sealed record MusicKey(string Tonic, bool IsMinor)
+{
+    public string? RelativeMajor => IsMinor && NoteNames.TryPitchClassOf(Tonic, out var pitchClass)
+        ? NoteNames.PitchClassName(pitchClass + 3)
+        : null;
+}
+
+public sealed record MidiMeta(double Bpm, MusicKey? Key, TimeSignature TimeSignature);
 
 public sealed record MidiScore(IReadOnlyList<MidiPart> Parts, MidiMeta Meta);
 

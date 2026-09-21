@@ -148,9 +148,19 @@ public class MelodyFittingTests
     [Fact]
     public void Snapping_prefers_a_scale_tone_of_the_tonic()
     {
-        var fit = MelodyFitting.Fit([Note(0, 1, 73)], DefaultMap, tonic: "D", transpose: 0);
+        var fit = MelodyFitting.Fit([Note(0, 1, 73)], DefaultMap, key: new MusicKey("D", false), transpose: 0);
 
         Assert.Equal([74], Pitches(fit.Notes));
+    }
+
+    [Fact]
+    public void Snapping_follows_the_mode_of_the_key()
+    {
+        var minor = MelodyFitting.Fit([Note(0, 1, 73)], DefaultMap, key: new MusicKey("A", true), transpose: 0);
+        var major = MelodyFitting.Fit([Note(0, 1, 73)], DefaultMap, key: new MusicKey("A", false), transpose: 0);
+
+        Assert.Equal([72], Pitches(minor.Notes));
+        Assert.Equal([74], Pitches(major.Notes));
     }
 
     [Fact]
@@ -169,10 +179,21 @@ public class MelodyFittingTests
     {
         var sparse = new KeyMap([new KeyMapEntry("C5", "T")]);
 
-        var fit = MelodyFitting.Fit([Note(0, 1, 76)], sparse, transpose: 0);
+        var fit = MelodyFitting.Fit([Note(0, 1, 75)], sparse, transpose: 0);
 
         Assert.Equal([72], Pitches(fit.Notes));
         Assert.Equal(1, fit.SnappedCount);
+    }
+
+    [Fact]
+    public void A_note_a_major_third_from_every_key_stays_missing()
+    {
+        var sparse = new KeyMap([new KeyMapEntry("C5", "T")]);
+
+        var fit = MelodyFitting.Fit([Note(0, 1, 76)], sparse, transpose: 0);
+
+        Assert.Equal([76], Pitches(fit.Notes));
+        Assert.False(fit.IsComplete);
     }
 
     [Fact]

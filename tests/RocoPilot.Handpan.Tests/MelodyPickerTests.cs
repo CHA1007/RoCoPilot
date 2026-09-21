@@ -10,7 +10,7 @@ public class MelodyPickerTests
     private static MidiPart Part(string name, params MidiNote[] notes) => new(name, notes);
 
     private static MidiScore Score(params MidiPart[] parts) =>
-        new(parts, new MidiMeta(120, "C", new TimeSignature(4, 4)));
+        new(parts, new MidiMeta(120, new MusicKey("C", false), new TimeSignature(4, 4)));
 
     private static MidiPart Monophonic(string name, int noteCount, int pitch) =>
         new(name, [.. Enumerable.Range(0, noteCount).Select(i => Note(i, i + 1, pitch))]);

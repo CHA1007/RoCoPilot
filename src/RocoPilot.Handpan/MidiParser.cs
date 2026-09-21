@@ -77,7 +77,7 @@ public static class MidiParser
 
         var tempoUs = PickMainTempo(tempos);
         var bpm = 60_000_000.0 / tempoUs;
-        var tonic = TonicFromKeySignatures(keySignatures);
+        var key = KeyFromSignature(keySignatures.Count > 0 ? keySignatures[0] : null);
         var timeSignature = timeSignatures.Count > 0 ? timeSignatures[0] : new TimeSignature(4, 4);
 
         var parts = rawTracks
@@ -86,7 +86,7 @@ public static class MidiParser
                 [.. track.Notes.Select(n => ToBeatNote(n, division, bpm))]))
             .ToList();
 
-        return new MidiScore(parts, new MidiMeta(bpm, tonic, timeSignature));
+        return new MidiScore(parts, new MidiMeta(bpm, key, timeSignature));
     }
 
     private static RawTrack ParseTrack(
@@ -248,14 +248,14 @@ public static class MidiParser
         return previousUs;
     }
 
-    private static string? TonicFromKeySignatures(List<(int Sf, int Minor)> keySignatures)
+    private static MusicKey? KeyFromSignature((int Sf, int Minor)? keySignature)
     {
-        if (keySignatures.Count == 0)
+        if (keySignature is not { } signature)
         {
             return null;
         }
 
-        var (sf, minor) = keySignatures[0];
+        var (sf, minor) = signature;
         if (Math.Abs(sf) > 7)
         {
             return null;
@@ -264,7 +264,7 @@ public static class MidiParser
         var major = sf >= 0 ? SharpMajors[sf] : FlatMajors[-sf];
         if (minor != 1)
         {
-            return major;
+            return new MusicKey(major, false);
         }
 
         if (!NoteNames.TryPitchClassOf(major, out var majorPitchClass))
@@ -272,7 +272,7 @@ public static class MidiParser
             return null;
         }
 
-        return NoteNames.PitchClassName(majorPitchClass + 9);
+        return new MusicKey(NoteNames.PitchClassName(majorPitchClass + 9), true);
     }
 
     private static IEnumerable<RawTrack> SplitByChannel(RawTrack track)

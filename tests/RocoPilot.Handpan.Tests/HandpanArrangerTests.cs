@@ -10,9 +10,9 @@ public class HandpanArrangerTests
 
     private static MidiScore Score(
         double bpm = 120,
-        string? tonic = "C",
+        MusicKey? key = null,
         params MidiNote[] notes) =>
-        new([new MidiPart("主旋律", notes)], new MidiMeta(bpm, tonic, new TimeSignature(4, 4)));
+        new([new MidiPart("主旋律", notes)], new MidiMeta(bpm, key, new TimeSignature(4, 4)));
 
     [Fact]
     public void A_line_inside_the_key_range_is_planned_as_is()
@@ -65,6 +65,17 @@ public class HandpanArrangerTests
         var score = Score(notes: [Note(0, 1, 72), Note(1, 2, 74)]);
 
         Assert.Equal(0, HandpanArranger.BestTransposition(score, DefaultMap));
+    }
+
+    [Fact]
+    public void A_minor_key_snaps_chromatic_notes_to_the_minor_scale()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(key: new MusicKey("A", true), notes: [Note(0, 1, 73)]),
+            DefaultMap);
+
+        Assert.Equal([72], arrangement.Notes.Select(note => note.Pitch));
+        Assert.StartsWith("调号 1=C（A 小调）", arrangement.Chart.Lines[1]);
     }
 
     [Fact]

@@ -4,11 +4,12 @@ public static class MelodyFitting
 {
     private static readonly int[] FoldOffsets = [12, -12, 24, -24, 36, -36];
     private static readonly int[] SnapOctaves = [0, -12, 12];
-    private static readonly int[] NaturalScaleSemitones = [0, 2, 4, 5, 7, 9, 11];
+    private static readonly int[] MajorScaleSemitones = [0, 2, 4, 5, 7, 9, 11];
+    private static readonly int[] MinorScaleSemitones = [0, 2, 3, 5, 7, 8, 10];
 
     private const int TransposeRange = 11;
     private const int SnapRange = 2;
-    private const int WideSnapRange = 4;
+    private const int WideSnapRange = 3;
     private const double FoldWeight = 3;
     private const double SnapWeight = 30;
     private const double LeapWeight = 0.5;
@@ -53,20 +54,19 @@ public static class MelodyFitting
     public static MelodyFit Fit(
         IReadOnlyList<MidiNote> notes,
         KeyMap keyMap,
-        string? tonic = null,
+        MusicKey? key = null,
         int? transpose = null)
     {
         var ordered = MelodyLine.InTimeOrder(notes);
-        var semitones = transpose ?? BestTransposition(ordered, keyMap);
+        var semitones = transpose ?? BestTransposition(ordered, keyMap, key);
         var (folded, foldedCount) = Fold(Transpose(ordered, semitones), keyMap);
-        var (snapped, snappedCount) = Snap(folded, keyMap, SnapRange, tonic);
-        var (widened, widenedCount) = Snap(snapped, keyMap, WideSnapRange, tonic);
+        var (widened, snappedCount) = SnappedChain(folded, keyMap, key);
         return new MelodyFit(
             widened,
             semitones,
             ExactCoverage(folded, keyMap),
             foldedCount,
-            snappedCount + widenedCount,
+            snappedCount,
             Missing(widened, keyMap));
     }
 
@@ -91,7 +91,7 @@ public static class MelodyFitting
 
     private static double Beats(MidiNote note) => Math.Max(0, note.EndBeat - note.StartBeat);
 
-    public static int BestTransposition(IReadOnlyList<MidiNote> notes, KeyMap keyMap)
+    public static int BestTransposition(IReadOnlyList<MidiNote> notes, KeyMap keyMap, MusicKey? key = null)
     {
         var best = 0;
         var bestCoverage = -1.0;
@@ -105,9 +105,10 @@ public static class MelodyFitting
             }
 
             var coverage = ExactCoverage(folded, keyMap);
+            var (widened, snappedCount) = SnappedChain(folded, keyMap, key);
             var cost = foldedCount * FoldWeight
-                + Snap(folded, keyMap, SnapRange, null).Snapped * SnapWeight
-                + LeapBeats(folded) * LeapWeight
+                + snappedCount * SnapWeight
+                + LeapBeats(widened) * LeapWeight
                 + Math.Abs(semitones);
             if (coverage > bestCoverage + CoverageTolerance
                 || (Math.Abs(coverage - bestCoverage) <= CoverageTolerance && cost < bestCost))
@@ -176,20 +177,29 @@ public static class MelodyFitting
         return (output, folded);
     }
 
+    private static (IReadOnlyList<MidiNote> Notes, int Snapped) SnappedChain(
+        IReadOnlyList<MidiNote> folded,
+        KeyMap keyMap,
+        MusicKey? key)
+    {
+        var (snapped, narrowCount) = Snap(folded, keyMap, SnapRange, key);
+        var (widened, wideCount) = Snap(snapped, keyMap, WideSnapRange, key);
+        return (widened, narrowCount + wideCount);
+    }
+
     private static (IReadOnlyList<MidiNote> Notes, int Snapped) Snap(
         IReadOnlyList<MidiNote> notes,
         KeyMap keyMap,
         int range,
-        string? tonic)
+        MusicKey? key)
     {
         var available = keyMap.SortedMidiNotes;
-        int? tonicPitchClass = NoteNames.TryPitchClassOf(tonic, out var pitchClass) ? pitchClass : null;
         var output = new List<MidiNote>(notes.Count);
         var snapped = 0;
         foreach (var note in notes)
         {
             var pitch = note.Pitch;
-            if (!keyMap.Contains(pitch) && SnapTarget(pitch, available, tonicPitchClass, range) is { } target)
+            if (!keyMap.Contains(pitch) && SnapTarget(pitch, available, key, range) is { } target)
             {
                 pitch = target;
                 snapped++;
@@ -201,7 +211,7 @@ public static class MelodyFitting
         return (output, snapped);
     }
 
-    private static int? SnapTarget(int pitch, IReadOnlyList<int> available, int? tonicPitchClass, int range)
+    private static int? SnapTarget(int pitch, IReadOnlyList<int> available, MusicKey? key, int range)
     {
         int? best = null;
         (int Distance, int OffScale, int FoldPenalty, int Candidate)? bestKey = null;
@@ -213,21 +223,29 @@ public static class MelodyFitting
                 continue;
             }
 
-            var key = (
+            var ranking = (
                 distance,
-                tonicPitchClass is { } tonic && !IsNaturalScaleTone(candidate - tonic) ? 1 : 0,
+                key is { } musicKey && !IsScaleTone(candidate, musicKey) ? 1 : 0,
                 Math.Abs(candidate - pitch) == distance ? 0 : 1,
                 candidate);
-            if (bestKey is null || key.CompareTo(bestKey.Value) < 0)
+            if (bestKey is null || ranking.CompareTo(bestKey.Value) < 0)
             {
                 best = candidate;
-                bestKey = key;
+                bestKey = ranking;
             }
         }
 
         return best;
     }
 
-    private static bool IsNaturalScaleTone(int semitonesFromTonic) =>
-        NaturalScaleSemitones.Contains(((semitonesFromTonic % 12) + 12) % 12);
+    private static bool IsScaleTone(int pitch, MusicKey key)
+    {
+        if (!NoteNames.TryPitchClassOf(key.Tonic, out var tonicPitchClass))
+        {
+            return true;
+        }
+
+        var scale = key.IsMinor ? MinorScaleSemitones : MajorScaleSemitones;
+        return scale.Contains(((pitch - tonicPitchClass) % 12 + 12) % 12);
+    }
 }

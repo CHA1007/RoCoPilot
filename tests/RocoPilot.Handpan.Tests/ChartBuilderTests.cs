@@ -10,7 +10,7 @@ public class ChartBuilderTests
 
     private static MidiMeta Meta(
         double bpm = 120,
-        string? tonic = "C",
+        MusicKey? tonic = null,
         TimeSignature? timeSignature = null) =>
         new(bpm, tonic, timeSignature ?? new TimeSignature(4, 4));
 
@@ -20,7 +20,7 @@ public class ChartBuilderTests
     [Fact]
     public void An_empty_line_yields_only_the_header()
     {
-        var chart = ChartBuilder.Build([], Meta(), DefaultMap, "空");
+        var chart = ChartBuilder.Build([], Meta(tonic: new MusicKey("C", false)), DefaultMap, "空");
 
         Assert.Equal(
             ["《空》 手碟按键谱", "调号 1=C  BPM=120  拍号 4/4  1拍=0.500秒  总时长≈0秒"],
@@ -42,7 +42,7 @@ public class ChartBuilderTests
     [Fact]
     public void The_header_reports_key_tempo_signature_and_length()
     {
-        var chart = ChartBuilder.Build([Note(0, 3, 72)], Meta(tonic: "F#"), DefaultMap, "晴天");
+        var chart = ChartBuilder.Build([Note(0, 3, 72)], Meta(tonic: new MusicKey("F#", false)), DefaultMap, "晴天");
 
         Assert.Equal("《晴天》 手碟按键谱", chart.Lines[0]);
         Assert.Equal("调号 1=F#  BPM=120  拍号 4/4  1拍=0.500秒  总时长≈1.5秒", chart.Lines[1]);
@@ -193,7 +193,7 @@ public class ChartBuilderTests
     [Fact]
     public void The_chart_sections_are_in_reading_order()
     {
-        var chart = ChartBuilder.Build([Note(0, 1, 72)], Meta(), DefaultMap, "测试");
+        var chart = ChartBuilder.Build([Note(0, 1, 72)], Meta(tonic: new MusicKey("C", false)), DefaultMap, "测试");
 
         Assert.Equal(
             ["《测试》 手碟按键谱", "调号 1=C  BPM=120  拍号 4/4  1拍=0.500秒  总时长≈0.5秒",

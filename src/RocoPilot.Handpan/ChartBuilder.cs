@@ -147,9 +147,11 @@ public static class ChartBuilder
     private static string Header(MidiMeta meta, double secondsPerBeat, double totalBeats)
     {
         var header = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(meta.Tonic))
+        if (meta.Key is { } key)
         {
-            header.Append($"调号 1={meta.Tonic}  ");
+            header.Append(key.RelativeMajor is { } major
+                ? $"调号 1={major}（{key.Tonic} 小调）  "
+                : $"调号 1={key.Tonic}  ");
         }
 
         return header
