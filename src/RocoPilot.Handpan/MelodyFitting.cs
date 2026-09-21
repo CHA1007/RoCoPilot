@@ -26,26 +26,28 @@ public static class MelodyFitting
         return [.. notes.Select(note => note with { Pitch = Math.Clamp(note.Pitch + semitones, 0, 127) })];
     }
 
-    public static IReadOnlyList<MidiNote> Gap(IReadOnlyList<MidiNote> notes, double gapBeats)
+    public static IReadOnlyList<MidiNote> Spacing(IReadOnlyList<MidiNote> notes, double minIntervalBeats)
     {
-        if (gapBeats <= 0)
+        if (minIntervalBeats <= 0)
         {
             return notes;
         }
 
         var output = new List<MidiNote>(notes.Count);
-        var onsets = -1;
-        double? previous = null;
-        foreach (var note in MelodyLine.InTimeOrder(notes))
+        double? earliestNext = null;
+        foreach (var group in MelodyLine.OnsetGroups(notes))
         {
-            if (previous is not { } start || !BeatGrid.SameOnset(start, note.StartBeat))
+            var onset = group.Min(note => note.StartBeat);
+            var shift = earliestNext is { } earliest && onset < earliest ? earliest - onset : 0;
+            earliestNext = onset + shift + minIntervalBeats;
+            foreach (var note in group)
             {
-                onsets++;
+                output.Add(note with
+                {
+                    StartBeat = note.StartBeat + shift,
+                    EndBeat = note.EndBeat + shift,
+                });
             }
-
-            previous = note.StartBeat;
-            var shift = onsets * gapBeats;
-            output.Add(note with { StartBeat = note.StartBeat + shift, EndBeat = note.EndBeat + shift });
         }
 
         return output;

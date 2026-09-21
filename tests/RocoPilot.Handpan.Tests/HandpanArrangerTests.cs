@@ -85,15 +85,49 @@ public class HandpanArrangerTests
     }
 
     [Fact]
-    public void The_gap_delays_every_onset_but_the_first()
+    public void A_dense_line_is_spaced_in_seconds()
     {
         var arrangement = HandpanArranger.Arrange(
-            Score(notes: [Note(0, 1, 72), Note(1, 2, 74), Note(2, 3, 76)]),
+            Score(notes: [Note(0, 0.1, 72), Note(0.1, 0.2, 74), Note(0.2, 0.3, 76)]),
             DefaultMap,
-            options: new ArrangementOptions(GapBeats: 0.5));
+            options: new ArrangementOptions(MinIntervalSeconds: 0.15));
 
-        Assert.Equal([0, 1.5, 3], arrangement.Notes.Select(note => note.StartBeat));
-        Assert.Equal([0, 0.75, 1.5], arrangement.Plan.Notes.Select(note => note.AtSeconds));
+        Assert.Equal([0, 0.3, 0.6], arrangement.Notes.Select(note => note.StartBeat));
+        Assert.Equal([0, 0.15, 0.3], arrangement.Plan.Notes.Select(note => note.AtSeconds));
+    }
+
+    [Fact]
+    public void A_sparse_line_is_left_alone_by_the_interval()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(notes: [Note(0, 1, 72), Note(2, 3, 74)]),
+            DefaultMap,
+            options: new ArrangementOptions(MinIntervalSeconds: 0.15));
+
+        Assert.Equal([0, 2], arrangement.Notes.Select(note => note.StartBeat));
+    }
+
+    [Fact]
+    public void A_speed_percent_scales_the_score_tempo()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(bpm: 90, notes: [Note(0, 1, 72)]),
+            DefaultMap,
+            options: new ArrangementOptions(SpeedPercent: 50));
+
+        Assert.Equal(45, arrangement.Meta.Bpm);
+        Assert.Equal(60.0 / 45, arrangement.Plan.SecondsPerBeat);
+    }
+
+    [Fact]
+    public void An_absolute_override_wins_over_the_percent()
+    {
+        var arrangement = HandpanArranger.Arrange(
+            Score(bpm: 90, notes: [Note(0, 1, 72)]),
+            DefaultMap,
+            options: new ArrangementOptions(BpmOverride: 60, SpeedPercent: 50));
+
+        Assert.Equal(60, arrangement.Meta.Bpm);
     }
 
     [Fact]

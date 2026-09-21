@@ -25,6 +25,8 @@ public partial class HandpanConfigPanel : UserControl
     private bool _paused;
     private bool _busy;
     private bool _handpanRunning;
+    private string? _tempoScoreName;
+    private double? _tempoBpm;
 
     public event Action<IRunningTask>? TaskCreated;
 
@@ -60,6 +62,7 @@ public partial class HandpanConfigPanel : UserControl
 
         _ready = true;
         RefreshScores();
+        SyncSpeedRows();
         foreach (var slider in FindAllChildren<Slider>(this))
         {
             slider.ValueChanged += OnSliderValueChanged;
@@ -85,10 +88,77 @@ public partial class HandpanConfigPanel : UserControl
 
     private void OnToggleChanged(object sender, RoutedEventArgs e)
     {
-        if (_ready)
+        if (!_ready)
         {
-            Commit();
+            return;
         }
+
+        if (ReferenceEquals(sender, SpeedModeToggle))
+        {
+            ConvertSpeedForModeSwitch();
+        }
+
+        SyncSpeedRows();
+        Commit();
+    }
+
+    private void ConvertSpeedForModeSwitch()
+    {
+        var scoreBpm = _tempoBpm ?? 0;
+        if (SpeedModeToggle.IsChecked == true)
+        {
+            SpeedPercentSlider.Value = _settings.SpeedPercentFor(scoreBpm);
+        }
+        else
+        {
+            BpmSlider.Value = _settings.BpmOverrideFor(scoreBpm);
+        }
+    }
+
+    private void PrefetchScoreTempo(string scoreName)
+    {
+        if (_tempoScoreName == scoreName)
+        {
+            return;
+        }
+
+        _tempoScoreName = scoreName;
+        _tempoBpm = null;
+        var midiPath = _tool.Scores.Resolve(scoreName);
+        if (midiPath is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var bpm = MidiParser.Parse(File.ReadAllBytes(midiPath)).Meta.Bpm;
+                Dispatcher.Invoke(() =>
+                {
+                    if (_tempoScoreName == scoreName)
+                    {
+                        _tempoBpm = bpm;
+                    }
+                });
+            }
+            catch (IOException)
+            {
+            }
+            catch (MidiParseException)
+            {
+            }
+        });
+    }
+
+    private void SyncSpeedRows()
+    {
+        var byPercent = _settings.SpeedByPercent;
+        BpmRow.Visibility = byPercent ? Visibility.Collapsed : Visibility.Visible;
+        BpmHint.Visibility = byPercent ? Visibility.Collapsed : Visibility.Visible;
+        SpeedPercentRow.Visibility = byPercent ? Visibility.Visible : Visibility.Collapsed;
+        SpeedPercentHint.Visibility = byPercent ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
@@ -110,6 +180,7 @@ public partial class HandpanConfigPanel : UserControl
 
         _settings.ScoreName = score;
         SongTitleText.Text = score;
+        PrefetchScoreTempo(score);
         Commit();
         SyncTransport();
         if (!_busy)

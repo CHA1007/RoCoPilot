@@ -12,7 +12,9 @@ public class HandpanSettingsTests
         var settings = new HandpanSettings();
 
         Assert.Equal(0, settings.Transpose);
-        Assert.Equal(0, settings.GapBeats);
+        Assert.Equal(0, settings.MinIntervalMs);
+        Assert.False(settings.SpeedByPercent);
+        Assert.Equal(100, settings.SpeedPercent);
         Assert.Equal(0, settings.BpmOverride);
         Assert.False(settings.Loop);
         Assert.Equal(3, settings.CountdownSeconds);
@@ -47,17 +49,65 @@ public class HandpanSettingsTests
         var settings = new HandpanSettings
         {
             Transpose = -3,
-            GapBeats = 0.25,
-            BpmOverride = 96,
+            MinIntervalMs = 250,
+            SpeedByPercent = true,
+            SpeedPercent = 85,
             HoldMs = 70,
         };
 
         var options = settings.ToArrangement();
 
         Assert.Equal(-3, options.Transpose);
-        Assert.Equal(0.25, options.GapBeats);
-        Assert.Equal(96, options.BpmOverride);
+        Assert.Equal(0.25, options.MinIntervalSeconds);
+        Assert.Equal(0, options.BpmOverride);
+        Assert.Equal(85, options.SpeedPercent);
         Assert.Equal(0.07, options.Timing!.HoldSeconds);
+    }
+
+    [Fact]
+    public void The_absolute_speed_mode_ignores_the_percent()
+    {
+        var settings = new HandpanSettings { BpmOverride = 96, SpeedPercent = 85 };
+
+        var options = settings.ToArrangement();
+
+        Assert.Equal(96, options.BpmOverride);
+        Assert.Equal(100, options.SpeedPercent);
+    }
+
+    [Fact]
+    public void Switching_to_percent_converts_the_override()
+    {
+        var settings = new HandpanSettings { BpmOverride = 96 };
+
+        Assert.Equal(80, settings.SpeedPercentFor(120));
+        Assert.Equal(150, settings.SpeedPercentFor(64));
+    }
+
+    [Fact]
+    public void Switching_to_percent_without_an_override_reads_full_speed()
+    {
+        var settings = new HandpanSettings { BpmOverride = 0 };
+
+        Assert.Equal(100, settings.SpeedPercentFor(120));
+        Assert.Equal(100, settings.SpeedPercentFor(0));
+    }
+
+    [Fact]
+    public void Switching_to_bpm_converts_the_percent()
+    {
+        var settings = new HandpanSettings { SpeedPercent = 80 };
+
+        Assert.Equal(96, settings.BpmOverrideFor(120));
+    }
+
+    [Fact]
+    public void Switching_to_bpm_at_full_speed_follows_the_score()
+    {
+        var settings = new HandpanSettings { SpeedPercent = 100 };
+
+        Assert.Equal(0, settings.BpmOverrideFor(120));
+        Assert.Equal(0, settings.BpmOverrideFor(0));
     }
 
     [Fact]
@@ -162,24 +212,40 @@ public class HandpanSettingsTests
     }
 
     [Fact]
-    public void Sanitizing_clamps_the_beat_knobs()
+    public void Sanitizing_clamps_the_speed_and_spacing_knobs()
     {
-        var settings = new HandpanSettings { GapBeats = 40, BpmOverride = 1e6 };
+        var settings = new HandpanSettings
+        {
+            MinIntervalMs = 600,
+            BpmOverride = 1e6,
+            SpeedPercent = 10,
+        };
 
         settings.SanitizeInPlace();
 
-        Assert.Equal(4, settings.GapBeats);
-        Assert.Equal(600, settings.BpmOverride);
+        Assert.Equal(500, settings.MinIntervalMs);
+        Assert.Equal(240, settings.BpmOverride);
+        Assert.Equal(50, settings.SpeedPercent);
+    }
+
+    [Fact]
+    public void Sanitizing_caps_the_percent_from_above()
+    {
+        var settings = new HandpanSettings { SpeedPercent = 999 };
+
+        settings.SanitizeInPlace();
+
+        Assert.Equal(200, settings.SpeedPercent);
     }
 
     [Fact]
     public void Sanitizing_replaces_broken_numbers_with_the_defaults()
     {
-        var settings = new HandpanSettings { GapBeats = double.NaN, BpmOverride = double.PositiveInfinity };
+        var settings = new HandpanSettings { BpmOverride = double.NaN, SpeedPercent = double.PositiveInfinity };
 
         settings.SanitizeInPlace();
 
-        Assert.Equal(0, settings.GapBeats);
         Assert.Equal(0, settings.BpmOverride);
+        Assert.Equal(100, settings.SpeedPercent);
     }
 }

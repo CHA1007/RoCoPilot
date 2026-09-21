@@ -170,49 +170,69 @@
 
         <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
           <StackPanel>
-            <ui:TextBlock FontTypography="BodyStrong" Text="垫拍空隙（拍）" />
+            <ui:TextBlock FontTypography="BodyStrong" Text="最小音距（毫秒）" />
             <ui:TextBlock Margin="0,2,0,10"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="在每个音符之间垫入的空拍，整曲节奏随之放慢；0 为照原谱"
+                          Text="相邻两个音至少隔开多久；比它密的连续音会被拉开，稀疏段落不动；0 为不限制"
                           TextWrapping="Wrap" />
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <Slider x:Name="GapBeatsSlider"
+              <Slider x:Name="MinIntervalSlider"
                       Grid.Column="0"
-                      Minimum="0" Maximum="4"
-                      TickFrequency="0.25" IsSnapToTickEnabled="True"
-                      Value="{Binding GapBeats}" />
+                      Minimum="0" Maximum="300"
+                      TickFrequency="10" IsSnapToTickEnabled="True"
+                      Value="{Binding MinIntervalMs}" />
               <ui:TextBlock Grid.Column="1"
                             Width="56" Margin="12,0,0,0"
                             VerticalAlignment="Center"
                             HorizontalAlignment="Right"
                             FontTypography="Body"
-                            Text="{Binding Value, ElementName=GapBeatsSlider, StringFormat={}{0:0.##}}" />
+                            Text="{Binding Value, ElementName=MinIntervalSlider, StringFormat={}{0:0}}" />
             </Grid>
           </StackPanel>
         </ui:Card>
 
         <ui:Card Margin="0,12,0,0" Padding="16,12,16,14">
           <StackPanel>
-            <ui:TextBlock FontTypography="BodyStrong" Text="BPM 覆盖" />
-            <ui:TextBlock Margin="0,2,0,10"
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <ui:TextBlock VerticalAlignment="Center"
+                            FontTypography="BodyStrong"
+                            Text="速度" />
+              <ui:ToggleSwitch x:Name="SpeedModeToggle"
+                               Grid.Column="1"
+                               Content="按百分比"
+                               IsChecked="{Binding SpeedByPercent}" />
+            </Grid>
+            <ui:TextBlock x:Name="BpmHint"
+                          Margin="0,2,0,10"
                           FontTypography="Caption"
                           Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
-                          Text="固定整曲速度；0 表示按曲谱自带速度"
+                          Text="按 BPM 固定整曲速度，0 为曲谱原速"
                           TextWrapping="Wrap" />
-            <Grid>
+            <ui:TextBlock x:Name="SpeedPercentHint"
+                          Margin="0,2,0,10"
+                          FontTypography="Caption"
+                          Foreground="{ui:ThemeResource TextFillColorTertiaryBrush}"
+                          Text="以曲谱原速为基准缩放，100% 为原速"
+                          TextWrapping="Wrap"
+                          Visibility="Collapsed" />
+            <Grid x:Name="BpmRow">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
               <Slider x:Name="BpmSlider"
                       Grid.Column="0"
-                      Minimum="0" Maximum="600"
-                      TickFrequency="5" IsSnapToTickEnabled="True"
+                      Minimum="0" Maximum="240"
+                      TickFrequency="1" IsSnapToTickEnabled="True"
                       Value="{Binding BpmOverride}" />
               <ui:TextBlock Grid.Column="1"
                             Width="56" Margin="12,0,0,0"
@@ -220,6 +240,25 @@
                             HorizontalAlignment="Right"
                             FontTypography="Body"
                             Text="{Binding Value, ElementName=BpmSlider, StringFormat={}{0:0}}" />
+            </Grid>
+            <Grid x:Name="SpeedPercentRow"
+                  Margin="0,6,0,0"
+                  Visibility="Collapsed">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Slider x:Name="SpeedPercentSlider"
+                      Grid.Column="0"
+                      Minimum="50" Maximum="200"
+                      TickFrequency="1" IsSnapToTickEnabled="True"
+                      Value="{Binding SpeedPercent}" />
+              <ui:TextBlock Grid.Column="1"
+                            Width="56" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            FontTypography="Body"
+                            Text="{Binding Value, ElementName=SpeedPercentSlider, StringFormat={}{0:0}%}" />
             </Grid>
           </StackPanel>
         </ui:Card>

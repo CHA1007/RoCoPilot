@@ -16,7 +16,11 @@ public sealed class HandpanSettings
 
     public int Transpose { get; set; }
 
-    public double GapBeats { get; set; }
+    public int MinIntervalMs { get; set; }
+
+    public bool SpeedByPercent { get; set; }
+
+    public double SpeedPercent { get; set; } = 100;
 
     public double BpmOverride { get; set; }
 
@@ -35,15 +39,27 @@ public sealed class HandpanSettings
     public PlaybackTiming ToTiming() => new(HoldMs / 1000.0, ChordHoldMs / 1000.0, ChordStaggerMs / 1000.0);
 
     public ArrangementOptions ToArrangement() =>
-        new(Transpose, GapBeats, BpmOverride, ToTiming());
+        new(
+            Transpose,
+            MinIntervalMs / 1000.0,
+            SpeedByPercent ? 0 : BpmOverride,
+            SpeedByPercent ? SpeedPercent : 100,
+            ToTiming());
+
+    public double SpeedPercentFor(double scoreBpm) =>
+        BpmOverride > 0 && scoreBpm > 0 ? Math.Round(BpmOverride * 100.0 / scoreBpm) : 100;
+
+    public double BpmOverrideFor(double scoreBpm) =>
+        Math.Abs(SpeedPercent - 100) > 1e-9 && scoreBpm > 0 ? Math.Round(scoreBpm * SpeedPercent / 100.0) : 0;
 
     public void SanitizeInPlace()
     {
         ScoreName = (ScoreName ?? string.Empty).Trim();
         KeyMapEntries = SanitizeKeyMap(KeyMapEntries);
         Transpose = (int)Clamp(Transpose, -11, 11);
-        GapBeats = FiniteOrBaseline(GapBeats, Baseline.GapBeats, 0, 4);
-        BpmOverride = FiniteOrBaseline(BpmOverride, Baseline.BpmOverride, 0, 600);
+        MinIntervalMs = (int)Clamp(MinIntervalMs, 0, 500);
+        SpeedPercent = FiniteOrBaseline(SpeedPercent, Baseline.SpeedPercent, 50, 200);
+        BpmOverride = FiniteOrBaseline(BpmOverride, Baseline.BpmOverride, 0, 240);
         CountdownSeconds = (int)Clamp(CountdownSeconds, 0, 10);
         HoldMs = (int)Clamp(HoldMs, 20, 500);
         ChordHoldMs = (int)Clamp(ChordHoldMs, 20, 500);

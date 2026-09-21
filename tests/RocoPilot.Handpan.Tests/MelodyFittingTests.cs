@@ -35,46 +35,54 @@ public class MelodyFittingTests
     }
 
     [Fact]
-    public void A_non_positive_gap_returns_the_same_line()
+    public void A_non_positive_interval_returns_the_same_line()
     {
         var line = new[] { Note(0, 1, 72) };
 
-        Assert.Same(line, MelodyFitting.Gap(line, 0));
-        Assert.Same(line, MelodyFitting.Gap(line, -0.5));
+        Assert.Same(line, MelodyFitting.Spacing(line, 0));
+        Assert.Same(line, MelodyFitting.Spacing(line, -0.5));
     }
 
     [Fact]
-    public void Every_onset_is_delayed_by_one_more_gap()
+    public void A_dense_run_is_spaced_to_the_interval()
     {
-        var line = MelodyFitting.Gap([Note(0, 1, 72), Note(1, 2, 74), Note(2, 3, 76)], 0.25);
+        var line = MelodyFitting.Spacing([Note(0, 0.1, 72), Note(0.1, 0.2, 74), Note(0.2, 0.3, 76)], 0.3);
 
-        Assert.Equal([0, 1.25, 2.5], line.Select(note => note.StartBeat));
-        Assert.Equal([1, 1, 1], line.Select(note => note.EndBeat - note.StartBeat));
+        Assert.Equal([0, 0.3, 0.6], line.Select(note => note.StartBeat));
+        Assert.All(line, note => Assert.Equal(0.1, note.EndBeat - note.StartBeat, 9));
     }
 
     [Fact]
-    public void Notes_sharing_an_onset_share_one_gap()
+    public void Sparse_passages_stay_untouched()
     {
-        var line = MelodyFitting.Gap([Note(0, 1, 72), Note(0, 1, 76), Note(1, 2, 74)], 0.5);
+        var line = MelodyFitting.Spacing([Note(0, 1, 72), Note(2, 3, 74), Note(4, 5, 76)], 0.5);
 
-        Assert.Equal([0, 0, 1.5], line.Select(note => note.StartBeat));
+        Assert.Equal([0, 2, 4], line.Select(note => note.StartBeat));
     }
 
     [Fact]
-    public void Onsets_within_a_grid_unit_share_one_gap()
+    public void Chord_notes_move_with_their_group()
     {
-        var line = MelodyFitting.Gap([Note(0, 1, 72), Note(0.01, 1, 74)], 0.5);
+        var line = MelodyFitting.Spacing([Note(0, 1, 72), Note(0, 1, 76), Note(0.2, 1, 74)], 0.5);
 
-        Assert.Equal([0, 0.01], line.Select(note => note.StartBeat));
+        Assert.Equal([0, 0, 0.5], line.Select(note => note.StartBeat));
     }
 
     [Fact]
-    public void Gap_orders_the_line_by_time()
+    public void Onsets_within_a_grid_unit_share_one_group()
     {
-        var line = MelodyFitting.Gap([Note(1, 2, 74), Note(0, 1, 72)], 0.5);
+        var line = MelodyFitting.Spacing([Note(0, 1, 72), Note(0.01, 1, 74), Note(0.3, 1, 76)], 0.5);
+
+        Assert.Equal([0.01, 0, 0.5], line.Select(note => note.StartBeat));
+    }
+
+    [Fact]
+    public void Spacing_orders_the_line_by_time()
+    {
+        var line = MelodyFitting.Spacing([Note(1, 2, 74), Note(0, 1, 72)], 0.5);
 
         Assert.Equal([72, 74], Pitches(line));
-        Assert.Equal([0, 1.5], line.Select(note => note.StartBeat));
+        Assert.Equal([0, 1], line.Select(note => note.StartBeat));
     }
 
     [Fact]
