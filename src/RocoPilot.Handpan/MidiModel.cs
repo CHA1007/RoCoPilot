@@ -21,6 +21,16 @@ public sealed record MusicKey(string Tonic, bool IsMinor)
     public string? RelativeMajor => IsMinor && NoteNames.TryPitchClassOf(Tonic, out var pitchClass)
         ? NoteNames.PitchClassName(pitchClass + 3)
         : null;
+
+    public MusicKey Transposed(int semitones)
+    {
+        if (semitones % 12 == 0 || !NoteNames.TryPitchClassOf(Tonic, out var pitchClass))
+        {
+            return this;
+        }
+
+        return this with { Tonic = NoteNames.PitchClassName(pitchClass + semitones) };
+    }
 }
 
 public sealed record MidiMeta(double Bpm, MusicKey? Key, TimeSignature TimeSignature);

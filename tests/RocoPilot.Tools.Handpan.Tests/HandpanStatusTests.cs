@@ -12,8 +12,34 @@ public class HandpanStatusTests
             new HandpanStatusView("演奏中", "394 音"),
             HandpanStatus.Of(new HandpanArranged(394, 0, -3, 0.75, 96.53)));
         Assert.Equal(
-            new HandpanStatusView("演奏中", "10 音 · 缺音 2 个"),
+            new HandpanStatusView("演奏中", "10 音 · 缺音 2 个", HandpanStatusLevel.Caution),
             HandpanStatus.Of(new HandpanArranged(10, 2, 0, 1, 4.04)));
+    }
+
+    [Fact]
+    public void The_transpose_summary_names_the_key_coverage_and_missing()
+    {
+        var fit = new MelodyFit([], 2, 0.923, 1, 2, [new MidiNote(0, 61, 0, 1), new MidiNote(0, 63, 1, 2)]);
+
+        Assert.Equal(
+            "D 大调 · 覆盖率 92% · 缺音 2 个",
+            HandpanStatus.TransposeSummary(fit, new MusicKey("D", false)));
+    }
+
+    [Fact]
+    public void The_transpose_summary_uses_the_minor_name_and_hides_a_clean_fit()
+    {
+        var fit = new MelodyFit([], 0, 1.0, 0, 0, []);
+
+        Assert.Equal("A 小调 · 覆盖率 100%", HandpanStatus.TransposeSummary(fit, new MusicKey("A", true)));
+    }
+
+    [Fact]
+    public void The_transpose_summary_skips_the_key_when_the_score_has_none()
+    {
+        var fit = new MelodyFit([], 0, 0.5, 0, 1, [new MidiNote(0, 63, 0, 1)]);
+
+        Assert.Equal("覆盖率 50% · 缺音 1 个", HandpanStatus.TransposeSummary(fit, null));
     }
 
     [Fact]

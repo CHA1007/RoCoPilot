@@ -25,8 +25,8 @@ public partial class HandpanConfigPanel : UserControl
     private bool _paused;
     private bool _busy;
     private bool _handpanRunning;
-    private string? _tempoScoreName;
-    private double? _tempoBpm;
+    private string? _scoreCacheName;
+    private MidiScore? _scoreCache;
 
     public event Action<IRunningTask>? TaskCreated;
 
@@ -83,6 +83,11 @@ public partial class HandpanConfigPanel : UserControl
         }
 
         slider.GetBindingExpression(Slider.ValueProperty)?.UpdateSource();
+        if (ReferenceEquals(sender, TransposeSlider))
+        {
+            _ = UpdateTransposeSummaryAsync();
+        }
+
         Commit();
     }
 
@@ -104,7 +109,9 @@ public partial class HandpanConfigPanel : UserControl
 
     private void ConvertSpeedForModeSwitch()
     {
-        var scoreBpm = _tempoBpm ?? 0;
+        var scoreBpm = _scoreCacheName == _settings.ScoreName && _scoreCache is not null
+            ? _scoreCache.Meta.Bpm
+            : 0;
         if (SpeedModeToggle.IsChecked == true)
         {
             SpeedPercentSlider.Value = _settings.SpeedPercentFor(scoreBpm);
@@ -115,41 +122,80 @@ public partial class HandpanConfigPanel : UserControl
         }
     }
 
-    private void PrefetchScoreTempo(string scoreName)
+    private async Task<MidiScore?> ScoreAsync()
     {
-        if (_tempoScoreName == scoreName)
+        var name = _settings.ScoreName;
+        if (string.IsNullOrWhiteSpace(name))
         {
-            return;
+            return null;
         }
 
-        _tempoScoreName = scoreName;
-        _tempoBpm = null;
-        var midiPath = _tool.Scores.Resolve(scoreName);
+        if (_scoreCacheName == name && _scoreCache is not null)
+        {
+            return _scoreCache;
+        }
+
+        var midiPath = _tool.Scores.Resolve(name);
         if (midiPath is null)
         {
+            return null;
+        }
+
+        var score = await Task.Run(() => MidiParser.Parse(File.ReadAllBytes(midiPath)));
+        if (_settings.ScoreName == name)
+        {
+            _scoreCacheName = name;
+            _scoreCache = score;
+        }
+
+        return score;
+    }
+
+    private async Task UpdateTransposeSummaryAsync()
+    {
+        var semitones = (int)TransposeSlider.Value;
+        MidiScore? score;
+        try
+        {
+            score = await ScoreAsync();
+        }
+        catch (Exception)
+        {
+            HideTransposeSummary();
             return;
         }
 
-        _ = Task.Run(() =>
+        if (score is null)
         {
-            try
+            HideTransposeSummary();
+            return;
+        }
+
+        try
+        {
+            var keyMap = _settings.ToKeyMap();
+            var fit = await Task.Run(() => MelodyFitting.Fit(
+                MelodyPicker.Pick(score).Line,
+                keyMap,
+                score.Meta.Key,
+                semitones));
+            if ((int)TransposeSlider.Value != semitones)
             {
-                var bpm = MidiParser.Parse(File.ReadAllBytes(midiPath)).Meta.Bpm;
-                Dispatcher.Invoke(() =>
-                {
-                    if (_tempoScoreName == scoreName)
-                    {
-                        _tempoBpm = bpm;
-                    }
-                });
+                return;
             }
-            catch (IOException)
-            {
-            }
-            catch (MidiParseException)
-            {
-            }
-        });
+
+            TransposeSummaryText.Text = HandpanStatus.TransposeSummary(fit, score.Meta.Key?.Transposed(semitones));
+            TransposeSummaryText.Visibility = Visibility.Visible;
+        }
+        catch (MelodyPickException)
+        {
+            HideTransposeSummary();
+        }
+    }
+
+    private void HideTransposeSummary()
+    {
+        TransposeSummaryText.Visibility = Visibility.Collapsed;
     }
 
     private void SyncSpeedRows()
@@ -180,7 +226,7 @@ public partial class HandpanConfigPanel : UserControl
 
         _settings.ScoreName = score;
         SongTitleText.Text = score;
-        PrefetchScoreTempo(score);
+        _ = UpdateTransposeSummaryAsync();
         Commit();
         SyncTransport();
         if (!_busy)
@@ -230,31 +276,40 @@ public partial class HandpanConfigPanel : UserControl
     private void OnAutoFitClick(object sender, RoutedEventArgs e)
     {
         _settings.SanitizeInPlace();
-        var midiPath = _tool.Scores.Resolve(_settings.ScoreName);
-        if (midiPath is null)
+        if (_tool.Scores.Resolve(_settings.ScoreName) is null)
         {
             Apply(new HandpanStatusView("适配失败", "请先选择曲谱", HandpanStatusLevel.Caution));
             return;
         }
 
-        var keyMap = _settings.ToKeyMap();
         Apply(new HandpanStatusView("计算中"));
         AutoFitButton.IsEnabled = false;
-        _ = AutoFitAsync(midiPath, keyMap);
+        _ = AutoFitAsync();
     }
 
-    private async Task AutoFitAsync(string midiPath, KeyMap keyMap)
+    private async Task AutoFitAsync()
     {
         try
         {
-            var transpose = await Task.Run(() =>
+            var score = await ScoreAsync();
+            if (score is null)
             {
-                var score = MidiParser.Parse(File.ReadAllBytes(midiPath));
-                return HandpanArranger.BestTransposition(score, keyMap);
+                Apply(new HandpanStatusView("适配失败", "请先选择曲谱", HandpanStatusLevel.Caution));
+                return;
+            }
+
+            var keyMap = _settings.ToKeyMap();
+            var (semitones, fit) = await Task.Run(() =>
+            {
+                var line = MelodyLine.InTimeOrder(MelodyPicker.Pick(score).Line);
+                var best = MelodyFitting.BestTransposition(line, keyMap, score.Meta.Key);
+                return (best, MelodyFitting.Fit(line, keyMap, score.Meta.Key, best));
             });
-            TransposeSlider.Value = transpose;
+            TransposeSlider.Value = semitones;
             Commit();
-            Apply(new HandpanStatusView("已适配", $"移调 {transpose:+0;-0;0} 半音"));
+            Apply(new HandpanStatusView(
+                "已适配",
+                HandpanStatus.TransposeSummary(fit, score.Meta.Key?.Transposed(semitones))));
         }
         catch (Exception ex)
         {

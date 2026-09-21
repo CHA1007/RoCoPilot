@@ -22,7 +22,27 @@ public static class HandpanStatus
 {
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
-    public static HandpanStatusView Of(HandpanArranged arranged) => new("演奏中", Summary(arranged));
+    public static HandpanStatusView Of(HandpanArranged arranged) => new(
+        "演奏中",
+        Summary(arranged),
+        arranged.MissingCount > 0 ? HandpanStatusLevel.Caution : HandpanStatusLevel.Normal);
+
+    public static string TransposeSummary(MelodyFit fit, MusicKey? key)
+    {
+        var parts = new List<string>(3);
+        if (key is { } current)
+        {
+            parts.Add(current.IsMinor ? $"{current.Tonic} 小调" : $"{current.Tonic} 大调");
+        }
+
+        parts.Add(string.Create(Culture, $"覆盖率 {Math.Round(fit.ExactCoverage * 100)}%"));
+        if (fit.MissingCount > 0)
+        {
+            parts.Add(string.Create(Culture, $"缺音 {fit.MissingCount} 个"));
+        }
+
+        return string.Join(" · ", parts);
+    }
 
     public static HandpanStatusView Of(HandpanCountdown countdown) => new($"{countdown.SecondsLeft} 秒后开始");
 
