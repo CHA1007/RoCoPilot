@@ -1,12 +1,14 @@
 .pi/
 .model-archive/
 .qoder/
+.playwright-mcp/
 .scratch/
 
 docs/
 AGENTS.md
 CONTEXT.md
 .pi-subagents/
+scripts/
 
 .venv/
 __pycache__/

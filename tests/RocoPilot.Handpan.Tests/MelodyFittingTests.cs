@@ -162,6 +162,15 @@ public class MelodyFittingTests
     }
 
     [Fact]
+    public void Snapping_prefers_scale_tones_of_the_transposed_key()
+    {
+        var fit = MelodyFitting.Fit([Note(0, 1, 64)], DefaultMap, key: new MusicKey("C", false), transpose: 2);
+
+        Assert.Equal([67], Pitches(fit.Notes));
+        Assert.Equal(1, fit.SnappedCount);
+    }
+
+    [Fact]
     public void Snapping_follows_the_mode_of_the_key()
     {
         var minor = MelodyFitting.Fit([Note(0, 1, 73)], DefaultMap, key: new MusicKey("A", true), transpose: 0);

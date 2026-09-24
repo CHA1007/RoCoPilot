@@ -62,7 +62,7 @@ public static class MelodyFitting
         var ordered = MelodyLine.InTimeOrder(notes);
         var semitones = transpose ?? BestTransposition(ordered, keyMap, key);
         var (folded, foldedCount) = Fold(Transpose(ordered, semitones), keyMap);
-        var (widened, snappedCount) = SnappedChain(folded, keyMap, key);
+        var (widened, snappedCount) = SnappedChain(folded, keyMap, key?.Transposed(semitones));
         return new MelodyFit(
             widened,
             semitones,
@@ -107,7 +107,7 @@ public static class MelodyFitting
             }
 
             var coverage = ExactCoverage(folded, keyMap);
-            var (widened, snappedCount) = SnappedChain(folded, keyMap, key);
+            var (widened, snappedCount) = SnappedChain(folded, keyMap, key?.Transposed(semitones));
             var cost = foldedCount * FoldWeight
                 + snappedCount * SnapWeight
                 + LeapBeats(widened) * LeapWeight
